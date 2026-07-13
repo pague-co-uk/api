@@ -23,6 +23,8 @@
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
+    "@pague-co-uk/sms-gateway-telemetry": "^1.0.2",
+    "lodash": "^4.18.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
