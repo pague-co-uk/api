@@ -1,6 +1,4 @@
 export interface LoginRequest {
-  clientId: string;
-  email: string;
   username: string;
 
   password: string;
@@ -8,5 +6,8 @@ export interface LoginRequest {
   ipAddress: string;
 
   userAgent: string;
-  trustedDeviceId: string;
+
+  clientId: string;
+
+  trustedDeviceId?: string | null;
 }

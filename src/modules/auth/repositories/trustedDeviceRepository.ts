@@ -15,7 +15,7 @@ export class TrustedDeviceRepository extends DatabaseRepository {
     super(db);
   }
 
-  protected withDatabase(
+  public withDatabase(
     db: Prisma.TransactionClient,
   ): this {
     return new TrustedDeviceRepository(

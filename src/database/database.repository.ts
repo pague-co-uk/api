@@ -14,13 +14,16 @@ export abstract class DatabaseRepository {
   protected readonly lifecycle: DatabaseLifecycle;
 
   protected constructor(
-    public readonly db:
+    protected readonly db:
       | PrismaClient
       | Prisma.TransactionClient,
   ) {
     this.lifecycle = getDatabaseLifecycle();
   }
 
+  /**
+   * Executes a database operation with telemetry.
+   */
   protected execute<TResult>(
     operation: DatabaseOperation,
     table: string,
@@ -36,21 +39,28 @@ export abstract class DatabaseRepository {
     );
   }
 
+  /**
+   * Executes a callback within a database transaction.
+   * If already executing inside a transaction, the current
+   * transaction is reused.
+   */
   public withTransaction<TResult>(
-    callback: (repository: this) => Promise<TResult>,
+    callback: (
+      tx: Prisma.TransactionClient,
+    ) => Promise<TResult>,
   ): Promise<TResult> {
     if ("$transaction" in this.db) {
-      return this.db.$transaction(async (tx) => {
-        return callback(
-          this.withDatabase(tx),
-        );
-      });
+      return this.db.$transaction(callback);
     }
 
-    return callback(this);
+    return callback(this.db);
   }
 
-  protected abstract withDatabase(
+  /**
+   * Returns a repository instance bound to the supplied
+   * transaction client.
+   */
+  public abstract withDatabase(
     db: Prisma.TransactionClient,
   ): this;
 }

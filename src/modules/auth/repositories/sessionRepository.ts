@@ -178,7 +178,7 @@ export class SessionRepository extends DatabaseRepository {
     };
   }
 
-  protected withDatabase(
+  public withDatabase(
     db: Prisma.TransactionClient,
   ): this {
     return new SessionRepository(

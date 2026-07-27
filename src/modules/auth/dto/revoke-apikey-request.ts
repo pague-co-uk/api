@@ -1,9 +1,14 @@
+import { AuthenticationMethod } from "@prisma/client";
+
 export interface RevokeApiKeyRequest {
-  apiKeyId: string;
+  apiKey: string;
 
   revokedByUserId: string;
 
   ipAddress?: string;
 
   userAgent?: string;
+  clientId: string;
+  userId: string;
+  authenticationMethod: AuthenticationMethod;
 }

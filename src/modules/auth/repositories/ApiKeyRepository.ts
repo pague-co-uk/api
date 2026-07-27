@@ -15,7 +15,7 @@ export class ApiKeyRepository extends DatabaseRepository {
     super(db);
   }
 
-  protected withDatabase(
+  public withDatabase(
     db: Prisma.TransactionClient,
   ): this {
     return new ApiKeyRepository(
@@ -175,7 +175,7 @@ export class ApiKeyRepository extends DatabaseRepository {
   updateSecret(
     id: string,
     secretHash: string,
-    prefix: string,
+    rotatedAt: Date,
   ): Promise<ApiKey> {
     return this.execute(
       "UPDATE",
@@ -188,11 +188,34 @@ export class ApiKeyRepository extends DatabaseRepository {
             },
             data: {
               secretHash,
-              prefix,
+              rotatedAt,
             },
           }),
         rowsAffected: 1,
       }),
+    );
+  }
+
+  findByPrefix(
+    prefix: string,
+  ): Promise<ApiKey | null> {
+    return this.execute(
+      "SELECT",
+      "api_keys",
+      async () => {
+        const result =
+          await this.db.apiKey.findUnique({
+            where: {
+              prefix,
+            },
+          });
+
+        return {
+          result,
+          rowsAffected:
+            result ? 1 : 0,
+        };
+      },
     );
   }
 

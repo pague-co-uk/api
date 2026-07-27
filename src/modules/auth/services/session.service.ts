@@ -7,6 +7,7 @@ import {
 } from "@pague-co-uk/sms-gateway-telemetry";
 import { ClockService } from "src/common/clock.service.js";
 import { RandomGenerator } from "src/common/random.service.js";
+import { SecretHasher } from "src/common/secretHasher.service.js";
 import { AppConfigService } from "src/config/config.service.js";
 import { CreateSessionOptions } from "../dto/create-session-options.js";
 import { CreateSessionResult } from "../dto/create-session-result.js";
@@ -17,7 +18,6 @@ import { ValidateSessionOptions } from "../dto/validate-session-options.js";
 import { SessionValidationFailureReason } from "../enums/session-validation-failure-reason.enum.js";
 import { SessionRepository } from "../repositories/sessionRepository.js";
 import { SessionToken } from "../utils/sessionToken.js";
-import { SecretHasher } from "./secretHasher.service.js";
 @Injectable()
 export class SessionService {
   constructor(
@@ -121,7 +121,7 @@ export class SessionService {
 
           expiresAt.setDate(
             expiresAt.getDate() +
-            this.config.security.session.absoluteTimeoutDays,
+            this.config.auth.security.session.absoluteTimeoutDays,
           );
 
           span.addEvent("session.persisting");
@@ -292,7 +292,7 @@ export class SessionService {
 
           idleExpiry.setMinutes(
             idleExpiry.getMinutes() +
-            this.config.security.session
+            this.config.auth.security.session
               .idleTimeoutMinutes,
           );
 

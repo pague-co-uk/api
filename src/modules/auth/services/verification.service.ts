@@ -29,7 +29,7 @@ export class VerificationService {
     dto: CreateVerificationChallengeDto,
   ): Promise<CreateVerificationChallengeResult> {
     const verificationConfig =
-      this.config.security.verification;
+      this.config.auth.security.verification;
 
     await this.verificationChallengeRepository.cancelPending(
       dto.userId,
@@ -90,7 +90,7 @@ export class VerificationService {
 
     if (
       challenge.attempts >=
-      this.config.security.verification.maxAttempts
+      this.config.auth.security.verification.maxAttempts
     ) {
       await this.verificationChallengeRepository.markFailed(
         challenge.id,
@@ -123,7 +123,7 @@ export class VerificationService {
   private generateCode(): string {
     const {
       codeLength,
-    } = this.config.security.verification;
+    } = this.config.auth.security.verification;
 
     const min = 10 ** (codeLength - 1);
     const max = 10 ** codeLength;
@@ -137,7 +137,7 @@ export class VerificationService {
   private calculateExpiry(): Date {
     return addMinutes(
       this.clock.now(),
-      this.config.security.verification.expiryMinutes,
+      this.config.auth.security.verification.expiryMinutes,
     );
   }
 }

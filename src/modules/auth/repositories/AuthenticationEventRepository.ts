@@ -20,7 +20,7 @@ export class AuthenticationEventRepository extends DatabaseRepository {
     super(db);
   }
 
-  protected withDatabase(
+  public withDatabase(
     db: Prisma.TransactionClient,
   ): this {
     return new AuthenticationEventRepository(

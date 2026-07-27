@@ -1,18 +1,22 @@
 import { Injectable } from "@nestjs/common";
 import { getComponentLogger, getMeter, recordException, withSpan } from "@pague-co-uk/sms-gateway-telemetry";
-import { UserStatus } from "@prisma/client";
+import { AuthenticationMethod } from "@prisma/client";
 import { ClockService } from "src/common/clock.service.js";
+import { AppConfigService } from "src/config/config.service.js";
+import { InvalidCredentialsException } from "src/exceptions/invalid-credentials.exception.js";
 import { LoginRequest } from "../dto/login-request.dto.js";
-import { AuthenticationFailureReason } from "../enums/authentication-failure-reason.js";
-import { LoginStatus } from "../enums/login-status.js";
-import { UserRepository } from "../repositories/userRepository.js";
-import { LoginFailedResult } from "../types/login-failed-result.js";
-import { LoginResult } from "../types/login-result.js";
+import { LoginResponse } from "../dto/login-response.js";
+import { LogoutAllSessionsRequest } from "../dto/logout-all-sessions-request.js";
+import { LogoutRequest } from "../dto/logout.dto.js";
+import { RefreshRequest } from "../dto/refresh-request.dto.js";
+import { RefreshResponse } from "../dto/refresh-response.js";
+import { AuthenticationEventService } from "./authentication-event.service.js";
 import { LoginAttemptService } from "./login-attempt.service.js";
 import { MfaService } from "./mfa.service.js";
 import { PasswordService } from "./password.service.js";
 import { RefreshTokenService } from "./refresh-token.service.js";
 import { SessionService } from "./session.service.js";
+import { UserService } from "./user.service.js";
 
 @Injectable()
 export class AuthenticationService {
@@ -51,221 +55,208 @@ export class AuthenticationService {
     },
   );
 
+  private readonly refreshCounter = getMeter().
+    createCounter(
+      "auth.refresh.success",
+      {
+        description:
+          "Number of successful refresh operations.",
+      },
+    );
+
+  private readonly refreshFailedCounter =
+    getMeter().createCounter(
+      "auth.refresh.failed",
+      {
+        description:
+          "Number of failed refresh operations.",
+      },
+    );
+
+  private readonly logoutCounter = getMeter().createCounter(
+    "auth.logout.success",
+    {
+      description:
+        "Number of successful logout operations.",
+    },
+  );
+
+  private readonly logoutFailedCounter = getMeter().createCounter(
+    "auth.logout.failed",
+    {
+      description:
+        "Number of failed logout operations.",
+    },
+  );
+
+  private readonly logoutAllCounter = getMeter().createCounter(
+    "auth.logout_all.success",
+    {
+      description:
+        "Number of successful logout-all operations.",
+    },
+  );
+
+  private readonly logoutAllFailedCounter =
+    getMeter().createCounter(
+      "auth.logout_all.failed",
+      {
+        description:
+          "Number of failed logout-all operations.",
+      },
+    );
+
   constructor(
-    private readonly users: UserRepository,
+    private readonly users: UserService,
     private readonly passwords: PasswordService,
     private readonly loginAttempts: LoginAttemptService,
     private readonly mfa: MfaService,
     private readonly sessions: SessionService,
     private readonly refreshTokens: RefreshTokenService,
     private readonly clock: ClockService,
+    private readonly config: AppConfigService,
+    private readonly events: AuthenticationEventService
   ) { }
 
   async login(
     request: LoginRequest,
-  ): Promise<LoginResult> {
+  ): Promise<LoginResponse> {
     return withSpan(
       "AuthenticationService.login",
       async (span) => {
-        this.logger.debug(
+        this.logger.info(
           {
+            username: request.username,
             clientId: request.clientId,
-            email: request.email,
           },
           "Authenticating user.",
         );
 
-        this.loginAttemptedCounter.add(1);
+        span.setAttribute(
+          "auth.username",
+          request.username,
+        );
 
         span.setAttribute(
           "auth.client.id",
           request.clientId,
         );
 
-        const failed = (
-          reason: AuthenticationFailureReason,
-        ): LoginFailedResult => {
-          span.setAttribute(
-            "auth.login.result",
-            LoginStatus.FAILED,
-          );
-
-          span.setAttribute(
-            "auth.login.failure.reason",
-            reason,
-          );
-
-          span.addEvent(
-            "auth.login.failed",
-            {
-              "auth.login.failure.reason":
-                reason,
-            },
-          );
-
-          this.loginFailedCounter.add(
-            1,
-            {
-              reason,
-            },
-          );
-
-          this.logger.warn(
-            {
-              clientId: request.clientId,
-              email: request.email,
-              reason,
-            },
-            "Authentication failed.",
-          );
-
-          return {
-            status: LoginStatus.FAILED,
-            reason,
-          };
-        };
-
         try {
           // =====================================================
-          // Find user
+          // Lookup user
           // =====================================================
 
           const user =
-            await this.users.findByEmail(
-              request.clientId,
-              request.email,
+            await this.users.findByUsername(
+              request.username,
             );
-
-          if (!user) {
-            return failed(
-              AuthenticationFailureReason.INVALID_CREDENTIALS,
-            );
-          }
 
           span.setAttribute(
             "auth.user.id",
-            user.id,
+            user!.id,
           );
-
-          span.setAttribute(
-            "auth.user.status",
-            user.status,
-          );
-
-          // =====================================================
-          // Validate account
-          // =====================================================
-
-          if (user.status !== UserStatus.ACTIVE) {
-            return failed(
-              AuthenticationFailureReason.ACCOUNT_INACTIVE,
-            );
-          }
-
-          if (
-            user.lockedUntil &&
-            user.lockedUntil > this.clock.now()
-          ) {
-            return failed(
-              AuthenticationFailureReason.ACCOUNT_LOCKED,
-            );
-          }
 
           // =====================================================
           // Verify password
           // =====================================================
 
-          const passwordValid =
-            await this.passwords.verify(
+          try {
+            await this.users.verifyPassword(
+              user,
               request.password,
-              user.passwordHash,
+            );
+          } catch {
+            await this.loginAttempts.recordFailure(
+              user,
             );
 
-          if (!passwordValid) {
-            const attempt =
-              await this.loginAttempts.recordFailure(
-                user,
-              );
+            this.loginFailedCounter.add(1);
 
-            return failed(
-              attempt.accountLocked
-                ? AuthenticationFailureReason.ACCOUNT_LOCKED
-                : AuthenticationFailureReason.INVALID_CREDENTIALS,
-            );
+            throw new InvalidCredentialsException();
           }
 
-          span.addEvent(
-            "auth.login.credentials.valid",
-          );
-
           // =====================================================
-          // Record successful login attempt
+          // Successful authentication
           // =====================================================
 
           await this.loginAttempts.recordSuccess(
             user,
           );
 
-          // =====================================================
-          // Begin MFA
-          // =====================================================
-
-          const challenge =
-            await this.mfa.begin({
-              userId: user.id,
-              ipAddress:
-                request.ipAddress,
-              userAgent:
-                request.userAgent,
-            });
-
-          if (challenge.required) {
-            span.setAttribute(
-              "auth.login.result",
-              LoginStatus.MFA_REQUIRED,
+          if (user.lockedUntil) {
+            await this.loginAttempts.clearLock(
+              user,
             );
-
-            span.addEvent(
-              "auth.login.mfa.required",
-            );
-
-            this.loginMfaRequiredCounter.add(
-              1,
-            );
-
-            this.logger.info(
-              {
-                userId: user.id,
-                challengeId:
-                  challenge.challengeId,
-              },
-              "MFA challenge created.",
-            );
-
-            return {
-              status:
-                LoginStatus.MFA_REQUIRED,
-              challengeId:
-                challenge.challengeId,
-              expiresAt:
-                challenge.expiresAt,
-            };
           }
 
           // =====================================================
-          // Create session
+          // Create authenticated session
           // =====================================================
 
           const session =
             await this.sessions.createSession({
               userId: user.id,
+              ipAddress: request.ipAddress,
+              userAgent: request.userAgent,
+              trustedDeviceId:
+                request.trustedDeviceId,
+              authenticatedWithMfa: false,
+            });
+
+          // =====================================================
+          // Issue refresh token
+          // =====================================================
+
+          const now = this.clock.now();
+
+          const refreshTokenExpiresAt = new Date(
+            now.getTime(),
+          );
+
+          refreshTokenExpiresAt.setDate(
+            refreshTokenExpiresAt.getDate() + Number(
+              this.config.auth.refreshTokenTtl),
+          );
+          const refresh =
+            await this.refreshTokens.issue({
+              sessionId:
+                session.session.id,
+              userId: user.id,
+              clientId: request.clientId,
+              authenticationMethod:
+                AuthenticationMethod.PASSWORD,
               ipAddress:
                 request.ipAddress,
               userAgent:
                 request.userAgent,
-              authenticatedWithMfa:
-                false,
+              expiresAt:
+                refreshTokenExpiresAt,
             });
+
+          // =====================================================
+          // Authentication event
+          // =====================================================
+
+          await this.events.recordLoginSucceeded({
+            userId: user.id,
+            sessionId:
+              session.session.id,
+            clientId:
+              request.clientId,
+            authenticationMethod:
+              AuthenticationMethod.PASSWORD,
+            ipAddress:
+              request.ipAddress,
+            userAgent:
+              request.userAgent,
+          });
+
+          // =====================================================
+          // Observability
+          // =====================================================
+
+          this.loginSucceededCounter.add(1);
 
           span.setAttribute(
             "auth.session.id",
@@ -273,34 +264,13 @@ export class AuthenticationService {
           );
 
           span.addEvent(
-            "auth.login.session.created",
-          );
-
-          // =====================================================
-          // Create refresh token
-          // =====================================================
-
-          const authentication =
-            await this.refreshTokens.create({
-              sessionId:
+            "auth.login.succeeded",
+            {
+              "auth.user.id":
+                user.id,
+              "auth.session.id":
                 session.session.id,
-            });
-
-          // =====================================================
-          // Success
-          // =====================================================
-
-          span.setAttribute(
-            "auth.login.result",
-            LoginStatus.SUCCESS,
-          );
-
-          span.addEvent(
-            "auth.login.completed",
-          );
-
-          this.loginSucceededCounter.add(
-            1,
+            },
           );
 
           this.logger.info(
@@ -308,25 +278,311 @@ export class AuthenticationService {
               userId: user.id,
               sessionId:
                 session.session.id,
+              clientId:
+                request.clientId,
             },
-            "User authenticated.",
+            "User authenticated successfully.",
           );
 
+          // =====================================================
+          // Response
+          // =====================================================
+
           return {
-            status:
-              LoginStatus.SUCCESS,
-            authentication,
+            sessionId:
+              session.session.id,
+            sessionToken:
+              session.token,
+            refreshToken:
+              refresh.refreshToken,
+            refreshTokenExpiresAt:
+              refresh.expiresAt,
           };
         } catch (error) {
           recordException(error);
 
-          this.logger.error(
+          this.logger.warn(
             {
               error,
-              clientId: request.clientId,
-              email: request.email,
+              username:
+                request.username,
+              clientId:
+                request.clientId,
             },
-            "Failed to authenticate user.",
+            "Authentication failed.",
+          );
+
+          throw error;
+        }
+      },
+    );
+  }
+
+  async refresh(
+    request: RefreshRequest,
+  ): Promise<RefreshResponse> {
+    return withSpan(
+      "AuthenticationService.refresh",
+      async (span) => {
+        this.logger.info(
+          {
+            clientId: request.clientId,
+          },
+          "Refreshing authenticated session.",
+        );
+
+        span.setAttribute(
+          "auth.client.id",
+          request.clientId,
+        );
+
+        try {
+          // =====================================================
+          // Validate refresh token
+          // =====================================================
+
+          const refreshToken =
+            await this.refreshTokens.validate({
+              refreshToken:
+                request.refreshToken,
+            });
+
+          // =====================================================
+          // Compute new refresh token expiry
+          // =====================================================
+
+          const refreshTokenExpiresAt =
+            new Date(this.clock.now());
+
+          refreshTokenExpiresAt.setDate(
+            refreshTokenExpiresAt.getDate() + Number(
+              this.config.auth
+                .refreshTokenTtl),
+          );
+
+          // =====================================================
+          // Rotate refresh token
+          // =====================================================
+
+          const rotated =
+            await this.refreshTokens.rotate({
+              refreshToken:
+                request.refreshToken,
+              sessionId:
+                refreshToken.sessionId,
+              userId:
+                request.userId,
+              clientId:
+                request.clientId,
+              authenticationMethod:
+                AuthenticationMethod
+                  .REFRESH_TOKEN,
+              ipAddress:
+                request.ipAddress,
+              userAgent:
+                request.userAgent,
+              expiresAt:
+                refreshTokenExpiresAt,
+            });
+
+          // =====================================================
+          // Touch session
+          // =====================================================
+
+          await this.sessions.touchSession({
+            sessionId:
+              refreshToken.sessionId,
+          });
+
+          // =====================================================
+          // Observability
+          // =====================================================
+
+          this.refreshCounter.add(1);
+
+          span.setAttribute(
+            "auth.session.id",
+            refreshToken.sessionId,
+          );
+
+          span.setAttribute(
+            "auth.refresh.id",
+            rotated.refreshTokenId,
+          );
+
+          span.addEvent(
+            "auth.refresh.completed",
+          );
+
+          this.logger.info(
+            {
+              sessionId:
+                refreshToken.sessionId,
+              refreshTokenId:
+                rotated.refreshTokenId,
+              clientId:
+                request.clientId,
+            },
+            "Authentication refreshed successfully.",
+          );
+
+          // =====================================================
+          // Response
+          // =====================================================
+
+          return {
+            refreshToken:
+              rotated.refreshToken,
+            refreshTokenExpiresAt:
+              rotated.expiresAt,
+          };
+        } catch (error) {
+          recordException(error);
+
+          this.refreshFailedCounter.add(1);
+
+          this.logger.warn(
+            {
+              error,
+              clientId:
+                request.clientId,
+            },
+            "Failed to refresh authentication.",
+          );
+
+          throw error;
+        }
+      },
+    );
+  }
+
+  async logout(
+    request: LogoutRequest,
+  ): Promise<void> {
+    return withSpan(
+      "AuthenticationService.logout",
+      async (span) => {
+        this.logger.info(
+          {
+            sessionId: request.sessionId,
+          },
+          "Logging out session.",
+        );
+
+        span.setAttribute(
+          "auth.session.id",
+          request.sessionId,
+        );
+
+        span.setAttribute(
+          "auth.session.id",
+          request.sessionId,
+        );
+
+        try {
+          await this.sessions.revokeSession({
+            sessionId: request.sessionId,
+          });
+
+          await this.refreshTokens
+            .revokeSessionRefreshTokens(request);
+
+          await this.events
+            .recordSessionRevoked({
+              sessionId: request.sessionId,
+              userId: request.userId,
+              clientId: request.clientId,
+              ipAddress: request.ipAddress,
+              userAgent: request.userAgent,
+              authenticationMethod: AuthenticationMethod.PASSWORD
+            });
+
+          this.logoutCounter.add(1);
+
+          span.addEvent(
+            "auth.logout.completed",
+          );
+
+          this.logger.info(
+            {
+              sessionId: request.sessionId,
+            },
+            "Session logged out successfully.",
+          );
+        } catch (error) {
+          recordException(error);
+
+          this.logoutFailedCounter.add(1);
+
+          this.logger.warn(
+            {
+              error,
+              sessionId: request.sessionId,
+            },
+            "Failed to log out session.",
+          );
+
+          throw error;
+        }
+      },
+    );
+  }
+
+  async logoutAllSessions(
+    request: LogoutAllSessionsRequest,
+  ): Promise<void> {
+    return withSpan(
+      "AuthenticationService.logoutAllSessions",
+      async (span) => {
+        this.logger.info(
+          {
+            userId: request.userId,
+            clientId: request.clientId,
+          },
+          "Logging out all user sessions.",
+        );
+
+        span.setAttribute(
+          "auth.user.id",
+          request.userId,
+        );
+
+        try {
+          await this.sessions.revokeAllSessions(request.userId);
+
+          await this.refreshTokens.revokeSessionRefreshTokens(request);
+
+          await this.events.recordAllSessionsRevoked({
+            userId: request.userId,
+            clientId: request.clientId,
+            ipAddress: request.ipAddress,
+            userAgent: request.userAgent,
+          });
+
+          this.logoutAllCounter.add(1);
+
+          span.addEvent(
+            "auth.logout_all.completed",
+          );
+
+          this.logger.info(
+            {
+              userId: request.userId,
+            },
+            "All user sessions logged out successfully.",
+          );
+
+        } catch (error) {
+          recordException(error);
+
+          this.logoutAllFailedCounter.add(1);
+
+          this.logger.warn(
+            {
+              error,
+              userId: request.userId,
+            },
+            "Failed to log out all user sessions.",
           );
 
           throw error;

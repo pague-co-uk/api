@@ -75,6 +75,7 @@ enum AuthenticationEventType {
   SESSION_REVOKED
   API_KEY_CREATED
   API_KEY_REVOKED
+  API_KEY_ROTATED
   PASSWORD_CHANGED
   REFRESH_TOKEN_ROTATED
   MFA_CHALLENGE_CREATED
@@ -237,7 +238,7 @@ model User {
 
   username String @unique @db.VarChar(100)
 
-  email String @db.VarChar(255)
+  email String @unique @db.VarChar(255)
 
   phone String? @db.VarChar(30)
 
@@ -389,7 +390,7 @@ model ApiKey {
   /// Business Fields
   name String @db.VarChar(100)
 
-  prefix String @db.VarChar(20)
+  prefix String @unique @db.VarChar(20)
 
   secretHash String @db.VarChar(255)
 

@@ -1,3 +1,5 @@
+import { AuthenticationMethod } from "@prisma/client";
+
 export interface CreateApiKeyRequest {
   clientId: string;
 
@@ -10,4 +12,6 @@ export interface CreateApiKeyRequest {
   ipAddress?: string;
 
   userAgent?: string;
+
+  authenticationMethod: AuthenticationMethod;
 }

@@ -11,6 +11,7 @@ import {
   Prisma,
 } from "@prisma/client";
 
+import { RecordApiKeyCreatedRequest } from "../dto/record-apikey-created-request.js";
 import { RecordLoginFailedRequest } from "../dto/record-login-failed-request.dto.js";
 import { RecordLoginSucceededRequest } from "../dto/record-login-succeeded-request.dto.js";
 import { RecordLogoutAllRequest } from "../dto/record-logout-all-request.dto.js";
@@ -21,6 +22,8 @@ import { RecordRefreshTokenIssuedRequest } from "../dto/record-refresh-token-iss
 import { RecordRefreshTokenRevokedRequest } from "../dto/record-refresh-token-revoked-request.dto.js";
 import { RecordRefreshTokenRotatedRequest } from "../dto/record-refresh-token-rotated-request.dto.js";
 import { RecordSessionRevokedRequest } from "../dto/record-session-revoked-request.dto.js";
+import { RevokeApiKeyRequest } from "../dto/revoke-apikey-request.js";
+import { RotateApiKeyRequest } from "../dto/rotate-apikey-request.js";
 import { AuthenticationEventRepository } from "../repositories/AuthenticationEventRepository.js";
 
 @Injectable()
@@ -83,6 +86,14 @@ export class AuthenticationEventService {
       },
     );
 
+  private readonly apiKeyCreatedCounter =
+    getMeter().createCounter(
+      "auth.event.refresh.issued",
+      {
+        description:
+          "Number of Api Keys issued.",
+      },
+    );
   private readonly refreshRotatedCounter =
     getMeter().createCounter(
       "auth.event.refresh.rotated",
@@ -128,17 +139,205 @@ export class AuthenticationEventService {
       },
     );
 
+  private readonly apiKeyRotatedCounter =
+    getMeter().createCounter(
+      "auth.event.api_key.rotated",
+      {
+        description:
+          "Number of API key rotation audit events.",
+      },
+    );
+
+  private readonly apiKeyRevokedCounter =
+    getMeter().createCounter(
+      "auth.event.api_key.revoked",
+      {
+        description:
+          "Number of API key revocation audit events.",
+      },
+    );
   // =====================================================
   // Constructor
   // =====================================================
 
   constructor(
     private readonly events: AuthenticationEventRepository,
-  ) { }
+  ) {
+    this.events = events;
+  }
 
   // =====================================================
   // Public API
   // =====================================================
+
+  withDatabase(
+    db: Prisma.TransactionClient,
+  ): AuthenticationEventService {
+    return new AuthenticationEventService(
+      this.events.withDatabase(db),
+    );
+  }
+
+  async recordApiKeyCreated(
+    request: RecordApiKeyCreatedRequest,
+  ): Promise<void> {
+    return this.recordEvent(
+      "AuthenticationEventService.recordApiKeyCreated",
+      AuthenticationEventType.API_KEY_CREATED,
+      {
+        client: this.connectClient(
+          request.clientId,
+        ),
+        user: this.connectUser(
+          request.userId,
+        ),
+        ipAddress:
+          request.ipAddress,
+        userAgent:
+          request.userAgent,
+        authenticationMethod: request.authenticationMethod
+      },
+      this.apiKeyCreatedCounter,
+      {
+        userId:
+          request.userId,
+        clientId:
+          request.clientId,
+      },
+    );
+  }
+
+  async recordApiKeyRevoked(
+    request: RevokeApiKeyRequest,
+  ): Promise<void> {
+    return this.recordEvent(
+      "AuthenticationEventService.recordApiKeyRevoked",
+      AuthenticationEventType.API_KEY_REVOKED,
+      {
+        client: this.connectClient(
+          request.clientId,
+        ),
+        user: this.connectUser(
+          request.userId,
+        ),
+        authenticationMethod:
+          request.authenticationMethod,
+        ipAddress:
+          request.ipAddress,
+        userAgent:
+          request.userAgent
+      },
+      this.apiKeyRevokedCounter,
+      {
+        userId:
+          request.userId,
+        clientId:
+          request.clientId,
+      },
+    );
+  }
+
+  async recordAllSessionsRevoked(
+    request: RecordSessionRevokedRequest,
+  ): Promise<void> {
+    return withSpan(
+      "AuthenticationEventService.recordAllSessionsRevoked",
+      async (span) => {
+        this.logger.info(
+          {
+            userId: request.userId,
+            clientId: request.clientId,
+          },
+          "Recording all sessions revoked event.",
+        );
+
+        span.setAttribute(
+          "auth.user.id",
+          request.userId,
+        );
+
+        span.setAttribute(
+          "auth.client.id",
+          request.clientId,
+        );
+
+        try {
+          await this.events.create({
+            userId: request.userId,
+            sessionId: null,
+            clientId: request.clientId,
+            eventType:
+              AuthenticationEventType.ALL_SESSIONS_REVOKED,
+            authenticationMethod: null,
+            ipAddress: request.ipAddress,
+            userAgent: request.userAgent,
+            metadata: null,
+          });
+
+          this.authenticationEventCounter.add(
+            1,
+            {
+              event_type:
+                AuthenticationEventType.ALL_SESSIONS_REVOKED,
+            },
+          );
+
+          span.addEvent(
+            "auth.all_sessions_revoked.recorded",
+          );
+
+          this.logger.info(
+            {
+              userId: request.userId,
+            },
+            "All sessions revoked event recorded successfully.",
+          );
+        } catch (error) {
+          recordException(error);
+
+          this.logger.error(
+            {
+              error,
+              userId: request.userId,
+            },
+            "Failed to record all sessions revoked event.",
+          );
+
+          throw error;
+        }
+      },
+    );
+  }
+
+  async recordApiKeyRotated(
+    request: RotateApiKeyRequest,
+  ): Promise<void> {
+    return this.recordEvent(
+      "AuthenticationEventService.recordApiKeyRotated",
+      AuthenticationEventType.API_KEY_ROTATED,
+      {
+        client: this.connectClient(
+          request.clientId,
+        ),
+        user: this.connectUser(
+          request.userId,
+        ),
+        authenticationMethod:
+          request.authenticationMethod,
+        ipAddress:
+          request.ipAddress,
+        userAgent:
+          request.userAgent,
+      },
+      this.apiKeyRotatedCounter,
+      {
+        userId:
+          request.userId,
+        clientId:
+          request.clientId,
+      },
+    );
+  }
 
   async recordLoginSucceeded(
     request: RecordLoginSucceededRequest,
@@ -149,16 +348,8 @@ export class AuthenticationEventService {
       {
         authenticationMethod:
           request.authenticationMethod,
-        client: {
-          connect: {
-            id: request.clientId,
-          },
-        },
-        user: {
-          connect: {
-            id: request.userId,
-          },
-        },
+        client: this.connectClient(request.clientId),
+        user: this.connectUser(request.userId),
         sessionId: request.sessionId,
         ipAddress: request.ipAddress,
         userAgent: request.userAgent,

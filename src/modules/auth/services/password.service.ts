@@ -12,9 +12,9 @@ export class PasswordService {
   hash(password: string): Promise<string> {
     return argon2.hash(password, {
       type: argon2.argon2id,
-      memoryCost: this.config.security.password.memoryCost,
-      timeCost: this.config.security.password.timeCost,
-      parallelism: this.config.security.password.parallelism,
+      memoryCost: this.config.auth.security.password.memoryCost,
+      timeCost: this.config.auth.security.password.timeCost,
+      parallelism: this.config.auth.security.password.parallelism,
     });
   }
 
@@ -27,9 +27,9 @@ export class PasswordService {
 
   needsRehash(hash: string): boolean {
     return argon2.needsRehash(hash, {
-      memoryCost: this.config.security.password.memoryCost,
-      timeCost: this.config.security.password.timeCost,
-      parallelism: this.config.security.password.parallelism,
+      memoryCost: this.config.auth.security.password.memoryCost,
+      timeCost: this.config.auth.security.password.timeCost,
+      parallelism: this.config.auth.security.password.parallelism,
     });
   }
 }

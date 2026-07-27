@@ -15,7 +15,7 @@ export class UserRepository extends DatabaseRepository {
     super(db);
   }
 
-  protected withDatabase(
+  public withDatabase(
     db: Prisma.TransactionClient,
   ): this {
     return new UserRepository(
@@ -171,5 +171,37 @@ export class UserRepository extends DatabaseRepository {
         rowsAffected: 1,
       }),
     );
+  }
+
+  async existsByUsername(
+    username: string,
+  ): Promise<boolean> {
+    const user =
+      await this.db.user.findUnique({
+        where: {
+          username,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+    return user !== null;
+  }
+
+  async existsByEmail(
+    email: string,
+  ): Promise<boolean> {
+    const user =
+      await this.db.user.findUnique({
+        where: {
+          email,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+    return user !== null;
   }
 }

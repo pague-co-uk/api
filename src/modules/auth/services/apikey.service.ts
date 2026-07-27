@@ -1,8 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import {
   ApiKey,
-  ApiKeyStatus,
-  AuthenticationEventType,
+  ApiKeyStatus
 } from "@prisma/client";
 
 import { ClockService } from "src/common/clock.service.js";
@@ -11,24 +10,32 @@ import { SecretHasher } from "src/common/secretHasher.service.js";
 
 import { InvalidApiKeyException } from "src/exceptions/invalid-apikey.exception.js";
 
-import { withSpan } from "@pague-co-uk/sms-gateway-telemetry";
+import { getComponentLogger, getMeter, recordException, withSpan } from "@pague-co-uk/sms-gateway-telemetry";
 import { CreateApiKeyRequest } from "../dto/create-apikey-request.js";
 import { CreateApiKeyResponse } from "../dto/create-apikey-response.js";
 import { ParsedApiKey } from "../dto/parsed-apikey.js";
+import { RevokeApiKeyRequest } from "../dto/revoke-apikey-request.js";
+import { RotateApiKeyRequest } from "../dto/rotate-apikey-request.js";
+import { RotateApiKeyResponse } from "../dto/rotate-apikey-response.js";
 import { ValidatedApiKey } from "../dto/validate-apikey.js";
 import { ApiKeyRepository } from "../repositories/ApiKeyRepository.js";
-import { AuthenticationEventRepository } from "../repositories/AuthenticationEventRepository.js";
+import { AuthenticationEventService } from "./authentication-event.service.js";
 
 @Injectable()
 export class ApiKeyService {
+
+  private readonly logger =
+    getComponentLogger(
+      ApiKeyService.name,
+    );
+
   constructor(
     private readonly hasher: SecretHasher,
     private readonly random: RandomGenerator,
     private readonly clock: ClockService,
     private readonly apiKeys: ApiKeyRepository,
-    private readonly authenticationEvents: AuthenticationEventRepository,
+    private readonly authenticationEvents: AuthenticationEventService,
   ) { }
-
 
   async create(
     request: CreateApiKeyRequest,
@@ -52,20 +59,26 @@ export class ApiKeyService {
           );
 
         const secretHash =
-          await this.hashSecret(
-            secret,
-          );
+          this.hashSecret(secret);
 
         const created =
           await this.apiKeys.withTransaction(
-            async (apiKeys) => {
+            async (tx) => {
+              const apiKeys =
+                this.apiKeys.withDatabase(tx);
+
+              const events =
+                this.authenticationEvents.withDatabase(
+                  tx,
+                );
+
               const created =
                 await apiKeys.create({
                   publicId,
                   client: {
                     connect: {
-                      id: request.clientId
-                    }
+                      id: request.clientId,
+                    },
                   },
                   name:
                     request.name,
@@ -77,47 +90,35 @@ export class ApiKeyService {
                     request.expiresAt,
                 });
 
-              await this.authenticationEvents
-                .withTransaction(
-                  apiKeys,
-                )
-                .record({
-                  type:
-                    AuthenticationEventType.API_KEY_CREATED,
-                  clientId:
-                    request.clientId,
-                  userId:
-                    request.createdByUserId,
-                  ipAddress:
-                    request.ipAddress,
-                  userAgent:
-                    request.userAgent,
-                  metadata: {
-                    apiKeyId:
-                      created.id,
-                    publicId:
-                      created.publicId,
-                    prefix,
-                  },
-                });
+              await events.recordApiKeyCreated({
+                apiKeyId:
+                  created.id,
+                publicId:
+                  created.publicId,
+                prefix:
+                  created.prefix,
+                clientId:
+                  request.clientId,
+                userId:
+                  request.createdByUserId,
+                ipAddress:
+                  request.ipAddress,
+                userAgent:
+                  request.userAgent,
+                authenticationMethod: request.authenticationMethod
+              });
 
               return created;
             },
           );
-
-        this.apiKeysCreatedCounter.add(
-          1,
-          {
-            client_id:
-              request.clientId,
-          },
-        );
 
         span.setAttributes({
           "api_key.id":
             created.id,
           "api_key.public_id":
             created.publicId,
+          "api_key.prefix":
+            created.prefix,
           "client.id":
             request.clientId,
         });
@@ -130,7 +131,8 @@ export class ApiKeyService {
               created.publicId,
             clientId:
               request.clientId,
-            prefix,
+            prefix:
+              created.prefix,
           },
           "API key created.",
         );
@@ -141,10 +143,409 @@ export class ApiKeyService {
           publicId:
             created.publicId,
           apiKey,
-          prefix,
+          prefix:
+            created.prefix,
           expiresAt:
             created.expiresAt,
         };
+      },
+    );
+  }
+
+  async validate(
+    apiKey: string,
+  ): Promise<ValidatedApiKey> {
+    return withSpan(
+      "ApiKeyService.validate",
+      async (span) => {
+        const parsed =
+          this.parseApiKey(apiKey);
+
+        span.setAttribute(
+          "api_key.prefix",
+          parsed.prefix,
+        );
+
+        this.logger.debug(
+          {
+            prefix:
+              parsed.prefix,
+          },
+          "Validating API key.",
+        );
+
+        try {
+          const validated =
+            await this.apiKeys.withTransaction(
+              async (tx) => {
+                const apiKeys =
+                  this.apiKeys.withDatabase(tx);
+
+                const key =
+                  this.ensureUsable(
+                    await apiKeys.findByPrefix(
+                      parsed.prefix,
+                    ),
+                  );
+
+                await this.verifySecret(
+                  parsed.secret,
+                  key,
+                );
+
+                const updated =
+                  await apiKeys.updateLastUsed(
+                    key.id,
+                    this.clock.now(),
+                  );
+
+                return updated;
+              },
+            );
+
+          this.apiKeysValidatedCounter.add(
+            1,
+            {
+              client_id:
+                validated.clientId,
+            },
+          );
+
+          span.setAttributes({
+            "api_key.id":
+              validated.id,
+            "api_key.public_id":
+              validated.publicId,
+            "client.id":
+              validated.clientId,
+          });
+
+          this.logger.info(
+            {
+              apiKeyId:
+                validated.id,
+              publicId:
+                validated.publicId,
+              clientId:
+                validated.clientId,
+            },
+            "API key validated.",
+          );
+
+          return this.toValidatedApiKey(
+            validated,
+          );
+        } catch (error) {
+          recordException(error);
+
+          this.logger.warn(
+            {
+              error,
+              prefix:
+                parsed.prefix,
+            },
+            "API key validation failed.",
+          );
+
+          throw error;
+        }
+      },
+    );
+  }
+
+  async rotate(
+    request: RotateApiKeyRequest,
+  ): Promise<RotateApiKeyResponse> {
+    return withSpan(
+      "ApiKeyService.rotate",
+      async (span) => {
+        const parsed =
+          this.parseApiKey(
+            request.apiKey,
+          );
+
+        span.setAttribute(
+          "api_key.prefix",
+          parsed.prefix,
+        );
+
+        this.logger.debug(
+          {
+            prefix:
+              parsed.prefix,
+            clientId:
+              request.clientId,
+          },
+          "Rotating API key.",
+        );
+
+        try {
+          const newSecret =
+            this.generateSecret();
+
+          const newSecretHash =
+            this.hashSecret(
+              newSecret,
+            );
+
+          const {
+            previousApiKey,
+            rotatedApiKey,
+          } =
+            await this.apiKeys.withTransaction(
+              async (tx) => {
+                const apiKeys =
+                  this.apiKeys.withDatabase(
+                    tx,
+                  );
+
+                const events =
+                  this.authenticationEvents.withDatabase(
+                    tx,
+                  );
+
+                const current =
+                  this.ensureUsable(
+                    await apiKeys.findByPrefix(
+                      parsed.prefix,
+                    ),
+                  );
+
+                await this.verifySecret(
+                  parsed.secret,
+                  current,
+                );
+
+                const rotated =
+                  await apiKeys.updateSecret(
+                    current.id,
+                    newSecretHash,
+                    this.clock.now(),
+                  );
+
+                await events.recordApiKeyRotated({
+                  apiKey:
+                    rotated.id,
+                  rotatedByUserId: request.rotatedByUserId,
+                  clientId:
+                    request.clientId,
+                  userId:
+                    request.userId,
+                  authenticationMethod:
+                    request.authenticationMethod,
+                  ipAddress:
+                    request.ipAddress,
+                  userAgent:
+                    request.userAgent,
+                });
+
+                return {
+                  previousApiKey:
+                    current,
+                  rotatedApiKey:
+                    rotated,
+                };
+              },
+            );
+
+          const apiKey =
+            this.buildApiKey(
+              rotatedApiKey.prefix,
+              newSecret,
+            );
+
+          this.apiKeysRotatedCounter.add(
+            1,
+            {
+              client_id:
+                rotatedApiKey.clientId,
+            },
+          );
+
+          span.setAttributes({
+            "api_key.id":
+              rotatedApiKey.id,
+            "api_key.public_id":
+              rotatedApiKey.publicId,
+            "client.id":
+              rotatedApiKey.clientId,
+          });
+
+          span.addEvent(
+            "api_key.rotated",
+            {
+              "api_key.id":
+                rotatedApiKey.id,
+              "api_key.public_id":
+                rotatedApiKey.publicId,
+            },
+          );
+
+          this.logger.info(
+            {
+              apiKeyId:
+                rotatedApiKey.id,
+              publicId:
+                rotatedApiKey.publicId,
+              clientId:
+                rotatedApiKey.clientId,
+              prefix:
+                rotatedApiKey.prefix,
+            },
+            "API key rotated.",
+          );
+
+          return {
+            apiKeyId:
+              rotatedApiKey.id,
+            publicId:
+              rotatedApiKey.publicId,
+            apiKey,
+            prefix:
+              rotatedApiKey.prefix,
+            expiresAt:
+              rotatedApiKey.expiresAt,
+          };
+        } catch (error) {
+          recordException(error);
+
+          this.logger.error(
+            {
+              error,
+              prefix:
+                parsed.prefix,
+            },
+            "Failed to rotate API key.",
+          );
+
+          throw error;
+        }
+      },
+    );
+  }
+
+  async revoke(
+    request: RevokeApiKeyRequest,
+  ): Promise<void> {
+    return withSpan(
+      "ApiKeyService.revoke",
+      async (span) => {
+        const parsed =
+          this.parseApiKey(
+            request.apiKey,
+          );
+
+        span.setAttribute(
+          "api_key.prefix",
+          parsed.prefix,
+        );
+
+        this.logger.debug(
+          {
+            prefix:
+              parsed.prefix,
+            clientId:
+              request.clientId,
+          },
+          "Revoking API key.",
+        );
+
+        try {
+          const revoked =
+            await this.apiKeys.withTransaction(
+              async (tx) => {
+                const apiKeys =
+                  this.apiKeys.withDatabase(tx);
+
+                const events =
+                  this.authenticationEvents.withDatabase(
+                    tx,
+                  );
+
+                const current =
+                  this.ensureUsable(
+                    await apiKeys.findByPrefix(
+                      parsed.prefix,
+                    ),
+                  );
+
+                await this.verifySecret(
+                  parsed.secret,
+                  current,
+                );
+
+                const revoked =
+                  await apiKeys.revoke(
+                    current.id,
+                    this.clock.now(),
+                  );
+
+                await events.recordApiKeyRevoked({
+                  apiKey:
+                    revoked.id,
+                  revokedByUserId: request.revokedByUserId,
+                  clientId:
+                    request.clientId,
+                  userId:
+                    request.userId,
+                  authenticationMethod:
+                    request.authenticationMethod,
+                  ipAddress:
+                    request.ipAddress,
+                  userAgent:
+                    request.userAgent,
+                });
+
+                return revoked;
+              },
+            );
+
+          span.setAttributes({
+            "api_key.id":
+              revoked.id,
+            "api_key.public_id":
+              revoked.publicId,
+            "client.id":
+              revoked.clientId,
+          });
+
+          span.addEvent(
+            "api_key.revoked",
+            {
+              "api_key.id":
+                revoked.id,
+              "api_key.public_id":
+                revoked.publicId,
+            },
+          );
+
+          this.logger.info(
+            {
+              apiKeyId:
+                revoked.id,
+              publicId:
+                revoked.publicId,
+              clientId:
+                revoked.clientId,
+              prefix:
+                revoked.prefix,
+            },
+            "API key revoked.",
+          );
+        } catch (error) {
+          recordException(error);
+
+          this.logger.error(
+            {
+              error,
+              prefix:
+                parsed.prefix,
+            },
+            "Failed to revoke API key.",
+          );
+
+          throw error;
+        }
       },
     );
   }
@@ -242,6 +643,23 @@ export class ApiKeyService {
     return apiKey;
   }
 
+  private readonly apiKeysValidatedCounter =
+    getMeter().createCounter(
+      "auth.api_key.validated",
+      {
+        description:
+          "Number of successfully validated API keys.",
+      },
+    );
+
+  private readonly apiKeysRotatedCounter =
+    getMeter().createCounter(
+      "auth.api_key.rotated",
+      {
+        description:
+          "Number of rotated API keys.",
+      },
+    );
   private toValidatedApiKey(
     apiKey: ApiKey,
   ): ValidatedApiKey {

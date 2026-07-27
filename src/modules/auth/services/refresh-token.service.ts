@@ -541,61 +541,80 @@ export class RefreshTokenService {
 
         try {
           const currentTokenHash =
-            await this.hashRefreshToken(
+            this.hashRefreshToken(
               request.refreshToken,
-            );
-
-          const currentToken =
-            this.ensureUsable(
-              await this.tokens.findByHash(
-                currentTokenHash,
-              ),
             );
 
           const refreshToken =
             this.generateRefreshToken();
 
           const newTokenHash =
-            await this.hashRefreshToken(
+            this.hashRefreshToken(
               refreshToken,
             );
 
-          const newToken =
-            await this.tokens.withTransaction(
-              async (tokens) => {
-                const created =
-                  await tokens.create({
-                    session: {
-                      connect: {
-                        id: currentToken.sessionId,
-                      },
-                    },
-                    tokenHash: newTokenHash,
-                    expiresAt: request.expiresAt,
-                  });
+          const {
+            previousToken,
+            newToken,
+          } = await this.tokens.withTransaction(
+            async (tx) => {
+              const tokens =
+                this.tokens.withDatabase(tx);
 
-                await tokens.replace(
-                  currentToken.id,
-                  created.id,
-                  this.clock.now(),
+              const events =
+                this.events.withDatabase(tx);
+
+              const currentToken =
+                this.ensureUsable(
+                  await tokens.findByHash(
+                    currentTokenHash,
+                  ),
                 );
 
-                return created;
-              },
-            );
+              const created =
+                await tokens.create({
+                  session: {
+                    connect: {
+                      id: currentToken.sessionId,
+                    },
+                  },
+                  tokenHash: newTokenHash,
+                  expiresAt:
+                    request.expiresAt,
+                });
 
-          await this.events.recordRefreshTokenRotated({
-            refreshTokenId: newToken.id,
-            previousRefreshTokenId:
-              currentToken.id,
-            sessionId: currentToken.sessionId,
-            userId: request.userId,
-            clientId: request.clientId,
-            authenticationMethod:
-              request.authenticationMethod,
-            ipAddress: request.ipAddress,
-            userAgent: request.userAgent,
-          });
+              await tokens.replace(
+                currentToken.id,
+                created.id,
+                this.clock.now(),
+              );
+
+              await events.recordRefreshTokenRotated({
+                refreshTokenId:
+                  created.id,
+                previousRefreshTokenId:
+                  currentToken.id,
+                sessionId:
+                  currentToken.sessionId,
+                userId:
+                  request.userId,
+                clientId:
+                  request.clientId,
+                authenticationMethod:
+                  request.authenticationMethod,
+                ipAddress:
+                  request.ipAddress,
+                userAgent:
+                  request.userAgent,
+              });
+
+              return {
+                previousToken:
+                  currentToken,
+                newToken: created,
+              };
+            },
+          );
 
           this.rotatedCounter.add(1);
 
@@ -610,26 +629,28 @@ export class RefreshTokenService {
               "auth.refresh.id":
                 newToken.id,
               "auth.refresh.previous.id":
-                currentToken.id,
+                previousToken.id,
             },
           );
 
           this.logger.info(
             {
               previousRefreshTokenId:
-                currentToken.id,
+                previousToken.id,
               refreshTokenId:
                 newToken.id,
               sessionId:
-                currentToken.sessionId,
+                previousToken.sessionId,
             },
             "Refresh token rotated.",
           );
 
           return {
             refreshToken,
-            refreshTokenId: newToken.id,
-            expiresAt: newToken.expiresAt,
+            refreshTokenId:
+              newToken.id,
+            expiresAt:
+              newToken.expiresAt,
           };
         } catch (error) {
           recordException(error);
@@ -637,7 +658,8 @@ export class RefreshTokenService {
           this.logger.error(
             {
               error,
-              sessionId: request.sessionId,
+              sessionId:
+                request.sessionId,
             },
             "Failed to rotate refresh token.",
           );

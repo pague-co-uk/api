@@ -1,8 +1,6 @@
 export interface RefreshRequest {
   refreshToken: string;
 
-  userId: string;
-
   clientId: string;
 
   ipAddress: string;

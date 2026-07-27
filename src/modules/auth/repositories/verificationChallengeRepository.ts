@@ -8,9 +8,17 @@ import { DatabaseRepository } from "../../../database/database.repository.js";
 export class VerificationChallengeRepository extends DatabaseRepository {
   constructor(
     @Inject(DATABASE)
-    db: PrismaClient,
+    db: PrismaClient | Prisma.TransactionClient,
   ) {
     super(db);
+  }
+
+  public withDatabase(
+    db: Prisma.TransactionClient,
+  ): this {
+    return new VerificationChallengeRepository(
+      db,
+    ) as this;
   }
 
   create(data: Prisma.VerificationChallengeCreateInput) {
