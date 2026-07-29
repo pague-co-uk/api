@@ -1,23 +1,17 @@
 import { Injectable } from "@nestjs/common";
 import {
   ApiKey,
-  ApiKeyStatus
+  ApiKeyStatus,
+  AuthenticationMethod,
 } from "@prisma/client";
 
-import { ClockService } from "src/common/clock.service.js";
-import { RandomGenerator } from "src/common/random.service.js";
-import { SecretHasher } from "src/common/secretHasher.service.js";
+import { ClockService } from "src/common/services/clock.service.js";
+import { RandomGenerator } from "src/common/services/random.service.js";
+import { SecretHasher } from "src/common/services/secretHasher.service.js";
 
 import { InvalidApiKeyException } from "src/exceptions/invalid-apikey.exception.js";
 
 import { getComponentLogger, getMeter, recordException, withSpan } from "@pague-co-uk/sms-gateway-telemetry";
-import { CreateApiKeyRequest } from "../dto/create-apikey-request.js";
-import { CreateApiKeyResponse } from "../dto/create-apikey-response.js";
-import { ParsedApiKey } from "../dto/parsed-apikey.js";
-import { RevokeApiKeyRequest } from "../dto/revoke-apikey-request.js";
-import { RotateApiKeyRequest } from "../dto/rotate-apikey-request.js";
-import { RotateApiKeyResponse } from "../dto/rotate-apikey-response.js";
-import { ValidatedApiKey } from "../dto/validate-apikey.js";
 import { ApiKeyRepository } from "../repositories/ApiKeyRepository.js";
 import { AuthenticationEventService } from "./authentication-event.service.js";
 
@@ -38,8 +32,20 @@ export class ApiKeyService {
   ) { }
 
   async create(
-    request: CreateApiKeyRequest,
-  ): Promise<CreateApiKeyResponse> {
+    clientId: string,
+    name: string,
+    createdByUserId: string,
+    authenticationMethod: AuthenticationMethod,
+    expiresAt?: Date | null,
+    ipAddress?: string | null,
+    userAgent?: string | null,
+  ): Promise<{
+    apiKeyId: string;
+    publicId: string;
+    apiKey: string;
+    prefix: string;
+    expiresAt: Date | null;
+  }> {
     return withSpan(
       "ApiKeyService.create",
       async (span) => {
@@ -77,36 +83,26 @@ export class ApiKeyService {
                   publicId,
                   client: {
                     connect: {
-                      id: request.clientId,
+                      id: clientId,
                     },
                   },
                   name:
-                    request.name,
+                    name,
                   prefix,
                   secretHash,
                   status:
                     ApiKeyStatus.ACTIVE,
                   expiresAt:
-                    request.expiresAt,
+                    expiresAt,
                 });
 
-              await events.recordApiKeyCreated({
-                apiKeyId:
-                  created.id,
-                publicId:
-                  created.publicId,
-                prefix:
-                  created.prefix,
-                clientId:
-                  request.clientId,
-                userId:
-                  request.createdByUserId,
-                ipAddress:
-                  request.ipAddress,
-                userAgent:
-                  request.userAgent,
-                authenticationMethod: request.authenticationMethod
-              });
+              await events.recordApiKeyCreated(
+                clientId,
+                createdByUserId,
+                ipAddress,
+                userAgent,
+                authenticationMethod,
+              );
 
               return created;
             },
@@ -120,7 +116,7 @@ export class ApiKeyService {
           "api_key.prefix":
             created.prefix,
           "client.id":
-            request.clientId,
+            clientId,
         });
 
         this.logger.info(
@@ -130,7 +126,7 @@ export class ApiKeyService {
             publicId:
               created.publicId,
             clientId:
-              request.clientId,
+              clientId,
             prefix:
               created.prefix,
           },
@@ -154,7 +150,15 @@ export class ApiKeyService {
 
   async validate(
     apiKey: string,
-  ): Promise<ValidatedApiKey> {
+  ): Promise<{
+    id: string;
+    publicId: string;
+    clientId: string;
+    name: string;
+    status: ApiKeyStatus;
+    expiresAt: Date | null;
+    lastUsedAt: Date | null;
+  }> {
     return withSpan(
       "ApiKeyService.validate",
       async (span) => {
@@ -254,14 +258,25 @@ export class ApiKeyService {
   }
 
   async rotate(
-    request: RotateApiKeyRequest,
-  ): Promise<RotateApiKeyResponse> {
+    apiKey: string,
+    clientId: string,
+    userId: string,
+    authenticationMethod: AuthenticationMethod,
+    ipAddress?: string | null,
+    userAgent?: string | null,
+  ): Promise<{
+    apiKeyId: string;
+    publicId: string;
+    apiKey: string;
+    prefix: string;
+    expiresAt: Date | null;
+  }> {
     return withSpan(
       "ApiKeyService.rotate",
       async (span) => {
         const parsed =
           this.parseApiKey(
-            request.apiKey,
+            apiKey,
           );
 
         span.setAttribute(
@@ -274,7 +289,7 @@ export class ApiKeyService {
             prefix:
               parsed.prefix,
             clientId:
-              request.clientId,
+              clientId,
           },
           "Rotating API key.",
         );
@@ -323,21 +338,13 @@ export class ApiKeyService {
                     this.clock.now(),
                   );
 
-                await events.recordApiKeyRotated({
-                  apiKey:
-                    rotated.id,
-                  rotatedByUserId: request.rotatedByUserId,
-                  clientId:
-                    request.clientId,
-                  userId:
-                    request.userId,
-                  authenticationMethod:
-                    request.authenticationMethod,
-                  ipAddress:
-                    request.ipAddress,
-                  userAgent:
-                    request.userAgent,
-                });
+                await events.recordApiKeyRotated(
+                  clientId,
+                  userId,
+                  authenticationMethod,
+                  ipAddress,
+                  userAgent,
+                );
 
                 return {
                   previousApiKey:
@@ -425,14 +432,19 @@ export class ApiKeyService {
   }
 
   async revoke(
-    request: RevokeApiKeyRequest,
+    apiKey: string,
+    clientId: string,
+    userId: string,
+    authenticationMethod: AuthenticationMethod,
+    ipAddress?: string | null,
+    userAgent?: string | null,
   ): Promise<void> {
     return withSpan(
       "ApiKeyService.revoke",
       async (span) => {
         const parsed =
           this.parseApiKey(
-            request.apiKey,
+            apiKey,
           );
 
         span.setAttribute(
@@ -445,7 +457,7 @@ export class ApiKeyService {
             prefix:
               parsed.prefix,
             clientId:
-              request.clientId,
+              clientId,
           },
           "Revoking API key.",
         );
@@ -480,21 +492,13 @@ export class ApiKeyService {
                     this.clock.now(),
                   );
 
-                await events.recordApiKeyRevoked({
-                  apiKey:
-                    revoked.id,
-                  revokedByUserId: request.revokedByUserId,
-                  clientId:
-                    request.clientId,
-                  userId:
-                    request.userId,
-                  authenticationMethod:
-                    request.authenticationMethod,
-                  ipAddress:
-                    request.ipAddress,
-                  userAgent:
-                    request.userAgent,
-                });
+                await events.recordApiKeyRevoked(
+                  clientId,
+                  userId,
+                  authenticationMethod,
+                  ipAddress,
+                  userAgent,
+                );
 
                 return revoked;
               },
@@ -576,7 +580,7 @@ export class ApiKeyService {
 
   private parseApiKey(
     apiKey: string,
-  ): ParsedApiKey {
+  ): { prefix: string; secret: string } {
     const parts = apiKey.split(".");
 
     if (parts.length !== 2) {
@@ -662,7 +666,15 @@ export class ApiKeyService {
     );
   private toValidatedApiKey(
     apiKey: ApiKey,
-  ): ValidatedApiKey {
+  ): {
+    id: string;
+    publicId: string;
+    clientId: string;
+    name: string;
+    status: ApiKeyStatus;
+    expiresAt: Date | null;
+    lastUsedAt: Date | null;
+  } {
     return {
       id: apiKey.id,
       publicId: apiKey.publicId,

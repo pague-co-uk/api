@@ -1,16 +1,23 @@
 
-import { UnauthorizedException } from "@nestjs/common";
+import { HttpStatus } from "@nestjs/common";
+
+import { DomainException } from "./domain.exception.js";
 
 export class EmailAlreadyExistsException
-  extends UnauthorizedException {
+  extends DomainException {
+  readonly code = "EMAIL_ALREADY_EXISTS";
 
-  constructor();
-
-  constructor(message: string);
+  readonly status = HttpStatus.CONFLICT;
 
   constructor(
-    message = "Email already exists.",
+    email?: string,
+    details?: unknown[],
   ) {
-    super(message);
+    super(
+      email
+        ? `Email "${email}" already exists.`
+        : "Email already exists.",
+      details,
+    );
   }
 }

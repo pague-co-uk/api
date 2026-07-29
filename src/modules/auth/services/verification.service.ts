@@ -1,20 +1,26 @@
 import { randomInt } from "node:crypto";
 
 import { Injectable } from "@nestjs/common";
+import {
+  VerificationChannel,
+  VerificationPurpose,
+} from "@prisma/client";
 import { addMinutes } from "date-fns";
 
-import { ClockService } from "../../../common/clock.service.js";
+import { ClockService } from "../../../common/services/clock.service.js";
 import { AppConfigService } from "../../../config/config.service.js";
 
-import type {
-  CreateVerificationChallengeDto,
-  CreateVerificationChallengeResult,
-} from "../dto/index.js";
-import { VerifyChallengeDto } from "../dto/verifyChallenge.dto.js";
-import { VerificationResult } from "../dto/verifyChallengeResult.dto.js";
-
+import { CreateVerificationChallengeResult } from "../enums/createVerificationChallengeResult.js";
 import { VerificationChallengeRepository } from "../repositories/verificationChallengeRepository.js";
 import { PasswordService } from "./password.service.js";
+
+export enum VerificationResult {
+  VERIFIED,
+  INVALID_CODE,
+  EXPIRED,
+  TOO_MANY_ATTEMPTS,
+  NOT_FOUND,
+}
 
 @Injectable()
 export class VerificationService {
@@ -26,15 +32,14 @@ export class VerificationService {
   ) { }
 
   async createChallenge(
-    dto: CreateVerificationChallengeDto,
+    userId: string,
+    purpose: VerificationPurpose,
+    channel: VerificationChannel,
   ): Promise<CreateVerificationChallengeResult> {
-    const verificationConfig =
-      this.config.auth.security.verification;
-
     await this.verificationChallengeRepository.cancelPending(
-      dto.userId,
-      dto.purpose,
-      dto.channel,
+      userId,
+      purpose,
+      channel,
     );
 
     const code = this.generateCode();
@@ -49,11 +54,11 @@ export class VerificationService {
       await this.verificationChallengeRepository.create({
         user: {
           connect: {
-            id: dto.userId,
+            id: userId,
           },
         },
-        purpose: dto.purpose,
-        channel: dto.channel,
+        purpose,
+        channel,
         codeHash,
         expiresAt,
         attempts: 0,
@@ -67,13 +72,16 @@ export class VerificationService {
   }
 
   async verifyChallenge(
-    dto: VerifyChallengeDto,
+    userId: string,
+    purpose: VerificationPurpose,
+    channel: VerificationChannel,
+    code: string,
   ): Promise<VerificationResult> {
     const challenge =
       await this.verificationChallengeRepository.findPending(
-        dto.userId,
-        dto.purpose,
-        dto.channel,
+        userId,
+        purpose,
+        channel,
       );
 
     if (!challenge) {
@@ -102,7 +110,7 @@ export class VerificationService {
     const valid =
       await this.passwordService.verify(
         challenge.codeHash,
-        dto.code,
+        code,
       );
 
     if (!valid) {

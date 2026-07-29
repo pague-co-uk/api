@@ -188,7 +188,6 @@ export class ApiKeyRepository extends DatabaseRepository {
             },
             data: {
               secretHash,
-              rotatedAt,
             },
           }),
         rowsAffected: 1,

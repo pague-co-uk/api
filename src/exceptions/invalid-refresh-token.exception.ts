@@ -1,9 +1,16 @@
-import { UnauthorizedException } from "@nestjs/common";
+import { HttpStatus } from "@nestjs/common";
 
-export class InvalidRefreshTokenException extends UnauthorizedException {
-  constructor();
-  constructor(message: string);
-  constructor(message = "Invalid refresh token.") {
-    super(message);
+import { DomainException } from "./domain.exception.js";
+
+export class InvalidRefreshTokenException extends DomainException {
+  readonly code = "INVALID_REFRESH_TOKEN";
+
+  readonly status = HttpStatus.UNAUTHORIZED;
+
+  constructor(
+    message = "Invalid refresh token.",
+    details?: unknown[],
+  ) {
+    super(message, details);
   }
 }

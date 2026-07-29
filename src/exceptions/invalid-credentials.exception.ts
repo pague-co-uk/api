@@ -1,9 +1,16 @@
-import { UnauthorizedException } from "@nestjs/common";
+import { HttpStatus } from "@nestjs/common";
 
-export class InvalidCredentialsException extends UnauthorizedException {
-  constructor();
-  constructor(message: string);
-  constructor(message = "Invalid credentials.") {
-    super(message);
+import { DomainException } from "./domain.exception.js";
+
+export class InvalidCredentialsException extends DomainException {
+  readonly code = "INVALID_CREDENTIALS";
+
+  readonly status = HttpStatus.UNAUTHORIZED;
+
+  constructor(
+    message = "Invalid credentials.",
+    details?: unknown[],
+  ) {
+    super(message, details);
   }
 }

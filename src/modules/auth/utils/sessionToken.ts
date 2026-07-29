@@ -1,5 +1,5 @@
-import { RandomGenerator } from "../../../common/random.service.js";
-import { SecretHasher } from "../services/secretHasher.service.js";
+import { SecretHasher } from "src/common/services/secretHasher.service.js";
+import { RandomGenerator } from "../../../common/services/random.service.js";
 
 export class SessionToken {
   private static readonly PREFIX = "ps_live_";

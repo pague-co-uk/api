@@ -1,15 +1,17 @@
-import { UnauthorizedException } from "@nestjs/common";
+import { HttpStatus } from "@nestjs/common";
+
+import { DomainException } from "./domain.exception.js";
 
 export class UserNotFoundException
-  extends UnauthorizedException {
+  extends DomainException {
+  readonly code = "USER_NOT_FOUND";
 
-  constructor();
-
-  constructor(message: string);
+  readonly status = HttpStatus.NOT_FOUND;
 
   constructor(
     message = "User not found.",
+    details?: unknown[],
   ) {
-    super(message);
+    super(message, details);
   }
 }

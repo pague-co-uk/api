@@ -7,7 +7,7 @@ import {
 } from "@pague-co-uk/sms-gateway-telemetry";
 import type { User } from "@prisma/client";
 
-import { ClockService } from "../../../common/clock.service.js";
+import { ClockService } from "../../../common/services/clock.service.js";
 import { AppConfigService } from "../../../config/config.service.js";
 import { UserRepository } from "../repositories/userRepository.js";
 

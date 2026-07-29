@@ -1,16 +1,23 @@
 
-import { UnauthorizedException } from "@nestjs/common";
+import { HttpStatus } from "@nestjs/common";
+
+import { DomainException } from "./domain.exception.js";
 
 export class UsernameAlreadyExistsException
-  extends UnauthorizedException {
+  extends DomainException {
+  readonly code = "USERNAME_ALREADY_EXISTS";
 
-  constructor();
-
-  constructor(message: string);
+  readonly status = HttpStatus.CONFLICT;
 
   constructor(
-    message = "Username already exists.",
+    username?: string,
+    details?: unknown[],
   ) {
-    super(message);
+    super(
+      username
+        ? `Username "${username}" already exists.`
+        : "Username already exists.",
+      details,
+    );
   }
 }
