@@ -6,9 +6,9 @@ import {
   withSpan,
 } from '@pague-co-uk/sms-gateway-telemetry';
 import { User } from '@prisma/client';
-import { EmailAlreadyExistsException } from 'src/exceptions/email-already-exists.exception.js';
-import { UserNotFoundException } from 'src/exceptions/user-not-found.exception.js';
-import { UsernameAlreadyExistsException } from 'src/exceptions/username-not-available.exception.js';
+import { EmailAlreadyExistsException } from 'src/exceptions/auth/email-already-exists.exception.js';
+import { UserNotFoundException } from 'src/exceptions/auth/user-not-found.exception.js';
+import { UsernameAlreadyExistsException } from 'src/exceptions/auth/username-not-available.exception.js';
 import { UserRepository } from '../repositories/userRepository.js';
 import { PasswordService } from './password.service.js';
 

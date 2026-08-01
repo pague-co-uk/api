@@ -1,7 +1,7 @@
 
 import { HttpStatus } from "@nestjs/common";
 
-import { DomainException } from "./domain.exception.js";
+import { DomainException } from "../domain.exception.js";
 
 export class UsernameAlreadyExistsException
   extends DomainException {

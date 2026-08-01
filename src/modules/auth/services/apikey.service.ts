@@ -9,7 +9,7 @@ import { ClockService } from "src/common/services/clock.service.js";
 import { RandomGenerator } from "src/common/services/random.service.js";
 import { SecretHasher } from "src/common/services/secretHasher.service.js";
 
-import { InvalidApiKeyException } from "src/exceptions/invalid-apikey.exception.js";
+import { InvalidApiKeyException } from "src/exceptions/auth/invalid-apikey.exception.js";
 
 import { getComponentLogger, getMeter, recordException, withSpan } from "@pague-co-uk/sms-gateway-telemetry";
 import { ApiKeyRepository } from "../repositories/ApiKeyRepository.js";

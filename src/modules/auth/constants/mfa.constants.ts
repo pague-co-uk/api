@@ -1,0 +1,10 @@
+export const MFA_PROVIDER = Symbol("MFA_PROVIDER");
+export const EMAIL_VERIFICATION_PROVIDER =
+  Symbol(
+    "EMAIL_VERIFICATION_PROVIDER",
+  );
+
+export const SMS_VERIFICATION_PROVIDER =
+  Symbol(
+    "SMS_VERIFICATION_PROVIDER",
+  );
