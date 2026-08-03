@@ -1,18 +1,19 @@
-import { NestFactory } from "@nestjs/core";
+import 'dotenv/config';
+
 import {
   getLogger,
   initTelemetry,
   shutdownTelemetry,
+  TelemetryLogger,
 } from "@pague-co-uk/sms-gateway-telemetry";
 
-import { ValidationPipe } from "@nestjs/common";
-import { AppModule } from "./app.module.js";
-import { AppConfigService } from "./config/config.service.js";
 import configuration from "./config/configuration.js";
 
 async function bootstrap(): Promise<void> {
   const config = configuration();
   initTelemetry({
+    enabled: config.telemetry.enabled,
+    registerShutdownHooks: false,
     service: {
       name: config.telemetry.serviceName,
       version: config.telemetry.serviceVersion,
@@ -40,7 +41,29 @@ async function bootstrap(): Promise<void> {
 
   const logger = getLogger();
 
+  const [
+    { NestFactory },
+    { ValidationPipe },
+    { AppModule },
+    { AppConfigService },
+    { createHttpMiddleware },
+  ] = await Promise.all([
+    import("@nestjs/core"),
+    import("@nestjs/common"),
+    import("./app.module.js"),
+    import("./config/config.service.js"),
+    import("@pague-co-uk/sms-gateway-telemetry"),
+  ]);
+
   const app = await NestFactory.create(AppModule);
+  app.useLogger(new TelemetryLogger());
+
+  app.use(createHttpMiddleware({
+    context: {
+      generateRequestId: true,
+      generateCorrelationId: true,
+    },
+  }));
 
   app.useGlobalPipes(
     new ValidationPipe({

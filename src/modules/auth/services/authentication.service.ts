@@ -5,10 +5,18 @@ import {
   recordException,
   withSpan,
 } from '@pague-co-uk/sms-gateway-telemetry';
-import { AuthenticationMethod } from '@prisma/client';
-import { ClockService } from 'src/common/services/clock.service.js';
-import { AppConfigService } from 'src/config/config.service.js';
-import { InvalidCredentialsException } from 'src/exceptions/auth/invalid-credentials.exception.js';
+import {
+  AuthenticationMethod,
+  MfaMethod,
+  VerificationChannel,
+  VerificationPurpose,
+} from '@prisma/client';
+import { ClockService } from '../../../common/services/clock.service.js';
+import { AppConfigService } from '../../../config/config.service.js';
+import { InvalidCredentialsException } from '../../../exceptions/auth/invalid-credentials.exception.js';
+import { UserService } from '../../users/services/user.service.js';
+import { VerificationProviderRegistry } from '../providers/providers.registry.js';
+import { VerificationChallengeRepository } from '../repositories/verificationChallengeRepository.js';
 import { ApiKeyService } from './apikey.service.js';
 import { AuthenticationEventService } from './authentication-event.service.js';
 import { LoginAttemptService } from './login-attempt.service.js';
@@ -16,7 +24,6 @@ import { MfaService } from './mfa.service.js';
 import { PasswordService } from './password.service.js';
 import { RefreshTokenService } from './refresh-token.service.js';
 import { SessionService } from './session.service.js';
-import { UserService } from './user.service.js';
 
 @Injectable()
 export class AuthenticationService {
@@ -136,7 +143,9 @@ export class AuthenticationService {
     private readonly clock: ClockService,
     private readonly config: AppConfigService,
     private readonly events: AuthenticationEventService,
-    private readonly apiKeys: ApiKeyService
+    private readonly apiKeys: ApiKeyService,
+    private readonly verificationProviders: VerificationProviderRegistry,
+    private readonly verificationChallenges: VerificationChallengeRepository,
   ) { }
 
   async login(
@@ -146,12 +155,20 @@ export class AuthenticationService {
     ipAddress: string,
     userAgent: string,
     trustedDeviceId?: string | null,
-  ): Promise<{
-    sessionId: string;
-    sessionToken: string;
-    refreshToken: string;
-    refreshTokenExpiresAt: Date;
-  }> {
+  ): Promise<
+    | {
+      requiresMfa: true;
+      verificationToken: string;
+      expiresAt: Date;
+    }
+    | {
+      requiresMfa: false;
+      sessionId: string;
+      sessionToken: string;
+      refreshToken: string;
+      refreshTokenExpiresAt: Date;
+    }
+  > {
     return withSpan('AuthenticationService.login', async (span) => {
       this.logger.info(
         {
@@ -160,8 +177,6 @@ export class AuthenticationService {
         },
         'Authenticating user.',
       );
-
-      span.setAttribute('auth.username', username);
 
       span.setAttribute('auth.client.id', clientId);
 
@@ -196,6 +211,34 @@ export class AuthenticationService {
 
         if (user.lockedUntil) {
           await this.loginAttempts.clearLock(user);
+        }
+
+        if (user.mfaEnabled) {
+          const channel = user.preferredMfaMethod === MfaMethod.SMS
+            ? VerificationChannel.SMS
+            : VerificationChannel.EMAIL;
+          const challenge = await this.mfa.createChallenge(
+            user.id,
+            VerificationPurpose.LOGIN,
+            channel,
+          );
+
+          await this.verificationProviders.get(channel).send({
+            recipient: channel === VerificationChannel.SMS
+              ? user.phone ?? user.email
+              : user.email,
+            code: challenge.code,
+            verificationToken: challenge.challengeId,
+            purpose: VerificationPurpose.LOGIN,
+          });
+
+          this.loginMfaRequiredCounter.add(1);
+
+          return {
+            requiresMfa: true,
+            verificationToken: challenge.challengeId,
+            expiresAt: challenge.expiresAt,
+          };
         }
 
         // =====================================================
@@ -272,6 +315,7 @@ export class AuthenticationService {
         // =====================================================
 
         return {
+          requiresMfa: false,
           sessionId: session.session.id,
           sessionToken: session.token,
           refreshToken: refresh.refreshToken,
@@ -292,6 +336,139 @@ export class AuthenticationService {
         throw error;
       }
     });
+  }
+
+  async verifyMfa(
+    verificationToken: string,
+    code: string,
+    clientId: string,
+    ipAddress: string,
+    userAgent: string,
+  ): Promise<{
+    sessionId: string;
+    sessionToken: string;
+    refreshToken: string;
+    refreshTokenExpiresAt: Date;
+  }> {
+    const challenge = await this.verificationChallenges.findById(
+      verificationToken,
+    );
+
+    if (!challenge || challenge.purpose !== VerificationPurpose.LOGIN) {
+      throw new InvalidCredentialsException();
+    }
+
+    await this.mfa.verifyChallenge(
+      challenge.userId,
+      VerificationPurpose.LOGIN,
+      challenge.channel,
+      code,
+    );
+
+    return this.createAuthentication(
+      challenge.userId,
+      clientId,
+      ipAddress,
+      userAgent,
+      true,
+      AuthenticationMethod.PASSWORD,
+    );
+  }
+
+  async forgotPassword(
+    identifier: string,
+    clientId: string,
+  ): Promise<void> {
+    try {
+      const user = identifier.includes('@')
+        ? await this.users.findByEmail(clientId, identifier)
+        : await this.users.findByUsername(identifier);
+      const channel = user.preferredMfaMethod === MfaMethod.SMS && user.phone
+        ? VerificationChannel.SMS
+        : VerificationChannel.EMAIL;
+      const challenge = await this.mfa.createChallenge(
+        user.id,
+        VerificationPurpose.PASSWORD_RESET,
+        channel,
+      );
+
+      await this.verificationProviders.get(channel).send({
+        recipient: channel === VerificationChannel.SMS ? user.phone! : user.email,
+        code: challenge.code,
+        verificationToken: challenge.challengeId,
+        purpose: VerificationPurpose.PASSWORD_RESET,
+      });
+    } catch {
+      // Keep this endpoint account-enumeration safe.
+    }
+  }
+
+  async resetPassword(
+    verificationToken: string,
+    code: string,
+    newPassword: string,
+    clientId: string,
+    ipAddress: string,
+    userAgent: string,
+  ): Promise<void> {
+    const challenge = await this.verificationChallenges.findById(
+      verificationToken,
+    );
+
+    if (!challenge || challenge.purpose !== VerificationPurpose.PASSWORD_RESET) {
+      throw new InvalidCredentialsException();
+    }
+
+    await this.mfa.verifyChallenge(
+      challenge.userId,
+      VerificationPurpose.PASSWORD_RESET,
+      challenge.channel,
+      code,
+    );
+    await this.users.resetPassword(challenge.userId, newPassword);
+    await this.sessions.revokeAllSessions(challenge.userId);
+    await this.refreshTokens.revokeUserRefreshTokens(challenge.userId);
+    await this.events.recordChangePassword(
+      challenge.userId,
+      clientId,
+      ipAddress,
+      userAgent,
+    );
+  }
+
+  private async createAuthentication(
+    userId: string,
+    clientId: string,
+    ipAddress: string,
+    userAgent: string,
+    authenticatedWithMfa: boolean,
+    authenticationMethod: AuthenticationMethod,
+  ): Promise<{
+    sessionId: string;
+    sessionToken: string;
+    refreshToken: string;
+    refreshTokenExpiresAt: Date;
+  }> {
+    const session = await this.sessions.createSession(
+      userId, ipAddress, userAgent, undefined, authenticatedWithMfa,
+    );
+    const refreshTokenExpiresAt = new Date(this.clock.now());
+    refreshTokenExpiresAt.setDate(
+      refreshTokenExpiresAt.getDate() + Number(this.config.auth.refreshTokenTtl),
+    );
+    const refresh = await this.refreshTokens.issue(
+      session.session.id, userId, clientId, refreshTokenExpiresAt,
+      authenticationMethod, ipAddress, userAgent,
+    );
+    await this.events.recordLoginSucceeded(
+      userId, session.session.id, clientId, authenticationMethod, ipAddress, userAgent,
+    );
+    return {
+      sessionId: session.session.id,
+      sessionToken: session.token,
+      refreshToken: refresh.refreshToken,
+      refreshTokenExpiresAt: refresh.expiresAt,
+    };
   }
 
   async refresh(
@@ -827,6 +1004,27 @@ export class AuthenticationService {
           throw error;
         }
       },
+    );
+  }
+
+  async listApiKeys(clientId: string) {
+    return this.apiKeys.list(clientId);
+  }
+
+  async revokeApiKeyById(
+    apiKeyId: string,
+    clientId: string,
+    userId: string,
+    ipAddress: string,
+    userAgent: string,
+  ): Promise<void> {
+    await this.apiKeys.revokeById(
+      apiKeyId,
+      clientId,
+      userId,
+      AuthenticationMethod.SESSION,
+      ipAddress,
+      userAgent,
     );
   }
 }

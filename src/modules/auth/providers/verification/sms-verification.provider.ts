@@ -55,19 +55,19 @@ export class SmsVerificationProvider
     switch (message.purpose) {
 
       case VerificationPurpose.LOGIN:
-        return `Your login verification code is ${message.code}. Do not share this code with anyone.`;
+        return `Your login verification code is ${message.code}. Token: ${message.verificationToken}`;
 
       case VerificationPurpose.PASSWORD_RESET:
-        return `Your password reset verification code is ${message.code}. Do not share this code with anyone.`;
+        return `Your password reset verification code is ${message.code}. Token: ${message.verificationToken}`;
 
       case VerificationPurpose.PHONE_VERIFICATION:
-        return `Your phone verification code is ${message.code}. Do not share this code with anyone.`;
+        return `Your phone verification code is ${message.code}. Token: ${message.verificationToken}`;
 
       case VerificationPurpose.EMAIL_VERIFICATION:
-        return `Your verification code is ${message.code}. Do not share this code with anyone.`;
+        return `Your verification code is ${message.code}. Token: ${message.verificationToken}`;
 
       default:
-        return `Your verification code is ${message.code}.`;
+        return `Your verification code is ${message.code}. Token: ${message.verificationToken}`;
     }
   }
 }

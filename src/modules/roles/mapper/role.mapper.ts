@@ -1,8 +1,8 @@
 import { Injectable } from "@nestjs/common";
 
 import { Prisma } from "@prisma/client";
-import { RoleResponseDto } from "src/modules/auth/controllers/responses/role.response.dto.js";
-import { PermissionMapper } from "src/modules/permissions/mapper/permission.mapper.js";
+import { RoleResponseDto } from "../../../modules/auth/controllers/responses/role.response.dto.js";
+import { PermissionMapper } from "./permission.mapper.js";
 
 export type RoleWithPermissions =
   Prisma.RoleGetPayload<{

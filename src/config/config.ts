@@ -5,7 +5,7 @@ import { ConfigService as NestConfigService } from "@nestjs/config";
 export class ConfigService {
   constructor(
     private readonly configService: NestConfigService,
-  ) {}
+  ) { }
 
   public get<T>(key: string): T {
     const value = this.configService.get<T>(key);

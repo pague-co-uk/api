@@ -40,6 +40,38 @@ export class UserRepository extends DatabaseRepository {
     );
   }
 
+  async findByIdWithRoles(id: string) {
+    return this.execute(
+      "SELECT",
+      "users",
+      async () => {
+        const user = await this.db.user.findUnique({
+          where: { id },
+          include: {
+            userRoles: {
+              include: {
+                role: {
+                  include: {
+                    permissions: {
+                      include: {
+                        permission: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        return {
+          result: user,
+          rowsAffected: user ? 1 : 0,
+        };
+      },
+    );
+  }
+
   async findByUsername(username: string) {
     return this.execute(
       "SELECT",

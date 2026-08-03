@@ -49,7 +49,6 @@ export default () => ({
 
     metricsEndpoint:
       process.env.OTEL_METRICS_ENDPOINT!,
-
     logsEndpoint:
       process.env.OTEL_LOGS_ENDPOINT!,
 
@@ -95,9 +94,9 @@ export default () => ({
     refreshTokenTtl:
       process.env.JWT_REFRESH_TOKEN_TTL ?? "7d",
 
-    maxFailedLoginAttempts: process.env.MAX_FAILED_LOGIN_ATTEMPTS,
+    maxFailedLoginAttempts: process.env.AUTH_MAX_FAILED_LOGIN_ATTEMPTS,
 
-    accountLockDurationMinutes: process.env.ACCOUNT_LOCK_DURATION_MINUTES,
+    accountLockDurationMinutes: process.env.AUTH_ACCOUNT_LOCK_DURATION_MINUTES,
 
     security: {
       password: {

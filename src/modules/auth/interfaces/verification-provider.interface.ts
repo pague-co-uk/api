@@ -3,6 +3,7 @@ import { VerificationPurpose } from "@prisma/client";
 export interface VerificationMessage {
   recipient: string;
   code: string;
+  verificationToken: string;
   purpose: VerificationPurpose;
 }
 

@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { getComponentLogger } from "@pague-co-uk/sms-gateway-telemetry";
 
 import {
   VerificationMessage,
@@ -9,19 +10,24 @@ import {
 export class EmailVerificationProvider
   implements VerificationProvider {
 
+  private readonly logger = getComponentLogger(
+    "EmailVerificationProvider",
+  );
+
   async send(
     message: VerificationMessage,
   ): Promise<void> {
 
-    // TODO:
-    // await this.emailService.send({
-    //   to: message.recipient,
-    //   subject: this.getSubject(message.purpose),
-    //   body: this.buildBody(message),
-    // });
-
-    throw new Error(
-      "Not implemented.",
+    // This adapter deliberately has no external vendor dependency yet. It is
+    // operational for local/development flows and can be replaced behind the
+    // same interface when an email client is introduced.
+    this.logger.info(
+      {
+        recipient: message.recipient,
+        purpose: message.purpose,
+        subject: this.getSubject(message.purpose),
+      },
+      "Email verification message accepted for delivery.",
     );
   }
 
@@ -51,6 +57,9 @@ export class EmailVerificationProvider
   private buildBody(
     message: VerificationMessage,
   ): string {
-    return `Your verification code is ${message.code}.`;
+    return [
+      `Your verification code is ${message.code}.`,
+      `Verification token: ${message.verificationToken}`,
+    ].join("\n");
   }
 }

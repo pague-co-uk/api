@@ -4,8 +4,8 @@ import {
   Prisma,
   UserStatus,
 } from "@prisma/client";
-import { UserResponseDto } from "src/modules/auth/controllers/responses/user.response.dto.js";
-import { RoleMapper } from "src/modules/roles/mapper/role.mapper.js";
+import { UserResponseDto } from "../../../modules/auth/controllers/responses/user.response.dto.js";
+import { RoleMapper } from "../../../modules/roles/mapper/role.mapper.js";
 
 export type UserWithRoles =
   Prisma.UserGetPayload<{

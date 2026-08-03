@@ -4,7 +4,7 @@ import { Injectable } from "@nestjs/common";
 import {
   UserMapper,
   UserWithRoles,
-} from "src/modules/users/mapper/user.mapper.js";
+} from "../../../modules/users/mapper/user.mapper.js";
 import { VerifyMfaResponseDto } from "../controllers/responses/index.js";
 import { LoginResponseDto } from "../controllers/responses/login.response.dto.js";
 import { RefreshTokenResponseDto } from "../controllers/responses/refresh-token.response.dto.js";

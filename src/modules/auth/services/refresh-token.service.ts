@@ -11,7 +11,7 @@ import { RandomGenerator } from '../../../common/services/random.service.js';
 import { SecretHasher } from '../../../common/services/secretHasher.service.js';
 
 import { AuthenticationMethod, RefreshToken } from '@prisma/client';
-import { InvalidRefreshTokenException } from 'src/exceptions/auth/invalid-refresh-token.exception.js';
+import { InvalidRefreshTokenException } from '../../../exceptions/auth/invalid-refresh-token.exception.js';
 import { RefreshTokenRepository } from '../repositories/refreshTokenRepository.js';
 import { AuthenticationEventService } from './authentication-event.service.js';
 

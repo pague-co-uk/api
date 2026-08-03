@@ -2,25 +2,34 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
+  Get,
   Headers,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   Req,
   Res,
   UnauthorizedException,
 } from "@nestjs/common";
+import { AuthenticationMethod } from "@prisma/client";
 import type {
   Request,
   Response,
 } from "express";
 
-import { AppConfigService } from "src/config/config.service.js";
+import { AppConfigService } from "../../../config/config.service.js";
+import { ClientIp, UserAgent } from "../../../decorators/index.js";
+import { UserService } from "../../users/services/user.service.js";
 import { AuthenticationService } from "../services/authentication.service.js";
 import { SessionService } from "../services/session.service.js";
-import { UserService } from "../services/user.service.js";
 import { ChangePasswordRequestDto } from "./requests/change-password.request.dto.js";
+import { CreateApiKeyRequestDto } from "./requests/create-api-key.request.dto.js";
+import { ForgotPasswordRequestDto } from "./requests/forgot-password.request.dto.js";
 import { LoginRequestDto } from "./requests/login.request.dto.js";
+import { ResetPasswordRequestDto } from "./requests/reset-password.request.dto.js";
+import { VerifyMfaRequestDto } from "./requests/verify-mfa.request.dto.js";
 
 @Controller({
   path: "auth",
@@ -41,7 +50,14 @@ export class AuthenticationController {
     @Headers("x-client-id") clientId: string | undefined,
     @Req() httpRequest: Request,
     @Res({ passthrough: true }) response: Response,
-  ): Promise<{ sessionId: string }> {
+    @ClientIp() ipAddress: string,
+    @UserAgent() userAgent: string,
+  ): Promise<{
+    requiresMfa: boolean;
+    sessionId?: string;
+    verificationToken?: string;
+    expiresAt?: Date;
+  }> {
     if (!clientId) {
       throw new BadRequestException(
         "The x-client-id header is required.",
@@ -52,13 +68,44 @@ export class AuthenticationController {
       request.identifier,
       request.password,
       clientId,
-      this.getIpAddress(httpRequest),
-      this.getUserAgent(httpRequest),
+      ipAddress,
+      userAgent,
       request.trustedDeviceId,
     );
 
+    if (result.requiresMfa) {
+      return result;
+    }
+
     this.setAuthenticationCookies(response, result);
-    return result;
+    return {
+      requiresMfa: false,
+      sessionId: result.sessionId,
+    };
+  }
+
+  @Post("mfa/verify")
+  @HttpCode(HttpStatus.OK)
+  async verifyMfa(
+    @Body() request: VerifyMfaRequestDto,
+    @Headers("x-client-id") clientId: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+    @ClientIp() ipAddress: string,
+    @UserAgent() userAgent: string,
+  ): Promise<{ sessionId: string }> {
+    if (!clientId) {
+      throw new BadRequestException("The x-client-id header is required.");
+    }
+
+    const result = await this.authentication.verifyMfa(
+      request.verificationToken,
+      request.code,
+      clientId,
+      ipAddress,
+      userAgent,
+    );
+    this.setAuthenticationCookies(response, result);
+    return { sessionId: result.sessionId };
   }
 
   @Post("refresh")
@@ -66,6 +113,8 @@ export class AuthenticationController {
   async refresh(
     @Req() httpRequest: Request,
     @Res({ passthrough: true }) response: Response,
+    @ClientIp() ipAddress: string,
+    @UserAgent() userAgent: string,
   ): Promise<void> {
     const context = await this.getAuthenticatedContext(httpRequest);
     const refreshToken = this.getCookie(httpRequest, "refreshToken");
@@ -80,8 +129,8 @@ export class AuthenticationController {
       refreshToken,
       context.userId,
       context.clientId,
-      this.getIpAddress(httpRequest),
-      this.getUserAgent(httpRequest),
+      ipAddress,
+      userAgent,
     );
 
     this.setRefreshTokenCookie(
@@ -96,6 +145,8 @@ export class AuthenticationController {
   async logout(
     @Req() httpRequest: Request,
     @Res({ passthrough: true }) response: Response,
+    @ClientIp() ipAddress: string,
+    @UserAgent() userAgent: string,
   ): Promise<void> {
     const context = await this.getAuthenticatedContext(httpRequest);
 
@@ -103,11 +154,34 @@ export class AuthenticationController {
       context.sessionId,
       context.userId,
       context.clientId,
-      this.getIpAddress(httpRequest),
-      this.getUserAgent(httpRequest),
+      ipAddress,
+      userAgent,
     );
 
     this.clearAuthenticationCookies(response);
+  }
+
+  @Post("logout-all")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async logoutAll(
+    @Req() httpRequest: Request,
+    @Res({ passthrough: true }) response: Response,
+    @ClientIp() ipAddress: string,
+    @UserAgent() userAgent: string,
+  ): Promise<void> {
+    const context = await this.getAuthenticatedContext(httpRequest);
+    await this.authentication.logoutAllSessions(
+      context.userId, context.clientId, ipAddress, userAgent,
+    );
+    this.clearAuthenticationCookies(response);
+  }
+
+  @Get("me")
+  async me(@Req() httpRequest: Request) {
+    const context = await this.getAuthenticatedContext(httpRequest);
+    const user = await this.users.findWithRoles(context.userId);
+
+    return this.users.mapper().toResponse(user);
   }
 
   @Post("change-password")
@@ -115,6 +189,8 @@ export class AuthenticationController {
   async changePassword(
     @Body() request: ChangePasswordRequestDto,
     @Req() httpRequest: Request,
+    @ClientIp() ipAddress: string,
+    @UserAgent() userAgent: string,
   ): Promise<void> {
     if (request.newPassword !== request.confirmPassword) {
       throw new BadRequestException(
@@ -129,8 +205,87 @@ export class AuthenticationController {
       request.currentPassword,
       request.newPassword,
       context.clientId,
-      this.getIpAddress(httpRequest),
-      this.getUserAgent(httpRequest),
+      ipAddress,
+      userAgent,
+    );
+  }
+
+  @Post("forgot-password")
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(
+    @Body() request: ForgotPasswordRequestDto,
+    @Headers("x-client-id") clientId: string | undefined,
+  ): Promise<{ success: boolean; message: string }> {
+    if (!clientId) {
+      throw new BadRequestException("The x-client-id header is required.");
+    }
+
+    await this.authentication.forgotPassword(request.identifier, clientId);
+    return {
+      success: true,
+      message: "If an account matches the supplied identifier, a verification code has been sent.",
+    };
+  }
+
+  @Post("reset-password")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async resetPassword(
+    @Body() request: ResetPasswordRequestDto,
+    @Headers("x-client-id") clientId: string | undefined,
+    @ClientIp() ipAddress: string,
+    @UserAgent() userAgent: string,
+  ): Promise<void> {
+    if (!clientId) {
+      throw new BadRequestException("The x-client-id header is required.");
+    }
+    if (request.password !== request.confirmPassword) {
+      throw new BadRequestException("Password confirmation does not match.");
+    }
+
+    await this.authentication.resetPassword(
+      request.token, request.code, request.password, clientId, ipAddress, userAgent,
+    );
+  }
+
+  @Post("api-keys")
+  @HttpCode(HttpStatus.CREATED)
+  async createApiKey(
+    @Body() request: CreateApiKeyRequestDto,
+    @Req() httpRequest: Request,
+    @ClientIp() ipAddress: string,
+    @UserAgent() userAgent: string,
+  ) {
+    const context = await this.getAuthenticatedContext(httpRequest);
+    return this.authentication.createApiKey(
+      context.clientId,
+      request.name,
+      context.userId,
+      AuthenticationMethod.SESSION,
+      request.expiresAt ? new Date(request.expiresAt) : undefined,
+      ipAddress,
+      userAgent,
+    );
+  }
+
+  @Get("api-keys")
+  async listApiKeys(@Req() httpRequest: Request) {
+    const context = await this.getAuthenticatedContext(httpRequest);
+    const apiKeys = await this.authentication.listApiKeys(context.clientId);
+
+    return apiKeys.map(({ secretHash, ...apiKey }) => apiKey);
+  }
+
+  @Delete("api-keys/:id")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async revokeApiKey(
+    @Param("id") id: string,
+    @Req() httpRequest: Request,
+    @ClientIp() ipAddress: string,
+    @UserAgent() userAgent: string,
+  ): Promise<void> {
+    const context = await this.getAuthenticatedContext(httpRequest);
+    await this.authentication.revokeApiKeyById(
+      id, context.clientId, context.userId, ipAddress, userAgent,
     );
   }
 
@@ -178,14 +333,6 @@ export class AuthenticationController {
     return value
       ? decodeURIComponent(value.slice(prefix.length))
       : undefined;
-  }
-
-  private getIpAddress(request: Request): string {
-    return request.ip ?? request.socket.remoteAddress ?? "";
-  }
-
-  private getUserAgent(request: Request): string {
-    return request.get("user-agent") ?? "";
   }
 
   private setAuthenticationCookies(

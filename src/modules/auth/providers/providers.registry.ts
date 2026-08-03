@@ -11,7 +11,7 @@ import type {
   VerificationProvider,
 } from "../interfaces/verification-provider.interface.js";
 
-import { UnsupportedVerificationChannelException } from "src/exceptions/auth/unsupported-verification-channel.exception.js";
+import { UnsupportedVerificationChannelException } from "../../../exceptions/auth/unsupported-verification-channel.exception.js";
 
 @Injectable()
 export class VerificationProviderRegistry {

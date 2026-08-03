@@ -6,9 +6,9 @@ import {
   withSpan,
 } from '@pague-co-uk/sms-gateway-telemetry';
 import { VerificationChannel, VerificationPurpose } from '@prisma/client';
-import { RandomGenerator } from 'src/common/services/random.service.js';
-import { SecretHasher } from 'src/common/services/secretHasher.service.js';
-import { AppConfigService } from 'src/config/config.service.js';
+import { RandomGenerator } from '../../../common/services/random.service.js';
+import { SecretHasher } from '../../../common/services/secretHasher.service.js';
+import { AppConfigService } from '../../../config/config.service.js';
 import {
   InvalidVerificationCodeException,
   VerificationAttemptsExceededException,
@@ -49,13 +49,17 @@ export class MultiFactorAuthenticationService {
     private readonly hasher: SecretHasher,
     private readonly random: RandomGenerator,
     private readonly challenges: VerificationChallengeRepository,
-  ) {}
+  ) { }
 
   async createChallenge(
     userId: string,
     purpose: VerificationPurpose,
     channel: VerificationChannel,
-  ): Promise<string> {
+  ): Promise<{
+    challengeId: string;
+    code: string;
+    expiresAt: Date;
+  }> {
     return withSpan(
       'MultiFactorAuthenticationService.createChallenge',
       async (span) => {
@@ -76,7 +80,7 @@ export class MultiFactorAuthenticationService {
           const code = this.generateCode();
           const codeHash = this.hasher.hash(code);
 
-          await this.challenges.create({
+          const challenge = await this.challenges.create({
             user: {
               connect: {
                 id: userId,
@@ -95,7 +99,11 @@ export class MultiFactorAuthenticationService {
             'Verification challenge created successfully.',
           );
 
-          return code;
+          return {
+            challengeId: challenge.id,
+            code,
+            expiresAt: challenge.expiresAt,
+          };
         } catch (error) {
           recordException(error);
 
@@ -299,9 +307,12 @@ export class MultiFactorAuthenticationService {
 
     expiresAt.setMinutes(
       expiresAt.getMinutes() +
-        this.config.auth.security.verification.expiryMinutes,
+      this.config.auth.security.verification.expiryMinutes,
     );
 
     return expiresAt;
   }
 }
+
+// Retain the concise name used by the authentication facade.
+export { MultiFactorAuthenticationService as MfaService };

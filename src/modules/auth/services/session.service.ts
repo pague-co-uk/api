@@ -6,10 +6,10 @@ import {
   withSpan,
 } from '@pague-co-uk/sms-gateway-telemetry';
 import { PortalSession } from '@prisma/client';
-import { ClockService } from 'src/common/services/clock.service.js';
-import { RandomGenerator } from 'src/common/services/random.service.js';
-import { SecretHasher } from 'src/common/services/secretHasher.service.js';
-import { AppConfigService } from 'src/config/config.service.js';
+import { ClockService } from '../../../common/services/clock.service.js';
+import { RandomGenerator } from '../../../common/services/random.service.js';
+import { SecretHasher } from '../../../common/services/secretHasher.service.js';
+import { AppConfigService } from '../../../config/config.service.js';
 import { SessionValidationFailureReason } from '../enums/session-validation-failure-reason.enum.js';
 import { SessionRepository } from '../repositories/sessionRepository.js';
 import { SessionToken } from '../utils/sessionToken.js';

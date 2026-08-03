@@ -6,11 +6,12 @@ import {
   withSpan,
 } from '@pague-co-uk/sms-gateway-telemetry';
 import { User } from '@prisma/client';
-import { EmailAlreadyExistsException } from 'src/exceptions/auth/email-already-exists.exception.js';
-import { UserNotFoundException } from 'src/exceptions/auth/user-not-found.exception.js';
-import { UsernameAlreadyExistsException } from 'src/exceptions/auth/username-not-available.exception.js';
-import { UserRepository } from '../repositories/userRepository.js';
-import { PasswordService } from './password.service.js';
+import { EmailAlreadyExistsException } from '../../../exceptions/auth/email-already-exists.exception.js';
+import { UserNotFoundException } from '../../../exceptions/auth/user-not-found.exception.js';
+import { UsernameAlreadyExistsException } from '../../../exceptions/auth/username-not-available.exception.js';
+import { UserRepository } from '../../auth/repositories/userRepository.js';
+import { PasswordService } from '../../auth/services/password.service.js';
+import { UserMapper } from '../mapper/user.mapper.js';
 
 
 @Injectable()
@@ -48,6 +49,7 @@ export class UserService {
   constructor(
     private readonly users: UserRepository,
     private readonly passwords: PasswordService,
+    private readonly userMapper: UserMapper
   ) { }
 
   // Queries
@@ -90,6 +92,34 @@ export class UserService {
     });
   }
 
+  mapper(): UserMapper {
+    return this.userMapper;
+  }
+
+  async findWithRoles(id: string) {
+    return withSpan('UserService.findWithRoles', async (span) => {
+      this.logger.debug({ userId: id }, 'Finding user by ID with roles.');
+
+      span.setAttribute('user.id', id);
+
+      try {
+        const user = this.ensureExists(
+          await this.users.findByIdWithRoles(id),
+        );
+
+        this.logger.debug({ userId: user.id }, 'User with roles found.');
+
+        return user as any;
+      } catch (error) {
+        recordException(error);
+
+        this.logger.error({ error, userId: id }, 'Failed to find user with roles.');
+
+        throw error;
+      }
+    });
+  }
+
   async findByUsername(username: string): Promise<User> {
     return withSpan('UserService.findByUsername', async (span) => {
       this.logger.debug(
@@ -98,8 +128,6 @@ export class UserService {
         },
         'Finding user by username.',
       );
-
-      span.setAttribute('user.username', username);
 
       try {
         const user = this.ensureExists(
@@ -141,10 +169,7 @@ export class UserService {
         'Finding user by email.',
       );
 
-      span.setAttributes({
-        'client.id': clientId,
-        'user.email': email,
-      });
+      span.setAttribute('client.id', clientId);
 
       try {
         const user = this.ensureExists(
@@ -268,6 +293,19 @@ export class UserService {
     });
   }
 
+  async resetPassword(
+    userId: string,
+    newPassword: string,
+  ): Promise<User> {
+    return withSpan('UserService.resetPassword', async (span) => {
+      span.setAttribute('user.id', userId);
+
+      const passwordHash = await this.passwords.hash(newPassword);
+
+      return this.users.update(userId, { passwordHash });
+    });
+  }
+
   // Lifecycle
 
   async create(
@@ -287,8 +325,6 @@ export class UserService {
         },
         'Creating user.',
       );
-
-      span.setAttribute('user.username', username);
 
       span.setAttribute('client.id', clientId);
 
@@ -406,8 +442,6 @@ export class UserService {
 
   private async ensureUsernameAvailable(username: string): Promise<void> {
     return withSpan('UserService.ensureUsernameAvailable', async (span) => {
-      span.setAttribute('user.username', username);
-
       this.logger.debug({ username }, 'Checking username availability.');
 
       try {
@@ -438,8 +472,6 @@ export class UserService {
 
   private async ensureEmailAvailable(email: string): Promise<void> {
     return withSpan('UserService.ensureEmailAvailable', async (span) => {
-      span.setAttribute('user.email', email);
-
       this.logger.debug({ email }, 'Checking email availability.');
 
       try {

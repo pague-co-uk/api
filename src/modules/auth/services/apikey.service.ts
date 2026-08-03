@@ -5,11 +5,11 @@ import {
   AuthenticationMethod,
 } from "@prisma/client";
 
-import { ClockService } from "src/common/services/clock.service.js";
-import { RandomGenerator } from "src/common/services/random.service.js";
-import { SecretHasher } from "src/common/services/secretHasher.service.js";
+import { ClockService } from "../../../common/services/clock.service.js";
+import { RandomGenerator } from "../../../common/services/random.service.js";
+import { SecretHasher } from "../../../common/services/secretHasher.service.js";
 
-import { InvalidApiKeyException } from "src/exceptions/auth/invalid-apikey.exception.js";
+import { InvalidApiKeyException } from "../../../exceptions/auth/invalid-apikey.exception.js";
 
 import { getComponentLogger, getMeter, recordException, withSpan } from "@pague-co-uk/sms-gateway-telemetry";
 import { ApiKeyRepository } from "../repositories/ApiKeyRepository.js";
@@ -254,6 +254,35 @@ export class ApiKeyService {
           throw error;
         }
       },
+    );
+  }
+
+  async list(clientId: string): Promise<ApiKey[]> {
+    return this.apiKeys.findByClient(clientId);
+  }
+
+  async revokeById(
+    id: string,
+    clientId: string,
+    userId: string,
+    authenticationMethod: AuthenticationMethod,
+    ipAddress?: string | null,
+    userAgent?: string | null,
+  ): Promise<void> {
+    const apiKey = await this.apiKeys.findById(id);
+
+    if (!apiKey || apiKey.clientId !== clientId) {
+      throw new InvalidApiKeyException("API key not found.");
+    }
+
+    if (apiKey.status !== ApiKeyStatus.ACTIVE ||
+      (apiKey.expiresAt && apiKey.expiresAt <= this.clock.now())) {
+      throw new InvalidApiKeyException("API key is not active.");
+    }
+
+    await this.apiKeys.revoke(id, this.clock.now());
+    await this.authenticationEvents.recordApiKeyRevoked(
+      clientId, userId, authenticationMethod, ipAddress, userAgent,
     );
   }
 

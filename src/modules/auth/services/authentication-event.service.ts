@@ -62,7 +62,7 @@ export class AuthenticationEventService {
   );
 
   private readonly apiKeyCreatedCounter = getMeter().createCounter(
-    'auth.event.refresh.issued',
+    'auth.event.api_key.created',
     {
       description: 'Number of Api Keys issued.',
     },
