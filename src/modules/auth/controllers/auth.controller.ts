@@ -19,17 +19,21 @@ import type {
   Response,
 } from "express";
 
-import { AppConfigService } from "../../../config/config.service.js";
+import { CurrentUser } from "../../../common/authorization/decorators/current-user.decorator.js";
+import { Public } from "../../../common/authorization/decorators/public.decorator.js";
+import type { AuthenticatedUser } from "../../../common/authorization/interfaces/index.js";
+import { PrincipalMapper } from "../../../common/authorization/mapper/principal.mapper.js";
 import { ClientIp, UserAgent } from "../../../decorators/index.js";
-import { UserService } from "../../users/services/user.service.js";
+import { AuthenticationCookieService } from "../services/authentication-cookie.service.js";
 import { AuthenticationService } from "../services/authentication.service.js";
-import { SessionService } from "../services/session.service.js";
 import { ChangePasswordRequestDto } from "./requests/change-password.request.dto.js";
 import { CreateApiKeyRequestDto } from "./requests/create-api-key.request.dto.js";
 import { ForgotPasswordRequestDto } from "./requests/forgot-password.request.dto.js";
+import { LoginWithApiKeyRequestDto } from "./requests/index.js";
 import { LoginRequestDto } from "./requests/login.request.dto.js";
 import { ResetPasswordRequestDto } from "./requests/reset-password.request.dto.js";
 import { VerifyMfaRequestDto } from "./requests/verify-mfa.request.dto.js";
+import { UserResponseDto } from "./responses/index.js";
 
 @Controller({
   path: "auth",
@@ -38,17 +42,16 @@ import { VerifyMfaRequestDto } from "./requests/verify-mfa.request.dto.js";
 export class AuthenticationController {
   constructor(
     private readonly authentication: AuthenticationService,
-    private readonly sessions: SessionService,
-    private readonly users: UserService,
-    private readonly config: AppConfigService
+    private readonly principalMapper: PrincipalMapper,
+    private readonly authenticationCookieService: AuthenticationCookieService,
   ) { }
 
+  @Public()
   @Post("login")
   @HttpCode(HttpStatus.OK)
   async login(
     @Body() request: LoginRequestDto,
     @Headers("x-client-id") clientId: string | undefined,
-    @Req() httpRequest: Request,
     @Res({ passthrough: true }) response: Response,
     @ClientIp() ipAddress: string,
     @UserAgent() userAgent: string,
@@ -77,13 +80,35 @@ export class AuthenticationController {
       return result;
     }
 
-    this.setAuthenticationCookies(response, result);
+    this.authenticationCookieService.setAuthenticationCookies(response, result);
     return {
       requiresMfa: false,
       sessionId: result.sessionId,
     };
   }
 
+  @Public()
+  @Post("login/api-key")
+  @HttpCode(HttpStatus.OK)
+  async loginWithApiKey(
+    @Body() request: LoginWithApiKeyRequestDto,
+    @Headers("x-client-id") clientId: string | undefined,
+    @ClientIp() ipAddress: string,
+    @UserAgent() userAgent: string,
+  ) {
+    if (!clientId) {
+      throw new BadRequestException("The x-client-id header is required.");
+    }
+
+    return this.authentication.loginWithApiKey(
+      request.apiKey,
+      clientId,
+      ipAddress,
+      userAgent,
+    );
+  }
+
+  @Public()
   @Post("mfa/verify")
   @HttpCode(HttpStatus.OK)
   async verifyMfa(
@@ -104,20 +129,32 @@ export class AuthenticationController {
       ipAddress,
       userAgent,
     );
-    this.setAuthenticationCookies(response, result);
+    this.authenticationCookieService.setAuthenticationCookies(response, result);
     return { sessionId: result.sessionId };
   }
 
   @Post("refresh")
   @HttpCode(HttpStatus.OK)
   async refresh(
-    @Req() httpRequest: Request,
-    @Res({ passthrough: true }) response: Response,
-    @ClientIp() ipAddress: string,
-    @UserAgent() userAgent: string,
+    @CurrentUser()
+    user: AuthenticatedUser,
+
+    @Req()
+    request: Request,
+
+    @Res({ passthrough: true })
+    response: Response,
+
+    @ClientIp()
+    ipAddress: string,
+
+    @UserAgent()
+    userAgent: string,
   ): Promise<void> {
-    const context = await this.getAuthenticatedContext(httpRequest);
-    const refreshToken = this.getCookie(httpRequest, "refreshToken");
+    const refreshToken = this.authenticationCookieService.get(
+      request,
+      "refreshToken",
+    );
 
     if (!refreshToken) {
       throw new UnauthorizedException(
@@ -125,15 +162,16 @@ export class AuthenticationController {
       );
     }
 
-    const result = await this.authentication.refresh(
-      refreshToken,
-      context.userId,
-      context.clientId,
-      ipAddress,
-      userAgent,
-    );
+    const result =
+      await this.authentication.refresh(
+        refreshToken,
+        user.userId,
+        user.clientId,
+        ipAddress,
+        userAgent,
+      );
 
-    this.setRefreshTokenCookie(
+    this.authenticationCookieService.setRefreshTokenCookie(
       response,
       result.refreshToken,
       result.refreshTokenExpiresAt,
@@ -143,73 +181,101 @@ export class AuthenticationController {
   @Post("logout")
   @HttpCode(HttpStatus.NO_CONTENT)
   async logout(
-    @Req() httpRequest: Request,
-    @Res({ passthrough: true }) response: Response,
-    @ClientIp() ipAddress: string,
-    @UserAgent() userAgent: string,
-  ): Promise<void> {
-    const context = await this.getAuthenticatedContext(httpRequest);
+    @CurrentUser()
+    user: AuthenticatedUser,
 
+    @Res({ passthrough: true })
+    response: Response,
+
+    @ClientIp()
+    ipAddress: string,
+
+    @UserAgent()
+    userAgent: string,
+  ): Promise<void> {
     await this.authentication.logout(
-      context.sessionId,
-      context.userId,
-      context.clientId,
+      user.sessionId,
+      user.userId,
+      user.clientId,
       ipAddress,
       userAgent,
     );
 
-    this.clearAuthenticationCookies(response);
+    this.authenticationCookieService.clearAuthenticationCookies(
+      response,
+    );
   }
 
   @Post("logout-all")
   @HttpCode(HttpStatus.NO_CONTENT)
   async logoutAll(
-    @Req() httpRequest: Request,
-    @Res({ passthrough: true }) response: Response,
-    @ClientIp() ipAddress: string,
-    @UserAgent() userAgent: string,
+    @CurrentUser()
+    user: AuthenticatedUser,
+
+    @Res({ passthrough: true })
+    response: Response,
+
+    @ClientIp()
+    ipAddress: string,
+
+    @UserAgent()
+    userAgent: string,
   ): Promise<void> {
-    const context = await this.getAuthenticatedContext(httpRequest);
     await this.authentication.logoutAllSessions(
-      context.userId, context.clientId, ipAddress, userAgent,
+      user.userId,
+      user.clientId,
+      ipAddress,
+      userAgent,
     );
-    this.clearAuthenticationCookies(response);
+
+    this.authenticationCookieService.clearAuthenticationCookies(
+      response,
+    );
   }
 
   @Get("me")
-  async me(@Req() httpRequest: Request) {
-    const context = await this.getAuthenticatedContext(httpRequest);
-    const user = await this.users.findWithRoles(context.userId);
-
-    return this.users.mapper().toResponse(user);
+  async me(
+    @CurrentUser()
+    user: AuthenticatedUser,
+  ): Promise<UserResponseDto> {
+    return this.principalMapper.toResponse(user);
   }
 
   @Post("change-password")
   @HttpCode(HttpStatus.NO_CONTENT)
   async changePassword(
-    @Body() request: ChangePasswordRequestDto,
-    @Req() httpRequest: Request,
-    @ClientIp() ipAddress: string,
-    @UserAgent() userAgent: string,
+    @Body()
+    request: ChangePasswordRequestDto,
+
+    @CurrentUser()
+    user: AuthenticatedUser,
+
+    @ClientIp()
+    ipAddress: string,
+
+    @UserAgent()
+    userAgent: string,
   ): Promise<void> {
-    if (request.newPassword !== request.confirmPassword) {
+    if (
+      request.newPassword !==
+      request.confirmPassword
+    ) {
       throw new BadRequestException(
         "New password confirmation does not match.",
       );
     }
 
-    const context = await this.getAuthenticatedContext(httpRequest);
-
     await this.authentication.changePassword(
-      context.userId,
+      user.userId,
       request.currentPassword,
       request.newPassword,
-      context.clientId,
+      user.clientId,
       ipAddress,
       userAgent,
     );
   }
 
+  @Public()
   @Post("forgot-password")
   @HttpCode(HttpStatus.OK)
   async forgotPassword(
@@ -227,6 +293,7 @@ export class AuthenticationController {
     };
   }
 
+  @Public()
   @Post("reset-password")
   @HttpCode(HttpStatus.NO_CONTENT)
   async resetPassword(
@@ -250,138 +317,68 @@ export class AuthenticationController {
   @Post("api-keys")
   @HttpCode(HttpStatus.CREATED)
   async createApiKey(
-    @Body() request: CreateApiKeyRequestDto,
-    @Req() httpRequest: Request,
-    @ClientIp() ipAddress: string,
-    @UserAgent() userAgent: string,
+    @Body()
+    request: CreateApiKeyRequestDto,
+
+    @CurrentUser()
+    user: AuthenticatedUser,
+
+    @ClientIp()
+    ipAddress: string,
+
+    @UserAgent()
+    userAgent: string,
   ) {
-    const context = await this.getAuthenticatedContext(httpRequest);
     return this.authentication.createApiKey(
-      context.clientId,
+      user.clientId,
       request.name,
-      context.userId,
+      user.userId,
       AuthenticationMethod.SESSION,
-      request.expiresAt ? new Date(request.expiresAt) : undefined,
+      request.expiresAt
+        ? new Date(request.expiresAt)
+        : undefined,
       ipAddress,
       userAgent,
     );
   }
 
   @Get("api-keys")
-  async listApiKeys(@Req() httpRequest: Request) {
-    const context = await this.getAuthenticatedContext(httpRequest);
-    const apiKeys = await this.authentication.listApiKeys(context.clientId);
+  async listApiKeys(
+    @CurrentUser()
+    user: AuthenticatedUser,
+  ) {
+    const apiKeys =
+      await this.authentication.listApiKeys(
+        user.clientId,
+      );
 
-    return apiKeys.map(({ secretHash, ...apiKey }) => apiKey);
+    return apiKeys.map(
+      ({ secretHash, ...apiKey }) => apiKey,
+    );
   }
 
   @Delete("api-keys/:id")
   @HttpCode(HttpStatus.NO_CONTENT)
   async revokeApiKey(
-    @Param("id") id: string,
-    @Req() httpRequest: Request,
-    @ClientIp() ipAddress: string,
-    @UserAgent() userAgent: string,
+    @Param("id")
+    id: string,
+
+    @CurrentUser()
+    user: AuthenticatedUser,
+
+    @ClientIp()
+    ipAddress: string,
+
+    @UserAgent()
+    userAgent: string,
   ): Promise<void> {
-    const context = await this.getAuthenticatedContext(httpRequest);
     await this.authentication.revokeApiKeyById(
-      id, context.clientId, context.userId, ipAddress, userAgent,
+      id,
+      user.clientId,
+      user.userId,
+      ipAddress,
+      userAgent,
     );
   }
 
-  private async getAuthenticatedContext(
-    request: Request,
-  ): Promise<{
-    sessionId: string;
-    userId: string;
-    clientId: string;
-  }> {
-    const sessionToken = this.getCookie(request, "session");
-
-    if (!sessionToken) {
-      throw new UnauthorizedException(
-        "Session token is required.",
-      );
-    }
-
-    const validation = await this.sessions.validateSession(sessionToken);
-
-    if (!validation.valid) {
-      throw new UnauthorizedException("Invalid session.");
-    }
-
-    const user = await this.users.findById(validation.session.userId);
-
-    return {
-      sessionId: validation.session.id,
-      userId: validation.session.userId,
-      clientId: user.clientId,
-    };
-  }
-
-  private getCookie(
-    request: Request,
-    name: string,
-  ): string | undefined {
-    const prefix = `${name}=`;
-
-    const value = request.headers.cookie
-      ?.split(";")
-      .map((part) => part.trim())
-      .find((part) => part.startsWith(prefix));
-
-    return value
-      ? decodeURIComponent(value.slice(prefix.length))
-      : undefined;
-  }
-
-  private setAuthenticationCookies(
-    response: Response,
-    authentication: {
-      sessionToken: string;
-      refreshToken: string;
-      refreshTokenExpiresAt: Date;
-    },
-  ): void {
-    response.cookie("session", authentication.sessionToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      path: "/",
-    });
-
-    this.setRefreshTokenCookie(
-      response,
-      authentication.refreshToken,
-      authentication.refreshTokenExpiresAt,
-    );
-  }
-
-  private setRefreshTokenCookie(
-    response: Response,
-    refreshToken: string,
-    expiresAt: Date,
-  ): void {
-    response.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: this.config.app.isProduction,
-      sameSite: "strict",
-      expires: expiresAt,
-      path: "/",
-    });
-  }
-
-  private clearAuthenticationCookies(
-    response: Response,
-  ): void {
-    const options = {
-      httpOnly: true,
-      secure: this.config.app.isProduction,
-      sameSite: "strict" as const,
-      path: "/",
-    };
-
-    response.clearCookie("session", options);
-    response.clearCookie("refreshToken", options);
-  }
 }

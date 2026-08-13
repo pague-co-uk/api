@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
+  createCounterMetric,
   getComponentLogger,
-  getMeter,
   recordException,
   withSpan,
 } from '@pague-co-uk/sms-gateway-telemetry';
@@ -12,7 +12,7 @@ import { SecretHasher } from '../../../common/services/secretHasher.service.js';
 
 import { AuthenticationMethod, RefreshToken } from '@prisma/client';
 import { InvalidRefreshTokenException } from '../../../exceptions/auth/invalid-refresh-token.exception.js';
-import { RefreshTokenRepository } from '../repositories/refreshTokenRepository.js';
+import { RefreshTokenRepository } from '../../../repositories/refreshTokenRepository.js';
 import { AuthenticationEventService } from './authentication-event.service.js';
 
 interface IssueRefreshTokenResponse {
@@ -47,47 +47,35 @@ export class RefreshTokenService {
   // Metrics
   // =====================================================
 
-  private readonly issuedCounter = getMeter().createCounter(
-    'auth.refresh.issued',
-    {
-      description: 'Number of refresh tokens issued.',
-    },
-  );
+  private readonly issuedCounter = createCounterMetric({
+    name: 'auth.refresh.issued',
+    description: 'Number of refresh tokens issued.',
+  });
 
-  private readonly validatedCounter = getMeter().createCounter(
-    'auth.refresh.validated',
-    {
-      description: 'Number of refresh tokens validated.',
-    },
-  );
+  private readonly validatedCounter = createCounterMetric({
+    name: 'auth.refresh.validated',
+    description: 'Number of refresh tokens validated.',
+  });
 
-  private readonly rotatedCounter = getMeter().createCounter(
-    'auth.refresh.rotated',
-    {
-      description: 'Number of refresh tokens rotated.',
-    },
-  );
+  private readonly rotatedCounter = createCounterMetric({
+    name: 'auth.refresh.rotated',
+    description: 'Number of refresh tokens rotated.',
+  });
 
-  private readonly revokedCounter = getMeter().createCounter(
-    'auth.refresh.revoked',
-    {
-      description: 'Number of refresh tokens revoked.',
-    },
-  );
+  private readonly revokedCounter = createCounterMetric({
+    name: 'auth.refresh.revoked',
+    description: 'Number of refresh tokens revoked.',
+  });
 
-  private readonly sessionRevokedCounter = getMeter().createCounter(
-    'auth.refresh.session.revoked',
-    {
-      description: 'Number of session refresh token revocations.',
-    },
-  );
+  private readonly sessionRevokedCounter = createCounterMetric({
+    name: 'auth.refresh.session.revoked',
+    description: 'Number of session refresh token revocations.',
+  });
 
-  private readonly cleanupCounter = getMeter().createCounter(
-    'auth.refresh.cleanup',
-    {
-      description: 'Number of expired refresh token cleanup operations.',
-    },
-  );
+  private readonly cleanupCounter = createCounterMetric({
+    name: 'auth.refresh.cleanup',
+    description: 'Number of expired refresh token cleanup operations.',
+  });
 
   // =====================================================
   // Constructor

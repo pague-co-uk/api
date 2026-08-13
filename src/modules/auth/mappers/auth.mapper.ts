@@ -3,8 +3,8 @@ import { Injectable } from "@nestjs/common";
 
 import {
   UserMapper,
-  UserWithRoles,
-} from "../../../modules/users/mapper/user.mapper.js";
+  UserWithRolesEntity,
+} from "../../users/user.mapper.js";
 import { VerifyMfaResponseDto } from "../controllers/responses/index.js";
 import { LoginResponseDto } from "../controllers/responses/login.response.dto.js";
 import { RefreshTokenResponseDto } from "../controllers/responses/refresh-token.response.dto.js";
@@ -16,7 +16,7 @@ export class AuthenticationMapper {
   ) { }
 
   toLoginResponse(
-    user: UserWithRoles,
+    user: UserWithRolesEntity,
     requiresMfa: boolean,
   ): LoginResponseDto {
     return {
@@ -26,7 +26,7 @@ export class AuthenticationMapper {
   }
 
   toRefreshTokenResponse(
-    user: UserWithRoles,
+    user: UserWithRolesEntity,
   ): RefreshTokenResponseDto {
     return {
       user: this.userMapper.toResponse(user),
@@ -34,7 +34,7 @@ export class AuthenticationMapper {
   }
 
   toVerifyMfaResponse(
-    user: UserWithRoles,
+    user: UserWithRolesEntity,
   ): VerifyMfaResponseDto {
     return {
       user: this.userMapper.toResponse(user),

@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import type { Counter } from '@opentelemetry/api';
+import type { CounterMetric } from '@pague-co-uk/sms-gateway-telemetry';
 import {
+  createCounterMetric,
   getComponentLogger,
-  getMeter,
   recordException,
   withSpan,
 } from '@pague-co-uk/sms-gateway-telemetry';
@@ -12,7 +12,7 @@ import {
   Prisma,
 } from '@prisma/client';
 
-import { AuthenticationEventRepository } from '../repositories/AuthenticationEventRepository.js';
+import { AuthenticationEventRepository } from '../../../repositories/AuthenticationEventRepository.js';
 
 @Injectable()
 export class AuthenticationEventService {
@@ -26,102 +26,74 @@ export class AuthenticationEventService {
   // Metrics
   // =====================================================
 
-  private readonly loginSucceededCounter = getMeter().createCounter(
-    'auth.event.login.succeeded',
-    {
-      description: 'Number of successful login audit events.',
-    },
-  );
+  private readonly loginSucceededCounter = createCounterMetric({
+    name: 'auth.event.login.succeeded',
+    description: 'Number of successful login audit events.',
+  });
 
-  private readonly loginFailedCounter = getMeter().createCounter(
-    'auth.event.login.failed',
-    {
-      description: 'Number of failed login audit events.',
-    },
-  );
+  private readonly loginFailedCounter = createCounterMetric({
+    name: 'auth.event.login.failed',
+    description: 'Number of failed login audit events.',
+  });
 
-  private readonly mfaChallengeCounter = getMeter().createCounter(
-    'auth.event.mfa.challenge',
-    {
-      description: 'Number of MFA challenge audit events.',
-    },
-  );
+  private readonly mfaChallengeCounter = createCounterMetric({
+    name: 'auth.event.mfa.challenge',
+    description: 'Number of MFA challenge audit events.',
+  });
 
-  private readonly mfaVerifiedCounter = getMeter().createCounter(
-    'auth.event.mfa.verified',
-    {
-      description: 'Number of MFA verification audit events.',
-    },
-  );
+  private readonly mfaVerifiedCounter = createCounterMetric({
+    name: 'auth.event.mfa.verified',
+    description: 'Number of MFA verification audit events.',
+  });
 
-  private readonly refreshIssuedCounter = getMeter().createCounter(
-    'auth.event.refresh.issued',
-    {
-      description: 'Number of refresh token issuance events.',
-    },
-  );
+  private readonly refreshIssuedCounter = createCounterMetric({
+    name: 'auth.event.refresh.issued',
+    description: 'Number of refresh token issuance events.',
+  });
 
-  private readonly apiKeyCreatedCounter = getMeter().createCounter(
-    'auth.event.api_key.created',
-    {
-      description: 'Number of Api Keys issued.',
-    },
-  );
-  private readonly refreshRotatedCounter = getMeter().createCounter(
-    'auth.event.refresh.rotated',
-    {
-      description: 'Number of refresh token rotation events.',
-    },
-  );
+  private readonly apiKeyCreatedCounter = createCounterMetric({
+    name: 'auth.event.api_key.created',
+    description: 'Number of Api Keys issued.',
+  });
+  private readonly refreshRotatedCounter = createCounterMetric({
+    name: 'auth.event.refresh.rotated',
+    description: 'Number of refresh token rotation events.',
+  });
 
-  private readonly refreshRevokedCounter = getMeter().createCounter(
-    'auth.event.refresh.revoked',
-    {
-      description: 'Number of refresh token revocation events.',
-    },
-  );
+  private readonly refreshRevokedCounter = createCounterMetric({
+    name: 'auth.event.refresh.revoked',
+    description: 'Number of refresh token revocation events.',
+  });
 
-  private readonly sessionRevokedCounter = getMeter().createCounter(
-    'auth.event.session.revoked',
-    {
-      description: 'Number of session revocation events.',
-    },
-  );
+  private readonly sessionRevokedCounter = createCounterMetric({
+    name: 'auth.event.session.revoked',
+    description: 'Number of session revocation events.',
+  });
 
-  private readonly logoutCounter = getMeter().createCounter(
-    'auth.event.logout',
-    {
-      description: 'Number of logout events.',
-    },
-  );
+  private readonly logoutCounter = createCounterMetric({
+    name: 'auth.event.logout',
+    description: 'Number of logout events.',
+  });
 
-  private readonly logoutAllCounter = getMeter().createCounter(
-    'auth.event.logout.all',
-    {
-      description: 'Number of logout all events.',
-    },
-  );
+  private readonly logoutAllCounter = createCounterMetric({
+    name: 'auth.event.logout.all',
+    description: 'Number of logout all events.',
+  });
 
-  private readonly apiKeyRotatedCounter = getMeter().createCounter(
-    'auth.event.api_key.rotated',
-    {
-      description: 'Number of API key rotation audit events.',
-    },
-  );
+  private readonly apiKeyRotatedCounter = createCounterMetric({
+    name: 'auth.event.api_key.rotated',
+    description: 'Number of API key rotation audit events.',
+  });
 
-  private readonly apiKeyRevokedCounter = getMeter().createCounter(
-    'auth.event.api_key.revoked',
-    {
-      description: 'Number of API key revocation audit events.',
-    },
-  );
+  private readonly apiKeyRevokedCounter = createCounterMetric({
+    name: 'auth.event.api_key.revoked',
+    description: 'Number of API key revocation audit events.',
+  });
 
-  private readonly passwordChangedCounter = getMeter().createCounter(
-    'auth.event.password.changed',
-    {
-      description: 'Number of passwords changed audit events.',
-    },
-  );
+  private readonly passwordChangedCounter = createCounterMetric({
+    name: 'auth.event.password.changed',
+    description: 'Number of passwords changed audit events.',
+  });
   // =====================================================
   // Constructor
   // =====================================================
@@ -647,7 +619,7 @@ export class AuthenticationEventService {
     operation: string,
     type: AuthenticationEventType,
     data: Omit<Prisma.AuthenticationEventCreateInput, 'type'>,
-    counter: Counter,
+    counter: CounterMetric,
     context: {
       userId?: string;
       clientId?: string;

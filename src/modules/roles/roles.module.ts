@@ -1,13 +1,43 @@
-import { Module } from "@nestjs/common";
-import { PermissionMapper } from "./mapper/permission.mapper.js";
+import {
+  Module,
+  OnModuleInit,
+} from "@nestjs/common";
+
+import { AuditModule } from "src/audit/audit.module.js";
+import { DatabaseModule } from "src/database/database.module.js";
+import { PermissionRepository } from "../../repositories/PermissionRepository.js";
+import { RolePermissionRepository } from "../../repositories/RolePermissionRepository.js";
+import { RoleRepository } from "../../repositories/RoleRepository.js";
 import { RoleMapper } from "./mapper/role.mapper.js";
+import { PermissionMapper } from "./permission.mapper.js";
+import { PermissionService } from "./services/permission.service.js";
+import { RoleService } from "./services/roles.service.js";
 
 @Module({
-  controllers: [],
-  providers: [RoleMapper, PermissionMapper]
-  ,
+  imports: [DatabaseModule,
+    AuditModule
+  ],
+  providers: [
+    PermissionRepository,
+    PermissionService,
+    PermissionMapper,
+    RoleRepository,
+    RolePermissionRepository,
+    RoleService,
+    RoleMapper,
+  ],
   exports: [
-
+    PermissionRepository,
+    PermissionService,
+    RoleService
   ],
 })
-export class RolesModule { }
+export class RolesModule implements OnModuleInit {
+  constructor(
+    private readonly permissions: PermissionService,
+  ) { }
+
+  async onModuleInit(): Promise<void> {
+    await this.permissions.synchronizeRegistry();
+  }
+}

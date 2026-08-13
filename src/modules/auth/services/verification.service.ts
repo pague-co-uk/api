@@ -10,8 +10,8 @@ import { addMinutes } from "date-fns";
 import { ClockService } from "../../../common/services/clock.service.js";
 import { AppConfigService } from "../../../config/config.service.js";
 
+import { VerificationChallengeRepository } from "../../../repositories/verificationChallengeRepository.js";
 import { CreateVerificationChallengeResult } from "../enums/createVerificationChallengeResult.js";
-import { VerificationChallengeRepository } from "../repositories/verificationChallengeRepository.js";
 import { PasswordService } from "./password.service.js";
 
 export enum VerificationResult {

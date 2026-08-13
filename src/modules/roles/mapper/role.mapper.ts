@@ -1,25 +1,31 @@
 import { Injectable } from "@nestjs/common";
 
-import { Prisma } from "@prisma/client";
-import { RoleResponseDto } from "../../../modules/auth/controllers/responses/role.response.dto.js";
-import { PermissionMapper } from "./permission.mapper.js";
+import type { Role } from "@prisma/client";
 
-export type RoleWithPermissions =
-  Prisma.RoleGetPayload<{
-    include: {
-      permissions: {
-        include: {
-          permission: true;
-        };
-      };
-    };
-  }>;
+import type { RoleWithPermissions } from "../../../repositories/RoleRepository.js";
+import { PermissionResponseDto } from "../dto/permission.response.dto.js";
+import { RoleSummaryResponseDto } from "../dto/role-summary.response.dto.js";
+import { RoleResponseDto } from "../dto/role.response.dto.js";
 
 @Injectable()
 export class RoleMapper {
-  constructor(
-    private readonly permissionMapper: PermissionMapper,
-  ) { }
+  toSummary(
+    role: Role,
+  ): RoleSummaryResponseDto {
+    return {
+      id: role.id,
+      name: role.name,
+      description: role.description,
+    };
+  }
+
+  toSummaries(
+    roles: readonly Role[],
+  ): readonly RoleSummaryResponseDto[] {
+    return roles.map((role) =>
+      this.toSummary(role),
+    );
+  }
 
   toResponse(
     role: RoleWithPermissions,
@@ -28,18 +34,23 @@ export class RoleMapper {
       id: role.id,
       name: role.name,
       description: role.description,
+
       permissions:
-        this.permissionMapper.toResponses(
-          role.permissions.map(
-            ({ permission }) => permission,
-          ),
+        role.permissions.map(
+          ({ permission }): PermissionResponseDto => ({
+            id: permission.id,
+            name: permission.name,
+            description:
+              permission.description,
+            module: permission.module,
+          }),
         ),
     };
   }
 
   toResponses(
     roles: readonly RoleWithPermissions[],
-  ): RoleResponseDto[] {
+  ): readonly RoleResponseDto[] {
     return roles.map((role) =>
       this.toResponse(role),
     );

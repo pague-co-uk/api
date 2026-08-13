@@ -1,11 +1,18 @@
-export interface ApiSuccessResponse<T> {
-  success: true;
+import { ApiProperty } from "@nestjs/swagger";
 
-  data: T;
+import { ApiMetaDto } from "./api-meta.interface.js";
 
-  meta: {
-    requestId: string;
+export class ApiSuccessResponseDto<T = unknown> {
+  @ApiProperty({
+    example: true,
+    description: "Indicates whether the request was successful.",
+  })
+  readonly success!: boolean;
 
-    timestamp: string;
-  };
+  readonly data!: T;
+
+  @ApiProperty({
+    type: ApiMetaDto,
+  })
+  readonly meta!: ApiMetaDto;
 }

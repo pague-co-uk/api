@@ -1,0 +1,4503 @@
+{
+  "models": {
+    "role_permissions": {
+      "id": "sms_gateway.role_permissions",
+      "schemaName": "sms_gateway",
+      "tableName": "role_permissions",
+      "fields": [
+        {
+          "id": "sms_gateway.role_permissions.assignedAt",
+          "name": "assignedAt",
+          "columnName": "assignedAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.role_permissions.permissionId",
+          "name": "permissionId",
+          "columnName": "permissionId",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": true,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.role_permissions.roleId",
+          "name": "roleId",
+          "columnName": "roleId",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": true,
+          "maxLength": 36
+        },
+        {
+          "name": "permissions",
+          "type": "permissions",
+          "isRequired": true,
+          "kind": "object",
+          "relationName": "role_permissionsTopermissions",
+          "relationFromFields": [
+            "permissionId"
+          ],
+          "relationToFields": [
+            "id"
+          ],
+          "isList": false,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "roles",
+          "type": "roles",
+          "isRequired": true,
+          "kind": "object",
+          "relationName": "role_permissionsToroles",
+          "relationFromFields": [
+            "roleId"
+          ],
+          "relationToFields": [
+            "id"
+          ],
+          "isList": false,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        }
+      ],
+      "uniqueConstraints": [
+        {
+          "name": "sms_gateway.role_permissions.roleId_permissionId",
+          "fields": [
+            "roleId",
+            "permissionId"
+          ]
+        }
+      ]
+    },
+    "trusted_devices": {
+      "id": "sms_gateway.trusted_devices",
+      "schemaName": "sms_gateway",
+      "tableName": "trusted_devices",
+      "fields": [
+        {
+          "id": "sms_gateway.trusted_devices.createdAt",
+          "name": "createdAt",
+          "columnName": "createdAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.trusted_devices.deviceId",
+          "name": "deviceId",
+          "columnName": "deviceId",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 64
+        },
+        {
+          "id": "sms_gateway.trusted_devices.deviceName",
+          "name": "deviceName",
+          "columnName": "deviceName",
+          "type": "varchar",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 255
+        },
+        {
+          "id": "sms_gateway.trusted_devices.expiresAt",
+          "name": "expiresAt",
+          "columnName": "expiresAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.trusted_devices.id",
+          "name": "id",
+          "columnName": "id",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": true,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.trusted_devices.ipAddress",
+          "name": "ipAddress",
+          "columnName": "ipAddress",
+          "type": "varchar",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 45
+        },
+        {
+          "id": "sms_gateway.trusted_devices.lastUsedAt",
+          "name": "lastUsedAt",
+          "columnName": "lastUsedAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.trusted_devices.updatedAt",
+          "name": "updatedAt",
+          "columnName": "updatedAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.trusted_devices.userAgent",
+          "name": "userAgent",
+          "columnName": "userAgent",
+          "type": "varchar",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 512
+        },
+        {
+          "id": "sms_gateway.trusted_devices.userId",
+          "name": "userId",
+          "columnName": "userId",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 36
+        },
+        {
+          "name": "users",
+          "type": "users",
+          "isRequired": true,
+          "kind": "object",
+          "relationName": "trusted_devicesTousers",
+          "relationFromFields": [
+            "userId"
+          ],
+          "relationToFields": [
+            "id"
+          ],
+          "isList": false,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "portal_sessions",
+          "type": "portal_sessions",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "portal_sessionsTotrusted_devices",
+          "relationFromFields": [],
+          "relationToFields": [],
+          "isList": true,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        }
+      ],
+      "uniqueConstraints": [
+        {
+          "name": "sms_gateway.trusted_devices.id",
+          "fields": [
+            "id"
+          ]
+        },
+        {
+          "name": "sms_gateway.trusted_devices.deviceId",
+          "fields": [
+            "deviceId"
+          ]
+        }
+      ]
+    },
+    "audit_logs": {
+      "id": "sms_gateway.audit_logs",
+      "schemaName": "sms_gateway",
+      "tableName": "audit_logs",
+      "fields": [
+        {
+          "id": "sms_gateway.audit_logs.action",
+          "name": "action",
+          "columnName": "action",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 100
+        },
+        {
+          "id": "sms_gateway.audit_logs.clientId",
+          "name": "clientId",
+          "columnName": "clientId",
+          "type": "char",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.audit_logs.createdAt",
+          "name": "createdAt",
+          "columnName": "createdAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.audit_logs.entityId",
+          "name": "entityId",
+          "columnName": "entityId",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.audit_logs.entityType",
+          "name": "entityType",
+          "columnName": "entityType",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 100
+        },
+        {
+          "id": "sms_gateway.audit_logs.id",
+          "name": "id",
+          "columnName": "id",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": true,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.audit_logs.ipAddress",
+          "name": "ipAddress",
+          "columnName": "ipAddress",
+          "type": "varchar",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 45
+        },
+        {
+          "id": "sms_gateway.audit_logs.newValues",
+          "name": "newValues",
+          "columnName": "newValues",
+          "type": "longtext",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 4294967295
+        },
+        {
+          "id": "sms_gateway.audit_logs.oldValues",
+          "name": "oldValues",
+          "columnName": "oldValues",
+          "type": "longtext",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 4294967295
+        },
+        {
+          "id": "sms_gateway.audit_logs.userAgent",
+          "name": "userAgent",
+          "columnName": "userAgent",
+          "type": "varchar",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 512
+        },
+        {
+          "id": "sms_gateway.audit_logs.userId",
+          "name": "userId",
+          "columnName": "userId",
+          "type": "char",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 36
+        },
+        {
+          "name": "clients",
+          "type": "clients",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "audit_logsToclients",
+          "relationFromFields": [
+            "clientId"
+          ],
+          "relationToFields": [
+            "id"
+          ],
+          "isList": false,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "users",
+          "type": "users",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "audit_logsTousers",
+          "relationFromFields": [
+            "userId"
+          ],
+          "relationToFields": [
+            "id"
+          ],
+          "isList": false,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        }
+      ],
+      "uniqueConstraints": [
+        {
+          "name": "sms_gateway.audit_logs.id",
+          "fields": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "webhook_endpoints": {
+      "id": "sms_gateway.webhook_endpoints",
+      "schemaName": "sms_gateway",
+      "tableName": "webhook_endpoints",
+      "fields": [
+        {
+          "id": "sms_gateway.webhook_endpoints.clientId",
+          "name": "clientId",
+          "columnName": "clientId",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.webhook_endpoints.createdAt",
+          "name": "createdAt",
+          "columnName": "createdAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.webhook_endpoints.enabled",
+          "name": "enabled",
+          "columnName": "enabled",
+          "type": "tinyint",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.webhook_endpoints.id",
+          "name": "id",
+          "columnName": "id",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": true,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.webhook_endpoints.name",
+          "name": "name",
+          "columnName": "name",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 100
+        },
+        {
+          "id": "sms_gateway.webhook_endpoints.publicId",
+          "name": "publicId",
+          "columnName": "publicId",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 20
+        },
+        {
+          "id": "sms_gateway.webhook_endpoints.secret",
+          "name": "secret",
+          "columnName": "secret",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 255
+        },
+        {
+          "id": "sms_gateway.webhook_endpoints.updatedAt",
+          "name": "updatedAt",
+          "columnName": "updatedAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.webhook_endpoints.url",
+          "name": "url",
+          "columnName": "url",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 2048
+        },
+        {
+          "name": "clients",
+          "type": "clients",
+          "isRequired": true,
+          "kind": "object",
+          "relationName": "webhook_endpointsToclients",
+          "relationFromFields": [
+            "clientId"
+          ],
+          "relationToFields": [
+            "id"
+          ],
+          "isList": false,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "webhook_deliveries",
+          "type": "webhook_deliveries",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "webhook_deliveriesTowebhook_endpoints",
+          "relationFromFields": [],
+          "relationToFields": [],
+          "isList": true,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        }
+      ],
+      "uniqueConstraints": [
+        {
+          "name": "sms_gateway.webhook_endpoints.id",
+          "fields": [
+            "id"
+          ]
+        },
+        {
+          "name": "sms_gateway.webhook_endpoints.publicId",
+          "fields": [
+            "publicId"
+          ]
+        }
+      ]
+    },
+    "webhook_deliveries": {
+      "id": "sms_gateway.webhook_deliveries",
+      "schemaName": "sms_gateway",
+      "tableName": "webhook_deliveries",
+      "fields": [
+        {
+          "id": "sms_gateway.webhook_deliveries.attemptedAt",
+          "name": "attemptedAt",
+          "columnName": "attemptedAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.webhook_deliveries.attemptNumber",
+          "name": "attemptNumber",
+          "columnName": "attemptNumber",
+          "type": "int",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.webhook_deliveries.id",
+          "name": "id",
+          "columnName": "id",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": true,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.webhook_deliveries.messageId",
+          "name": "messageId",
+          "columnName": "messageId",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.webhook_deliveries.responseBody",
+          "name": "responseBody",
+          "columnName": "responseBody",
+          "type": "text",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 65535
+        },
+        {
+          "id": "sms_gateway.webhook_deliveries.responseCode",
+          "name": "responseCode",
+          "columnName": "responseCode",
+          "type": "int",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.webhook_deliveries.webhookEndpointId",
+          "name": "webhookEndpointId",
+          "columnName": "webhookEndpointId",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 36
+        },
+        {
+          "name": "messages",
+          "type": "messages",
+          "isRequired": true,
+          "kind": "object",
+          "relationName": "webhook_deliveriesTomessages",
+          "relationFromFields": [
+            "messageId"
+          ],
+          "relationToFields": [
+            "id"
+          ],
+          "isList": false,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "webhook_endpoints",
+          "type": "webhook_endpoints",
+          "isRequired": true,
+          "kind": "object",
+          "relationName": "webhook_deliveriesTowebhook_endpoints",
+          "relationFromFields": [
+            "webhookEndpointId"
+          ],
+          "relationToFields": [
+            "id"
+          ],
+          "isList": false,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        }
+      ],
+      "uniqueConstraints": [
+        {
+          "name": "sms_gateway.webhook_deliveries.id",
+          "fields": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "permissions": {
+      "id": "sms_gateway.permissions",
+      "schemaName": "sms_gateway",
+      "tableName": "permissions",
+      "fields": [
+        {
+          "id": "sms_gateway.permissions.createdAt",
+          "name": "createdAt",
+          "columnName": "createdAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.permissions.description",
+          "name": "description",
+          "columnName": "description",
+          "type": "varchar",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 255
+        },
+        {
+          "id": "sms_gateway.permissions.id",
+          "name": "id",
+          "columnName": "id",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": true,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.permissions.module",
+          "name": "module",
+          "columnName": "module",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 100
+        },
+        {
+          "id": "sms_gateway.permissions.name",
+          "name": "name",
+          "columnName": "name",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 100
+        },
+        {
+          "name": "role_permissions",
+          "type": "role_permissions",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "role_permissionsTopermissions",
+          "relationFromFields": [],
+          "relationToFields": [],
+          "isList": true,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        }
+      ],
+      "uniqueConstraints": [
+        {
+          "name": "sms_gateway.permissions.name",
+          "fields": [
+            "name"
+          ]
+        },
+        {
+          "name": "sms_gateway.permissions.id",
+          "fields": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "roles": {
+      "id": "sms_gateway.roles",
+      "schemaName": "sms_gateway",
+      "tableName": "roles",
+      "fields": [
+        {
+          "id": "sms_gateway.roles.createdAt",
+          "name": "createdAt",
+          "columnName": "createdAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.roles.description",
+          "name": "description",
+          "columnName": "description",
+          "type": "varchar",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 255
+        },
+        {
+          "id": "sms_gateway.roles.id",
+          "name": "id",
+          "columnName": "id",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": true,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.roles.name",
+          "name": "name",
+          "columnName": "name",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 100
+        },
+        {
+          "id": "sms_gateway.roles.system",
+          "name": "system",
+          "columnName": "system",
+          "type": "tinyint",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.roles.updatedAt",
+          "name": "updatedAt",
+          "columnName": "updatedAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "name": "role_permissions",
+          "type": "role_permissions",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "role_permissionsToroles",
+          "relationFromFields": [],
+          "relationToFields": [],
+          "isList": true,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "user_roles",
+          "type": "user_roles",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "user_rolesToroles",
+          "relationFromFields": [],
+          "relationToFields": [],
+          "isList": true,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        }
+      ],
+      "uniqueConstraints": [
+        {
+          "name": "sms_gateway.roles.id",
+          "fields": [
+            "id"
+          ]
+        },
+        {
+          "name": "sms_gateway.roles.name",
+          "fields": [
+            "name"
+          ]
+        }
+      ]
+    },
+    "portal_sessions": {
+      "id": "sms_gateway.portal_sessions",
+      "schemaName": "sms_gateway",
+      "tableName": "portal_sessions",
+      "fields": [
+        {
+          "id": "sms_gateway.portal_sessions.authenticatedWithMfa",
+          "name": "authenticatedWithMfa",
+          "columnName": "authenticatedWithMfa",
+          "type": "tinyint",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.portal_sessions.createdAt",
+          "name": "createdAt",
+          "columnName": "createdAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.portal_sessions.expiresAt",
+          "name": "expiresAt",
+          "columnName": "expiresAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.portal_sessions.id",
+          "name": "id",
+          "columnName": "id",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": true,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.portal_sessions.ipAddress",
+          "name": "ipAddress",
+          "columnName": "ipAddress",
+          "type": "varchar",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 45
+        },
+        {
+          "id": "sms_gateway.portal_sessions.lastActivityAt",
+          "name": "lastActivityAt",
+          "columnName": "lastActivityAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.portal_sessions.revokedAt",
+          "name": "revokedAt",
+          "columnName": "revokedAt",
+          "type": "datetime",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.portal_sessions.sessionTokenHash",
+          "name": "sessionTokenHash",
+          "columnName": "sessionTokenHash",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 255
+        },
+        {
+          "id": "sms_gateway.portal_sessions.trustedDeviceId",
+          "name": "trustedDeviceId",
+          "columnName": "trustedDeviceId",
+          "type": "char",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.portal_sessions.updatedAt",
+          "name": "updatedAt",
+          "columnName": "updatedAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.portal_sessions.userAgent",
+          "name": "userAgent",
+          "columnName": "userAgent",
+          "type": "varchar",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 512
+        },
+        {
+          "id": "sms_gateway.portal_sessions.userId",
+          "name": "userId",
+          "columnName": "userId",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 36
+        },
+        {
+          "name": "trusted_devices",
+          "type": "trusted_devices",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "portal_sessionsTotrusted_devices",
+          "relationFromFields": [
+            "trustedDeviceId"
+          ],
+          "relationToFields": [
+            "id"
+          ],
+          "isList": false,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "users",
+          "type": "users",
+          "isRequired": true,
+          "kind": "object",
+          "relationName": "portal_sessionsTousers",
+          "relationFromFields": [
+            "userId"
+          ],
+          "relationToFields": [
+            "id"
+          ],
+          "isList": false,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "refresh_tokens",
+          "type": "refresh_tokens",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "refresh_tokensToportal_sessions",
+          "relationFromFields": [],
+          "relationToFields": [],
+          "isList": true,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        }
+      ],
+      "uniqueConstraints": [
+        {
+          "name": "sms_gateway.portal_sessions.id",
+          "fields": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "smpp_accounts": {
+      "id": "sms_gateway.smpp_accounts",
+      "schemaName": "sms_gateway",
+      "tableName": "smpp_accounts",
+      "fields": [
+        {
+          "id": "sms_gateway.smpp_accounts.clientId",
+          "name": "clientId",
+          "columnName": "clientId",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.smpp_accounts.createdAt",
+          "name": "createdAt",
+          "columnName": "createdAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.smpp_accounts.enquireLinkInterval",
+          "name": "enquireLinkInterval",
+          "columnName": "enquireLinkInterval",
+          "type": "int",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.smpp_accounts.id",
+          "name": "id",
+          "columnName": "id",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": true,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.smpp_accounts.maxConcurrentBinds",
+          "name": "maxConcurrentBinds",
+          "columnName": "maxConcurrentBinds",
+          "type": "int",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.smpp_accounts.passwordHash",
+          "name": "passwordHash",
+          "columnName": "passwordHash",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 255
+        },
+        {
+          "id": "sms_gateway.smpp_accounts.publicId",
+          "name": "publicId",
+          "columnName": "publicId",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 20
+        },
+        {
+          "id": "sms_gateway.smpp_accounts.status",
+          "name": "status",
+          "columnName": "status",
+          "type": "enum_sms_gateway_smpp_accounts_status",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 9
+        },
+        {
+          "id": "sms_gateway.smpp_accounts.systemId",
+          "name": "systemId",
+          "columnName": "systemId",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 50
+        },
+        {
+          "id": "sms_gateway.smpp_accounts.updatedAt",
+          "name": "updatedAt",
+          "columnName": "updatedAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "name": "clients",
+          "type": "clients",
+          "isRequired": true,
+          "kind": "object",
+          "relationName": "smpp_accountsToclients",
+          "relationFromFields": [
+            "clientId"
+          ],
+          "relationToFields": [
+            "id"
+          ],
+          "isList": false,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        }
+      ],
+      "uniqueConstraints": [
+        {
+          "name": "sms_gateway.smpp_accounts.id",
+          "fields": [
+            "id"
+          ]
+        },
+        {
+          "name": "sms_gateway.smpp_accounts.publicId",
+          "fields": [
+            "publicId"
+          ]
+        },
+        {
+          "name": "sms_gateway.smpp_accounts.systemId",
+          "fields": [
+            "systemId"
+          ]
+        }
+      ]
+    },
+    "clients": {
+      "id": "sms_gateway.clients",
+      "schemaName": "sms_gateway",
+      "tableName": "clients",
+      "fields": [
+        {
+          "id": "sms_gateway.clients.companyName",
+          "name": "companyName",
+          "columnName": "companyName",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 255
+        },
+        {
+          "id": "sms_gateway.clients.createdAt",
+          "name": "createdAt",
+          "columnName": "createdAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.clients.displayName",
+          "name": "displayName",
+          "columnName": "displayName",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 255
+        },
+        {
+          "id": "sms_gateway.clients.email",
+          "name": "email",
+          "columnName": "email",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 255
+        },
+        {
+          "id": "sms_gateway.clients.id",
+          "name": "id",
+          "columnName": "id",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": true,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.clients.metadata",
+          "name": "metadata",
+          "columnName": "metadata",
+          "type": "longtext",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 4294967295
+        },
+        {
+          "id": "sms_gateway.clients.phone",
+          "name": "phone",
+          "columnName": "phone",
+          "type": "varchar",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 30
+        },
+        {
+          "id": "sms_gateway.clients.publicId",
+          "name": "publicId",
+          "columnName": "publicId",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 20
+        },
+        {
+          "id": "sms_gateway.clients.rateLimitPerSecond",
+          "name": "rateLimitPerSecond",
+          "columnName": "rateLimitPerSecond",
+          "type": "int",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.clients.status",
+          "name": "status",
+          "columnName": "status",
+          "type": "enum_sms_gateway_clients_status",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 9
+        },
+        {
+          "id": "sms_gateway.clients.timezone",
+          "name": "timezone",
+          "columnName": "timezone",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 64
+        },
+        {
+          "id": "sms_gateway.clients.updatedAt",
+          "name": "updatedAt",
+          "columnName": "updatedAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "name": "api_keys",
+          "type": "api_keys",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "api_keysToclients",
+          "relationFromFields": [],
+          "relationToFields": [],
+          "isList": true,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "audit_logs",
+          "type": "audit_logs",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "audit_logsToclients",
+          "relationFromFields": [],
+          "relationToFields": [],
+          "isList": true,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "authentication_events",
+          "type": "authentication_events",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "authentication_eventsToclients",
+          "relationFromFields": [],
+          "relationToFields": [],
+          "isList": true,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "float_ledger_entries",
+          "type": "float_ledger_entries",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "float_ledger_entriesToclients",
+          "relationFromFields": [],
+          "relationToFields": [],
+          "isList": true,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "messages",
+          "type": "messages",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "messagesToclients",
+          "relationFromFields": [],
+          "relationToFields": [],
+          "isList": true,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "sender_ids",
+          "type": "sender_ids",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "sender_idsToclients",
+          "relationFromFields": [],
+          "relationToFields": [],
+          "isList": true,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "smpp_accounts",
+          "type": "smpp_accounts",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "smpp_accountsToclients",
+          "relationFromFields": [],
+          "relationToFields": [],
+          "isList": true,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "users",
+          "type": "users",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "usersToclients",
+          "relationFromFields": [],
+          "relationToFields": [],
+          "isList": true,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "webhook_endpoints",
+          "type": "webhook_endpoints",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "webhook_endpointsToclients",
+          "relationFromFields": [],
+          "relationToFields": [],
+          "isList": true,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        }
+      ],
+      "uniqueConstraints": [
+        {
+          "name": "sms_gateway.clients.email",
+          "fields": [
+            "email"
+          ]
+        },
+        {
+          "name": "sms_gateway.clients.publicId",
+          "fields": [
+            "publicId"
+          ]
+        },
+        {
+          "name": "sms_gateway.clients.id",
+          "fields": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "refresh_tokens": {
+      "id": "sms_gateway.refresh_tokens",
+      "schemaName": "sms_gateway",
+      "tableName": "refresh_tokens",
+      "fields": [
+        {
+          "id": "sms_gateway.refresh_tokens.createdAt",
+          "name": "createdAt",
+          "columnName": "createdAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.refresh_tokens.expiresAt",
+          "name": "expiresAt",
+          "columnName": "expiresAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.refresh_tokens.id",
+          "name": "id",
+          "columnName": "id",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": true,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.refresh_tokens.replacedById",
+          "name": "replacedById",
+          "columnName": "replacedById",
+          "type": "char",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.refresh_tokens.revokedAt",
+          "name": "revokedAt",
+          "columnName": "revokedAt",
+          "type": "datetime",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.refresh_tokens.sessionId",
+          "name": "sessionId",
+          "columnName": "sessionId",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.refresh_tokens.tokenHash",
+          "name": "tokenHash",
+          "columnName": "tokenHash",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 255
+        },
+        {
+          "name": "portal_sessions",
+          "type": "portal_sessions",
+          "isRequired": true,
+          "kind": "object",
+          "relationName": "refresh_tokensToportal_sessions",
+          "relationFromFields": [
+            "sessionId"
+          ],
+          "relationToFields": [
+            "id"
+          ],
+          "isList": false,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "refresh_tokens",
+          "type": "refresh_tokens",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "refresh_tokensTorefresh_tokens",
+          "relationFromFields": [
+            "replacedById"
+          ],
+          "relationToFields": [
+            "id"
+          ],
+          "isList": false,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "refresh_tokens",
+          "type": "refresh_tokens",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "refresh_tokensTorefresh_tokens",
+          "relationFromFields": [],
+          "relationToFields": [],
+          "isList": true,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        }
+      ],
+      "uniqueConstraints": [
+        {
+          "name": "sms_gateway.refresh_tokens.id",
+          "fields": [
+            "id"
+          ]
+        },
+        {
+          "name": "sms_gateway.refresh_tokens.tokenHash",
+          "fields": [
+            "tokenHash"
+          ]
+        }
+      ]
+    },
+    "authentication_events": {
+      "id": "sms_gateway.authentication_events",
+      "schemaName": "sms_gateway",
+      "tableName": "authentication_events",
+      "fields": [
+        {
+          "id": "sms_gateway.authentication_events.authenticationMethod",
+          "name": "authenticationMethod",
+          "columnName": "authenticationMethod",
+          "type": "enum_sms_gateway_authentication_events_authentication_method",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 13
+        },
+        {
+          "id": "sms_gateway.authentication_events.clientId",
+          "name": "clientId",
+          "columnName": "clientId",
+          "type": "char",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.authentication_events.createdAt",
+          "name": "createdAt",
+          "columnName": "createdAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.authentication_events.failureReason",
+          "name": "failureReason",
+          "columnName": "failureReason",
+          "type": "varchar",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 255
+        },
+        {
+          "id": "sms_gateway.authentication_events.id",
+          "name": "id",
+          "columnName": "id",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": true,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.authentication_events.ipAddress",
+          "name": "ipAddress",
+          "columnName": "ipAddress",
+          "type": "varchar",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 45
+        },
+        {
+          "id": "sms_gateway.authentication_events.sessionId",
+          "name": "sessionId",
+          "columnName": "sessionId",
+          "type": "varchar",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 191
+        },
+        {
+          "id": "sms_gateway.authentication_events.type",
+          "name": "type",
+          "columnName": "type",
+          "type": "enum_sms_gateway_authentication_events_type",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 21
+        },
+        {
+          "id": "sms_gateway.authentication_events.userAgent",
+          "name": "userAgent",
+          "columnName": "userAgent",
+          "type": "varchar",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 512
+        },
+        {
+          "id": "sms_gateway.authentication_events.userId",
+          "name": "userId",
+          "columnName": "userId",
+          "type": "char",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 36
+        },
+        {
+          "name": "clients",
+          "type": "clients",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "authentication_eventsToclients",
+          "relationFromFields": [
+            "clientId"
+          ],
+          "relationToFields": [
+            "id"
+          ],
+          "isList": false,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "users",
+          "type": "users",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "authentication_eventsTousers",
+          "relationFromFields": [
+            "userId"
+          ],
+          "relationToFields": [
+            "id"
+          ],
+          "isList": false,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        }
+      ],
+      "uniqueConstraints": [
+        {
+          "name": "sms_gateway.authentication_events.id",
+          "fields": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "messages": {
+      "id": "sms_gateway.messages",
+      "schemaName": "sms_gateway",
+      "tableName": "messages",
+      "fields": [
+        {
+          "id": "sms_gateway.messages.body",
+          "name": "body",
+          "columnName": "body",
+          "type": "text",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 65535
+        },
+        {
+          "id": "sms_gateway.messages.clientId",
+          "name": "clientId",
+          "columnName": "clientId",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.messages.createdAt",
+          "name": "createdAt",
+          "columnName": "createdAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.messages.currentStatus",
+          "name": "currentStatus",
+          "columnName": "currentStatus",
+          "type": "enum_sms_gateway_messages_current_status",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 9
+        },
+        {
+          "id": "sms_gateway.messages.destination",
+          "name": "destination",
+          "columnName": "destination",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 20
+        },
+        {
+          "id": "sms_gateway.messages.encoding",
+          "name": "encoding",
+          "columnName": "encoding",
+          "type": "enum_sms_gateway_messages_encoding",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 6
+        },
+        {
+          "id": "sms_gateway.messages.id",
+          "name": "id",
+          "columnName": "id",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": true,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.messages.publicId",
+          "name": "publicId",
+          "columnName": "publicId",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 20
+        },
+        {
+          "id": "sms_gateway.messages.segmentCount",
+          "name": "segmentCount",
+          "columnName": "segmentCount",
+          "type": "int",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.messages.senderIdId",
+          "name": "senderIdId",
+          "columnName": "senderIdId",
+          "type": "char",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.messages.submittedAt",
+          "name": "submittedAt",
+          "columnName": "submittedAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.messages.updatedAt",
+          "name": "updatedAt",
+          "columnName": "updatedAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "name": "clients",
+          "type": "clients",
+          "isRequired": true,
+          "kind": "object",
+          "relationName": "messagesToclients",
+          "relationFromFields": [
+            "clientId"
+          ],
+          "relationToFields": [
+            "id"
+          ],
+          "isList": false,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "sender_ids",
+          "type": "sender_ids",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "messagesTosender_ids",
+          "relationFromFields": [
+            "senderIdId"
+          ],
+          "relationToFields": [
+            "id"
+          ],
+          "isList": false,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "message_attempts",
+          "type": "message_attempts",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "message_attemptsTomessages",
+          "relationFromFields": [],
+          "relationToFields": [],
+          "isList": true,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "message_status_events",
+          "type": "message_status_events",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "message_status_eventsTomessages",
+          "relationFromFields": [],
+          "relationToFields": [],
+          "isList": true,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "webhook_deliveries",
+          "type": "webhook_deliveries",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "webhook_deliveriesTomessages",
+          "relationFromFields": [],
+          "relationToFields": [],
+          "isList": true,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        }
+      ],
+      "uniqueConstraints": [
+        {
+          "name": "sms_gateway.messages.publicId",
+          "fields": [
+            "publicId"
+          ]
+        },
+        {
+          "name": "sms_gateway.messages.id",
+          "fields": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "users": {
+      "id": "sms_gateway.users",
+      "schemaName": "sms_gateway",
+      "tableName": "users",
+      "fields": [
+        {
+          "id": "sms_gateway.users.clientId",
+          "name": "clientId",
+          "columnName": "clientId",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.users.createdAt",
+          "name": "createdAt",
+          "columnName": "createdAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.users.email",
+          "name": "email",
+          "columnName": "email",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 255
+        },
+        {
+          "id": "sms_gateway.users.emailVerifiedAt",
+          "name": "emailVerifiedAt",
+          "columnName": "emailVerifiedAt",
+          "type": "datetime",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.users.failedLoginAttempts",
+          "name": "failedLoginAttempts",
+          "columnName": "failedLoginAttempts",
+          "type": "int",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.users.firstName",
+          "name": "firstName",
+          "columnName": "firstName",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 100
+        },
+        {
+          "id": "sms_gateway.users.id",
+          "name": "id",
+          "columnName": "id",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": true,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.users.lastLoginAt",
+          "name": "lastLoginAt",
+          "columnName": "lastLoginAt",
+          "type": "datetime",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.users.lastName",
+          "name": "lastName",
+          "columnName": "lastName",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 100
+        },
+        {
+          "id": "sms_gateway.users.lockedUntil",
+          "name": "lockedUntil",
+          "columnName": "lockedUntil",
+          "type": "datetime",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.users.mfaEnabled",
+          "name": "mfaEnabled",
+          "columnName": "mfaEnabled",
+          "type": "tinyint",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.users.passwordHash",
+          "name": "passwordHash",
+          "columnName": "passwordHash",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 255
+        },
+        {
+          "id": "sms_gateway.users.phone",
+          "name": "phone",
+          "columnName": "phone",
+          "type": "varchar",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 30
+        },
+        {
+          "id": "sms_gateway.users.phoneVerifiedAt",
+          "name": "phoneVerifiedAt",
+          "columnName": "phoneVerifiedAt",
+          "type": "datetime",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.users.preferredMfaMethod",
+          "name": "preferredMfaMethod",
+          "columnName": "preferredMfaMethod",
+          "type": "enum_sms_gateway_users_preferred_mfa_method",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 5
+        },
+        {
+          "id": "sms_gateway.users.status",
+          "name": "status",
+          "columnName": "status",
+          "type": "enum_sms_gateway_users_status",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 8
+        },
+        {
+          "id": "sms_gateway.users.updatedAt",
+          "name": "updatedAt",
+          "columnName": "updatedAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.users.username",
+          "name": "username",
+          "columnName": "username",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 100
+        },
+        {
+          "name": "clients",
+          "type": "clients",
+          "isRequired": true,
+          "kind": "object",
+          "relationName": "usersToclients",
+          "relationFromFields": [
+            "clientId"
+          ],
+          "relationToFields": [
+            "id"
+          ],
+          "isList": false,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "audit_logs",
+          "type": "audit_logs",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "audit_logsTousers",
+          "relationFromFields": [],
+          "relationToFields": [],
+          "isList": true,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "authentication_events",
+          "type": "authentication_events",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "authentication_eventsTousers",
+          "relationFromFields": [],
+          "relationToFields": [],
+          "isList": true,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "float_ledger_entries",
+          "type": "float_ledger_entries",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "float_ledger_entriesTousers",
+          "relationFromFields": [],
+          "relationToFields": [],
+          "isList": true,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "portal_sessions",
+          "type": "portal_sessions",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "portal_sessionsTousers",
+          "relationFromFields": [],
+          "relationToFields": [],
+          "isList": true,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "trusted_devices",
+          "type": "trusted_devices",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "trusted_devicesTousers",
+          "relationFromFields": [],
+          "relationToFields": [],
+          "isList": true,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "user_roles",
+          "type": "user_roles",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "user_rolesTousers",
+          "relationFromFields": [],
+          "relationToFields": [],
+          "isList": true,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "verification_challenges",
+          "type": "verification_challenges",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "verification_challengesTousers",
+          "relationFromFields": [],
+          "relationToFields": [],
+          "isList": true,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        }
+      ],
+      "uniqueConstraints": [
+        {
+          "name": "sms_gateway.users.id",
+          "fields": [
+            "id"
+          ]
+        },
+        {
+          "name": "sms_gateway.users.clientId_email",
+          "fields": [
+            "clientId",
+            "email"
+          ]
+        },
+        {
+          "name": "sms_gateway.users.email",
+          "fields": [
+            "email"
+          ]
+        },
+        {
+          "name": "sms_gateway.users.username",
+          "fields": [
+            "username"
+          ]
+        }
+      ]
+    },
+    "sender_ids": {
+      "id": "sms_gateway.sender_ids",
+      "schemaName": "sms_gateway",
+      "tableName": "sender_ids",
+      "fields": [
+        {
+          "id": "sms_gateway.sender_ids.clientId",
+          "name": "clientId",
+          "columnName": "clientId",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.sender_ids.createdAt",
+          "name": "createdAt",
+          "columnName": "createdAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.sender_ids.id",
+          "name": "id",
+          "columnName": "id",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": true,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.sender_ids.isDefault",
+          "name": "isDefault",
+          "columnName": "isDefault",
+          "type": "tinyint",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.sender_ids.publicId",
+          "name": "publicId",
+          "columnName": "publicId",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 20
+        },
+        {
+          "id": "sms_gateway.sender_ids.sender",
+          "name": "sender",
+          "columnName": "sender",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 20
+        },
+        {
+          "id": "sms_gateway.sender_ids.status",
+          "name": "status",
+          "columnName": "status",
+          "type": "enum_sms_gateway_sender_ids_status",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 8
+        },
+        {
+          "id": "sms_gateway.sender_ids.updatedAt",
+          "name": "updatedAt",
+          "columnName": "updatedAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "name": "clients",
+          "type": "clients",
+          "isRequired": true,
+          "kind": "object",
+          "relationName": "sender_idsToclients",
+          "relationFromFields": [
+            "clientId"
+          ],
+          "relationToFields": [
+            "id"
+          ],
+          "isList": false,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "messages",
+          "type": "messages",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "messagesTosender_ids",
+          "relationFromFields": [],
+          "relationToFields": [],
+          "isList": true,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        }
+      ],
+      "uniqueConstraints": [
+        {
+          "name": "sms_gateway.sender_ids.id",
+          "fields": [
+            "id"
+          ]
+        },
+        {
+          "name": "sms_gateway.sender_ids.clientId_sender",
+          "fields": [
+            "clientId",
+            "sender"
+          ]
+        },
+        {
+          "name": "sms_gateway.sender_ids.publicId",
+          "fields": [
+            "publicId"
+          ]
+        }
+      ]
+    },
+    "message_attempts": {
+      "id": "sms_gateway.message_attempts",
+      "schemaName": "sms_gateway",
+      "tableName": "message_attempts",
+      "fields": [
+        {
+          "id": "sms_gateway.message_attempts.attemptNumber",
+          "name": "attemptNumber",
+          "columnName": "attemptNumber",
+          "type": "int",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.message_attempts.completedAt",
+          "name": "completedAt",
+          "columnName": "completedAt",
+          "type": "datetime",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.message_attempts.createdAt",
+          "name": "createdAt",
+          "columnName": "createdAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.message_attempts.errorCode",
+          "name": "errorCode",
+          "columnName": "errorCode",
+          "type": "varchar",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 50
+        },
+        {
+          "id": "sms_gateway.message_attempts.errorMessage",
+          "name": "errorMessage",
+          "columnName": "errorMessage",
+          "type": "varchar",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 255
+        },
+        {
+          "id": "sms_gateway.message_attempts.id",
+          "name": "id",
+          "columnName": "id",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": true,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.message_attempts.messageId",
+          "name": "messageId",
+          "columnName": "messageId",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.message_attempts.provider",
+          "name": "provider",
+          "columnName": "provider",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 50
+        },
+        {
+          "id": "sms_gateway.message_attempts.providerMessageId",
+          "name": "providerMessageId",
+          "columnName": "providerMessageId",
+          "type": "varchar",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 100
+        },
+        {
+          "id": "sms_gateway.message_attempts.route",
+          "name": "route",
+          "columnName": "route",
+          "type": "varchar",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 100
+        },
+        {
+          "id": "sms_gateway.message_attempts.startedAt",
+          "name": "startedAt",
+          "columnName": "startedAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.message_attempts.status",
+          "name": "status",
+          "columnName": "status",
+          "type": "enum_sms_gateway_message_attempts_status",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 9
+        },
+        {
+          "name": "messages",
+          "type": "messages",
+          "isRequired": true,
+          "kind": "object",
+          "relationName": "message_attemptsTomessages",
+          "relationFromFields": [
+            "messageId"
+          ],
+          "relationToFields": [
+            "id"
+          ],
+          "isList": false,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "message_status_events",
+          "type": "message_status_events",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "message_status_eventsTomessage_attempts",
+          "relationFromFields": [],
+          "relationToFields": [],
+          "isList": true,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        }
+      ],
+      "uniqueConstraints": [
+        {
+          "name": "sms_gateway.message_attempts.messageId_attemptNumber",
+          "fields": [
+            "messageId",
+            "attemptNumber"
+          ]
+        },
+        {
+          "name": "sms_gateway.message_attempts.id",
+          "fields": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "_prisma_migrations": {
+      "id": "sms_gateway._prisma_migrations",
+      "schemaName": "sms_gateway",
+      "tableName": "_prisma_migrations",
+      "fields": [
+        {
+          "id": "sms_gateway._prisma_migrations.applied_steps_count",
+          "name": "applied_steps_count",
+          "columnName": "applied_steps_count",
+          "type": "int",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway._prisma_migrations.checksum",
+          "name": "checksum",
+          "columnName": "checksum",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 64
+        },
+        {
+          "id": "sms_gateway._prisma_migrations.finished_at",
+          "name": "finished_at",
+          "columnName": "finished_at",
+          "type": "datetime",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway._prisma_migrations.id",
+          "name": "id",
+          "columnName": "id",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": true,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway._prisma_migrations.logs",
+          "name": "logs",
+          "columnName": "logs",
+          "type": "text",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 65535
+        },
+        {
+          "id": "sms_gateway._prisma_migrations.migration_name",
+          "name": "migration_name",
+          "columnName": "migration_name",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 255
+        },
+        {
+          "id": "sms_gateway._prisma_migrations.rolled_back_at",
+          "name": "rolled_back_at",
+          "columnName": "rolled_back_at",
+          "type": "datetime",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway._prisma_migrations.started_at",
+          "name": "started_at",
+          "columnName": "started_at",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        }
+      ],
+      "uniqueConstraints": [
+        {
+          "name": "sms_gateway._prisma_migrations.id",
+          "fields": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "message_status_events": {
+      "id": "sms_gateway.message_status_events",
+      "schemaName": "sms_gateway",
+      "tableName": "message_status_events",
+      "fields": [
+        {
+          "id": "sms_gateway.message_status_events.attemptId",
+          "name": "attemptId",
+          "columnName": "attemptId",
+          "type": "char",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.message_status_events.createdAt",
+          "name": "createdAt",
+          "columnName": "createdAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.message_status_events.description",
+          "name": "description",
+          "columnName": "description",
+          "type": "varchar",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 255
+        },
+        {
+          "id": "sms_gateway.message_status_events.id",
+          "name": "id",
+          "columnName": "id",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": true,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.message_status_events.messageId",
+          "name": "messageId",
+          "columnName": "messageId",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.message_status_events.rawData",
+          "name": "rawData",
+          "columnName": "rawData",
+          "type": "longtext",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 4294967295
+        },
+        {
+          "id": "sms_gateway.message_status_events.source",
+          "name": "source",
+          "columnName": "source",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 50
+        },
+        {
+          "id": "sms_gateway.message_status_events.status",
+          "name": "status",
+          "columnName": "status",
+          "type": "enum_sms_gateway_message_status_events_status",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 9
+        },
+        {
+          "name": "messages",
+          "type": "messages",
+          "isRequired": true,
+          "kind": "object",
+          "relationName": "message_status_eventsTomessages",
+          "relationFromFields": [
+            "messageId"
+          ],
+          "relationToFields": [
+            "id"
+          ],
+          "isList": false,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "message_attempts",
+          "type": "message_attempts",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "message_status_eventsTomessage_attempts",
+          "relationFromFields": [
+            "attemptId"
+          ],
+          "relationToFields": [
+            "id"
+          ],
+          "isList": false,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        }
+      ],
+      "uniqueConstraints": [
+        {
+          "name": "sms_gateway.message_status_events.id",
+          "fields": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "verification_challenges": {
+      "id": "sms_gateway.verification_challenges",
+      "schemaName": "sms_gateway",
+      "tableName": "verification_challenges",
+      "fields": [
+        {
+          "id": "sms_gateway.verification_challenges.attempts",
+          "name": "attempts",
+          "columnName": "attempts",
+          "type": "int",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.verification_challenges.channel",
+          "name": "channel",
+          "columnName": "channel",
+          "type": "enum_sms_gateway_verification_challenges_channel",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 5
+        },
+        {
+          "id": "sms_gateway.verification_challenges.codeHash",
+          "name": "codeHash",
+          "columnName": "codeHash",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 255
+        },
+        {
+          "id": "sms_gateway.verification_challenges.createdAt",
+          "name": "createdAt",
+          "columnName": "createdAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.verification_challenges.expiresAt",
+          "name": "expiresAt",
+          "columnName": "expiresAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.verification_challenges.id",
+          "name": "id",
+          "columnName": "id",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": true,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.verification_challenges.purpose",
+          "name": "purpose",
+          "columnName": "purpose",
+          "type": "enum_sms_gateway_verification_challenges_purpose",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 18
+        },
+        {
+          "id": "sms_gateway.verification_challenges.status",
+          "name": "status",
+          "columnName": "status",
+          "type": "enum_sms_gateway_verification_challenges_status",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 9
+        },
+        {
+          "id": "sms_gateway.verification_challenges.userId",
+          "name": "userId",
+          "columnName": "userId",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.verification_challenges.verifiedAt",
+          "name": "verifiedAt",
+          "columnName": "verifiedAt",
+          "type": "datetime",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "name": "users",
+          "type": "users",
+          "isRequired": true,
+          "kind": "object",
+          "relationName": "verification_challengesTousers",
+          "relationFromFields": [
+            "userId"
+          ],
+          "relationToFields": [
+            "id"
+          ],
+          "isList": false,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        }
+      ],
+      "uniqueConstraints": [
+        {
+          "name": "sms_gateway.verification_challenges.id",
+          "fields": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "user_roles": {
+      "id": "sms_gateway.user_roles",
+      "schemaName": "sms_gateway",
+      "tableName": "user_roles",
+      "fields": [
+        {
+          "id": "sms_gateway.user_roles.assignedAt",
+          "name": "assignedAt",
+          "columnName": "assignedAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.user_roles.roleId",
+          "name": "roleId",
+          "columnName": "roleId",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": true,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.user_roles.userId",
+          "name": "userId",
+          "columnName": "userId",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": true,
+          "maxLength": 36
+        },
+        {
+          "name": "roles",
+          "type": "roles",
+          "isRequired": true,
+          "kind": "object",
+          "relationName": "user_rolesToroles",
+          "relationFromFields": [
+            "roleId"
+          ],
+          "relationToFields": [
+            "id"
+          ],
+          "isList": false,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "users",
+          "type": "users",
+          "isRequired": true,
+          "kind": "object",
+          "relationName": "user_rolesTousers",
+          "relationFromFields": [
+            "userId"
+          ],
+          "relationToFields": [
+            "id"
+          ],
+          "isList": false,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        }
+      ],
+      "uniqueConstraints": [
+        {
+          "name": "sms_gateway.user_roles.userId_roleId",
+          "fields": [
+            "userId",
+            "roleId"
+          ]
+        }
+      ]
+    },
+    "api_keys": {
+      "id": "sms_gateway.api_keys",
+      "schemaName": "sms_gateway",
+      "tableName": "api_keys",
+      "fields": [
+        {
+          "id": "sms_gateway.api_keys.clientId",
+          "name": "clientId",
+          "columnName": "clientId",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.api_keys.createdAt",
+          "name": "createdAt",
+          "columnName": "createdAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.api_keys.expiresAt",
+          "name": "expiresAt",
+          "columnName": "expiresAt",
+          "type": "datetime",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.api_keys.id",
+          "name": "id",
+          "columnName": "id",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": true,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.api_keys.lastUsedAt",
+          "name": "lastUsedAt",
+          "columnName": "lastUsedAt",
+          "type": "datetime",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.api_keys.name",
+          "name": "name",
+          "columnName": "name",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 100
+        },
+        {
+          "id": "sms_gateway.api_keys.prefix",
+          "name": "prefix",
+          "columnName": "prefix",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 20
+        },
+        {
+          "id": "sms_gateway.api_keys.publicId",
+          "name": "publicId",
+          "columnName": "publicId",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 20
+        },
+        {
+          "id": "sms_gateway.api_keys.revokedAt",
+          "name": "revokedAt",
+          "columnName": "revokedAt",
+          "type": "datetime",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.api_keys.secretHash",
+          "name": "secretHash",
+          "columnName": "secretHash",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 255
+        },
+        {
+          "id": "sms_gateway.api_keys.status",
+          "name": "status",
+          "columnName": "status",
+          "type": "enum_sms_gateway_api_keys_status",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 7
+        },
+        {
+          "id": "sms_gateway.api_keys.updatedAt",
+          "name": "updatedAt",
+          "columnName": "updatedAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "name": "clients",
+          "type": "clients",
+          "isRequired": true,
+          "kind": "object",
+          "relationName": "api_keysToclients",
+          "relationFromFields": [
+            "clientId"
+          ],
+          "relationToFields": [
+            "id"
+          ],
+          "isList": false,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        }
+      ],
+      "uniqueConstraints": [
+        {
+          "name": "sms_gateway.api_keys.prefix",
+          "fields": [
+            "prefix"
+          ]
+        },
+        {
+          "name": "sms_gateway.api_keys.publicId",
+          "fields": [
+            "publicId"
+          ]
+        },
+        {
+          "name": "sms_gateway.api_keys.id",
+          "fields": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "float_ledger_entries": {
+      "id": "sms_gateway.float_ledger_entries",
+      "schemaName": "sms_gateway",
+      "tableName": "float_ledger_entries",
+      "fields": [
+        {
+          "id": "sms_gateway.float_ledger_entries.clientId",
+          "name": "clientId",
+          "columnName": "clientId",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.float_ledger_entries.createdAt",
+          "name": "createdAt",
+          "columnName": "createdAt",
+          "type": "datetime",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.float_ledger_entries.createdById",
+          "name": "createdById",
+          "columnName": "createdById",
+          "type": "char",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.float_ledger_entries.credits",
+          "name": "credits",
+          "columnName": "credits",
+          "type": "int",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": null
+        },
+        {
+          "id": "sms_gateway.float_ledger_entries.description",
+          "name": "description",
+          "columnName": "description",
+          "type": "varchar",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 255
+        },
+        {
+          "id": "sms_gateway.float_ledger_entries.id",
+          "name": "id",
+          "columnName": "id",
+          "type": "char",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": true,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.float_ledger_entries.publicId",
+          "name": "publicId",
+          "columnName": "publicId",
+          "type": "varchar",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 20
+        },
+        {
+          "id": "sms_gateway.float_ledger_entries.referenceId",
+          "name": "referenceId",
+          "columnName": "referenceId",
+          "type": "char",
+          "isRequired": false,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": true,
+          "isId": false,
+          "maxLength": 36
+        },
+        {
+          "id": "sms_gateway.float_ledger_entries.referenceType",
+          "name": "referenceType",
+          "columnName": "referenceType",
+          "type": "enum_sms_gateway_float_ledger_entries_reference_type",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 7
+        },
+        {
+          "id": "sms_gateway.float_ledger_entries.transactionType",
+          "name": "transactionType",
+          "columnName": "transactionType",
+          "type": "enum_sms_gateway_float_ledger_entries_transaction_type",
+          "isRequired": true,
+          "kind": "scalar",
+          "isList": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false,
+          "isId": false,
+          "maxLength": 10
+        },
+        {
+          "name": "clients",
+          "type": "clients",
+          "isRequired": true,
+          "kind": "object",
+          "relationName": "float_ledger_entriesToclients",
+          "relationFromFields": [
+            "clientId"
+          ],
+          "relationToFields": [
+            "id"
+          ],
+          "isList": false,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        },
+        {
+          "name": "users",
+          "type": "users",
+          "isRequired": false,
+          "kind": "object",
+          "relationName": "float_ledger_entriesTousers",
+          "relationFromFields": [
+            "createdById"
+          ],
+          "relationToFields": [
+            "id"
+          ],
+          "isList": false,
+          "isId": false,
+          "isGenerated": false,
+          "sequence": false,
+          "hasDefaultValue": false
+        }
+      ],
+      "uniqueConstraints": [
+        {
+          "name": "sms_gateway.float_ledger_entries.publicId",
+          "fields": [
+            "publicId"
+          ]
+        },
+        {
+          "name": "sms_gateway.float_ledger_entries.id",
+          "fields": [
+            "id"
+          ]
+        }
+      ]
+    }
+  },
+  "enums": {
+    "enum_sms_gateway_authentication_events_authentication_method": {
+      "schemaName": "sms_gateway",
+      "values": [
+        {
+          "name": "PASSWORD"
+        },
+        {
+          "name": "API_KEY"
+        },
+        {
+          "name": "REFRESH_TOKEN"
+        },
+        {
+          "name": "SESSION"
+        },
+        {
+          "name": "SMPP"
+        },
+        {
+          "name": "SYSTEM"
+        }
+      ]
+    },
+    "enum_sms_gateway_verification_challenges_channel": {
+      "schemaName": "sms_gateway",
+      "values": [
+        {
+          "name": "EMAIL"
+        },
+        {
+          "name": "SMS"
+        }
+      ]
+    },
+    "enum_sms_gateway_messages_current_status": {
+      "schemaName": "sms_gateway",
+      "values": [
+        {
+          "name": "QUEUED"
+        },
+        {
+          "name": "ROUTED"
+        },
+        {
+          "name": "SUBMITTED"
+        },
+        {
+          "name": "DELIVERED"
+        },
+        {
+          "name": "FAILED"
+        },
+        {
+          "name": "EXPIRED"
+        }
+      ]
+    },
+    "enum_sms_gateway_messages_encoding": {
+      "schemaName": "sms_gateway",
+      "values": [
+        {
+          "name": "GSM7"
+        },
+        {
+          "name": "UCS2"
+        },
+        {
+          "name": "BINARY"
+        }
+      ]
+    },
+    "enum_sms_gateway_users_preferred_mfa_method": {
+      "schemaName": "sms_gateway",
+      "values": [
+        {
+          "name": "EMAIL"
+        },
+        {
+          "name": "SMS"
+        }
+      ]
+    },
+    "enum_sms_gateway_verification_challenges_purpose": {
+      "schemaName": "sms_gateway",
+      "values": [
+        {
+          "name": "LOGIN"
+        },
+        {
+          "name": "PASSWORD_RESET"
+        },
+        {
+          "name": "EMAIL_VERIFICATION"
+        },
+        {
+          "name": "PHONE_VERIFICATION"
+        }
+      ]
+    },
+    "enum_sms_gateway_float_ledger_entries_reference_type": {
+      "schemaName": "sms_gateway",
+      "values": [
+        {
+          "name": "MESSAGE"
+        },
+        {
+          "name": "ADMIN"
+        },
+        {
+          "name": "SYSTEM"
+        },
+        {
+          "name": "IMPORT"
+        }
+      ]
+    },
+    "enum_sms_gateway_smpp_accounts_status": {
+      "schemaName": "sms_gateway",
+      "values": [
+        {
+          "name": "ACTIVE"
+        },
+        {
+          "name": "DISABLED"
+        },
+        {
+          "name": "SUSPENDED"
+        }
+      ]
+    },
+    "enum_sms_gateway_clients_status": {
+      "schemaName": "sms_gateway",
+      "values": [
+        {
+          "name": "ACTIVE"
+        },
+        {
+          "name": "SUSPENDED"
+        },
+        {
+          "name": "DISABLED"
+        }
+      ]
+    },
+    "enum_sms_gateway_users_status": {
+      "schemaName": "sms_gateway",
+      "values": [
+        {
+          "name": "ACTIVE"
+        },
+        {
+          "name": "LOCKED"
+        },
+        {
+          "name": "DISABLED"
+        }
+      ]
+    },
+    "enum_sms_gateway_sender_ids_status": {
+      "schemaName": "sms_gateway",
+      "values": [
+        {
+          "name": "PENDING"
+        },
+        {
+          "name": "APPROVED"
+        },
+        {
+          "name": "REJECTED"
+        },
+        {
+          "name": "DISABLED"
+        }
+      ]
+    },
+    "enum_sms_gateway_message_attempts_status": {
+      "schemaName": "sms_gateway",
+      "values": [
+        {
+          "name": "PENDING"
+        },
+        {
+          "name": "SUBMITTED"
+        },
+        {
+          "name": "FAILED"
+        }
+      ]
+    },
+    "enum_sms_gateway_message_status_events_status": {
+      "schemaName": "sms_gateway",
+      "values": [
+        {
+          "name": "QUEUED"
+        },
+        {
+          "name": "ROUTED"
+        },
+        {
+          "name": "SUBMITTED"
+        },
+        {
+          "name": "DELIVERED"
+        },
+        {
+          "name": "FAILED"
+        },
+        {
+          "name": "EXPIRED"
+        }
+      ]
+    },
+    "enum_sms_gateway_verification_challenges_status": {
+      "schemaName": "sms_gateway",
+      "values": [
+        {
+          "name": "PENDING"
+        },
+        {
+          "name": "VERIFIED"
+        },
+        {
+          "name": "EXPIRED"
+        },
+        {
+          "name": "CANCELLED"
+        },
+        {
+          "name": "FAILED"
+        }
+      ]
+    },
+    "enum_sms_gateway_api_keys_status": {
+      "schemaName": "sms_gateway",
+      "values": [
+        {
+          "name": "ACTIVE"
+        },
+        {
+          "name": "REVOKED"
+        },
+        {
+          "name": "EXPIRED"
+        }
+      ]
+    },
+    "enum_sms_gateway_float_ledger_entries_transaction_type": {
+      "schemaName": "sms_gateway",
+      "values": [
+        {
+          "name": "TOPUP"
+        },
+        {
+          "name": "DEBIT"
+        },
+        {
+          "name": "REFUND"
+        },
+        {
+          "name": "ADJUSTMENT"
+        }
+      ]
+    },
+    "enum_sms_gateway_authentication_events_type": {
+      "schemaName": "sms_gateway",
+      "values": [
+        {
+          "name": "LOGIN_SUCCESS"
+        },
+        {
+          "name": "LOGIN_FAILED"
+        },
+        {
+          "name": "LOGOUT"
+        },
+        {
+          "name": "SESSION_REVOKED"
+        },
+        {
+          "name": "API_KEY_CREATED"
+        },
+        {
+          "name": "API_KEY_REVOKED"
+        },
+        {
+          "name": "API_KEY_ROTATED"
+        },
+        {
+          "name": "PASSWORD_CHANGED"
+        },
+        {
+          "name": "REFRESH_TOKEN_ROTATED"
+        },
+        {
+          "name": "MFA_CHALLENGE_CREATED"
+        },
+        {
+          "name": "MFA_VERIFIED"
+        },
+        {
+          "name": "REFRESH_TOKEN_ISSUED"
+        },
+        {
+          "name": "REFRESH_TOKEN_REVOKED"
+        },
+        {
+          "name": "LOGOUT_ALL"
+        }
+      ]
+    }
+  }
+}

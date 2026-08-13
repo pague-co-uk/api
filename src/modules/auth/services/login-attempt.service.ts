@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import {
+  createCounterMetric,
   getComponentLogger,
-  getMeter,
   recordException,
   withSpan,
 } from "@pague-co-uk/sms-gateway-telemetry";
@@ -9,7 +9,7 @@ import type { User } from "@prisma/client";
 
 import { ClockService } from "../../../common/services/clock.service.js";
 import { AppConfigService } from "../../../config/config.service.js";
-import { UserRepository } from "../repositories/userRepository.js";
+import { UserRepository } from "../../../repositories/userRepository.js";
 
 export interface LoginAttemptResult {
   accountLocked: boolean;
@@ -25,40 +25,28 @@ export class LoginAttemptService {
     getComponentLogger(LoginAttemptService.name);
 
   private readonly failedCounter =
-    getMeter().createCounter(
-      "auth.login_attempt.failed",
-      {
-        description:
-          "Number of failed login attempts.",
-      },
-    );
+    createCounterMetric({
+      name: "auth.login_attempt.failed",
+      description: "Number of failed login attempts.",
+    });
 
   private readonly lockedCounter =
-    getMeter().createCounter(
-      "auth.login_attempt.locked",
-      {
-        description:
-          "Number of account lockouts.",
-      },
-    );
+    createCounterMetric({
+      name: "auth.login_attempt.locked",
+      description: "Number of account lockouts.",
+    });
 
   private readonly resetCounter =
-    getMeter().createCounter(
-      "auth.login_attempt.reset",
-      {
-        description:
-          "Number of login attempt resets.",
-      },
-    );
+    createCounterMetric({
+      name: "auth.login_attempt.reset",
+      description: "Number of login attempt resets.",
+    });
 
   private readonly lockClearedCounter =
-    getMeter().createCounter(
-      "auth.login_attempt.lock_cleared",
-      {
-        description:
-          "Number of manually cleared account locks.",
-      },
-    );
+    createCounterMetric({
+      name: "auth.login_attempt.lock_cleared",
+      description: "Number of manually cleared account locks.",
+    });
 
   constructor(
     private readonly users: UserRepository,

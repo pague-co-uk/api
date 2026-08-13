@@ -1,12 +1,24 @@
-import { ApiMeta } from "./api-meta.interface.js";
-import { Pagination } from "./api-pagination.interface.js";
+import { ApiProperty } from "@nestjs/swagger";
 
-export interface ApiCollectionResponse<T> {
-  success: true;
+import { ApiMetaDto } from "./api-meta.interface.js";
+import { ApiPaginationDto } from "./api-pagination.interface.js";
 
-  data: T[];
+export class ApiCollectionResponseDto<T = unknown> {
+  @ApiProperty({
+    example: true,
+    description: "Indicates whether the request was successful.",
+  })
+  readonly success!: boolean;
 
-  pagination: Pagination;
+  readonly data!: T[];
 
-  meta: ApiMeta;
+  @ApiProperty({
+    type: ApiMetaDto,
+  })
+  readonly meta!: ApiMetaDto;
+
+  @ApiProperty({
+    type: ApiPaginationDto,
+  })
+  readonly pagination!: ApiPaginationDto;
 }

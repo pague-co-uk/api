@@ -1,4 +1,4 @@
-import { ApiMeta } from "./api-meta.interface.js";
+import { ApiMetaDto } from "./api-meta.interface.js";
 
 export interface ApiErrorResponse {
   success: false;
@@ -13,5 +13,5 @@ export interface ApiErrorResponse {
     path: string;
   };
 
-  meta: ApiMeta;
+  meta: ApiMetaDto;
 }

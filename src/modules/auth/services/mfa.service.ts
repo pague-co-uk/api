@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
+  createCounterMetric,
   getComponentLogger,
-  getMeter,
   recordException,
   withSpan,
 } from '@pague-co-uk/sms-gateway-telemetry';
@@ -15,7 +15,7 @@ import {
   VerificationChallengeExpiredException,
   VerificationChallengeNotFoundException,
 } from '../../../exceptions/auth/index.js';
-import { VerificationChallengeRepository } from '../repositories/verificationChallengeRepository.js';
+import { VerificationChallengeRepository } from '../../../repositories/verificationChallengeRepository.js';
 
 @Injectable()
 export class MultiFactorAuthenticationService {
@@ -23,26 +23,20 @@ export class MultiFactorAuthenticationService {
     'MultiFactorAuthenticationService',
   );
 
-  private readonly challengesCreatedCounter = getMeter().createCounter(
-    'auth.mfa.challenge.created',
-    {
-      description: 'Number of created MFA verification challenges.',
-    },
-  );
+  private readonly challengesCreatedCounter = createCounterMetric({
+    name: 'auth.mfa.challenge.created',
+    description: 'Number of created MFA verification challenges.',
+  });
 
-  private readonly successfulVerificationsCounter = getMeter().createCounter(
-    'auth.mfa.challenge.verification.success',
-    {
-      description: 'Number of successful MFA challenge verifications.',
-    },
-  );
+  private readonly successfulVerificationsCounter = createCounterMetric({
+    name: 'auth.mfa.challenge.verification.success',
+    description: 'Number of successful MFA challenge verifications.',
+  });
 
-  private readonly failedVerificationsCounter = getMeter().createCounter(
-    'auth.mfa.challenge.verification.failed',
-    {
-      description: 'Number of failed MFA challenge verifications.',
-    },
-  );
+  private readonly failedVerificationsCounter = createCounterMetric({
+    name: 'auth.mfa.challenge.verification.failed',
+    description: 'Number of failed MFA challenge verifications.',
+  });
 
   constructor(
     private readonly config: AppConfigService,

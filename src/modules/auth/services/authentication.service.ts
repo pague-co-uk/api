@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
+  createCounterMetric,
   getComponentLogger,
-  getMeter,
   recordException,
   withSpan,
 } from '@pague-co-uk/sms-gateway-telemetry';
@@ -11,14 +11,16 @@ import {
   VerificationChannel,
   VerificationPurpose,
 } from '@prisma/client';
+import { AuditService } from '../../../audit/services/audit.service.js';
 import { ClockService } from '../../../common/services/clock.service.js';
 import { AppConfigService } from '../../../config/config.service.js';
+import { InvalidApiKeyException } from '../../../exceptions/auth/invalid-apikey.exception.js';
 import { InvalidCredentialsException } from '../../../exceptions/auth/invalid-credentials.exception.js';
-import { UserService } from '../../users/services/user.service.js';
+import { VerificationChallengeRepository } from '../../../repositories/verificationChallengeRepository.js';
 import { VerificationProviderRegistry } from '../providers/providers.registry.js';
-import { VerificationChallengeRepository } from '../repositories/verificationChallengeRepository.js';
 import { ApiKeyService } from './apikey.service.js';
 import { AuthenticationEventService } from './authentication-event.service.js';
+import { IdentityService } from './identity.service.js';
 import { LoginAttemptService } from './login-attempt.service.js';
 import { MfaService } from './mfa.service.js';
 import { PasswordService } from './password.service.js';
@@ -29,112 +31,82 @@ import { SessionService } from './session.service.js';
 export class AuthenticationService {
   private readonly logger = getComponentLogger(AuthenticationService.name);
 
-  private readonly loginAttemptedCounter = getMeter().createCounter(
-    'auth.login.attempted',
-    {
-      description: 'Number of login attempts.',
-    },
-  );
+  private readonly loginAttemptedCounter = createCounterMetric({
+    name: 'auth.login.attempted',
+    description: 'Number of login attempts.',
+  });
 
-  private readonly loginSucceededCounter = getMeter().createCounter(
-    'auth.login.succeeded',
-    {
-      description: 'Number of successful logins.',
-    },
-  );
+  private readonly loginSucceededCounter = createCounterMetric({
+    name: 'auth.login.succeeded',
+    description: 'Number of successful logins.',
+  });
 
-  private readonly loginFailedCounter = getMeter().createCounter(
-    'auth.login.failed',
-    {
-      description: 'Number of failed login attempts.',
-    },
-  );
+  private readonly loginFailedCounter = createCounterMetric({
+    name: 'auth.login.failed',
+    description: 'Number of failed login attempts.',
+  });
 
-  private readonly loginMfaRequiredCounter = getMeter().createCounter(
-    'auth.login.mfa.required',
-    {
-      description: 'Number of login attempts requiring MFA.',
-    },
-  );
+  private readonly loginMfaRequiredCounter = createCounterMetric({
+    name: 'auth.login.mfa.required',
+    description: 'Number of login attempts requiring MFA.',
+  });
 
-  private readonly refreshCounter = getMeter().createCounter(
-    'auth.refresh.success',
-    {
-      description: 'Number of successful refresh operations.',
-    },
-  );
+  private readonly refreshCounter = createCounterMetric({
+    name: 'auth.refresh.success',
+    description: 'Number of successful refresh operations.',
+  });
 
-  private readonly refreshFailedCounter = getMeter().createCounter(
-    'auth.refresh.failed',
-    {
-      description: 'Number of failed refresh operations.',
-    },
-  );
+  private readonly refreshFailedCounter = createCounterMetric({
+    name: 'auth.refresh.failed',
+    description: 'Number of failed refresh operations.',
+  });
 
-  private readonly logoutCounter = getMeter().createCounter(
-    'auth.logout.success',
-    {
-      description: 'Number of successful logout operations.',
-    },
-  );
+  private readonly logoutCounter = createCounterMetric({
+    name: 'auth.logout.success',
+    description: 'Number of successful logout operations.',
+  });
 
-  private readonly logoutFailedCounter = getMeter().createCounter(
-    'auth.logout.failed',
-    {
-      description: 'Number of failed logout operations.',
-    },
-  );
+  private readonly logoutFailedCounter = createCounterMetric({
+    name: 'auth.logout.failed',
+    description: 'Number of failed logout operations.',
+  });
 
-  private readonly logoutAllCounter = getMeter().createCounter(
-    'auth.logout_all.success',
-    {
-      description: 'Number of successful logout-all operations.',
-    },
-  );
+  private readonly logoutAllCounter = createCounterMetric({
+    name: 'auth.logout_all.success',
+    description: 'Number of successful logout-all operations.',
+  });
 
-  private readonly logoutAllFailedCounter = getMeter().createCounter(
-    'auth.logout_all.failed',
-    {
-      description: 'Number of failed logout-all operations.',
-    },
-  );
+  private readonly logoutAllFailedCounter = createCounterMetric({
+    name: 'auth.logout_all.failed',
+    description: 'Number of failed logout-all operations.',
+  });
 
-  private readonly passwordChangedCounter = getMeter().createCounter(
-    'auth.password.changed',
-    {
-      description: 'Number of successful password changes.',
-    },
-  );
+  private readonly passwordChangedCounter = createCounterMetric({
+    name: 'auth.password.changed',
+    description: 'Number of successful password changes.',
+  });
 
-  private readonly passwordChangeFailedCounter = getMeter().createCounter(
-    'auth.password.change.failed',
-    {
-      description: 'Number of failed password change attempts.',
-    },
-  );
+  private readonly passwordChangeFailedCounter = createCounterMetric({
+    name: 'auth.password.change.failed',
+    description: 'Number of failed password change attempts.',
+  });
 
-  private readonly apiKeyCreatedCounter = getMeter().createCounter(
-    'auth.api_key.created',
-    {
-      description: 'Number of API keys created.',
-    },
-  );
+  private readonly apiKeyCreatedCounter = createCounterMetric({
+    name: 'auth.api_key.created',
+    description: 'Number of API keys created.',
+  });
 
-  private readonly apiKeyRotatedCounter = getMeter().createCounter(
-    'auth.api_key.rotated',
-    {
-      description: 'Number of API keys rotated.',
-    },
-  );
+  private readonly apiKeyRotatedCounter = createCounterMetric({
+    name: 'auth.api_key.rotated',
+    description: 'Number of API keys rotated.',
+  });
 
-  private readonly apiKeyRevokedCounter = getMeter().createCounter(
-    'auth.api_key.revoked',
-    {
-      description: 'Number of API keys revoked.',
-    },
-  );
+  private readonly apiKeyRevokedCounter = createCounterMetric({
+    name: 'auth.api_key.revoked',
+    description: 'Number of API keys revoked.',
+  });
   constructor(
-    private readonly users: UserService,
+    private readonly users: IdentityService,
     private readonly passwords: PasswordService,
     private readonly loginAttempts: LoginAttemptService,
     private readonly mfa: MfaService,
@@ -146,6 +118,7 @@ export class AuthenticationService {
     private readonly apiKeys: ApiKeyService,
     private readonly verificationProviders: VerificationProviderRegistry,
     private readonly verificationChallenges: VerificationChallengeRepository,
+    private readonly audit: AuditService,
   ) { }
 
   async login(
@@ -288,6 +261,18 @@ export class AuthenticationService {
           userAgent,
         );
 
+        await this.audit.record({
+          action: 'auth.login',
+          actorId: user.id,
+          actorType: 'User',
+          clientId,
+          resourceType: 'Session',
+          resourceId: session.session.id,
+          metadata: {
+            authenticationMethod: AuthenticationMethod.PASSWORD,
+          },
+        });
+
         // =====================================================
         // Observability
         // =====================================================
@@ -338,6 +323,87 @@ export class AuthenticationService {
     });
   }
 
+  async loginWithApiKey(
+    apiKey: string,
+    clientId: string,
+    ipAddress: string,
+    userAgent: string,
+  ): Promise<{
+    requiresMfa: false;
+    apiKeyId: string;
+    publicId: string;
+    clientId: string;
+    expiresAt: Date | null;
+  }> {
+    return withSpan('AuthenticationService.loginWithApiKey', async (span) => {
+      this.logger.info(
+        {
+          clientId,
+          apiKeyPrefix: apiKey.split('.')[0],
+        },
+        'Authenticating with API key.',
+      );
+
+      span.setAttribute('auth.client.id', clientId);
+
+      try {
+        const validatedApiKey = await this.apiKeys.validate(apiKey);
+
+        await this.events.recordLoginSucceeded(
+          validatedApiKey.id,
+          validatedApiKey.id,
+          clientId,
+          AuthenticationMethod.API_KEY,
+          ipAddress,
+          userAgent,
+        );
+
+        await this.audit.record({
+          action: 'auth.login',
+          actorId: validatedApiKey.id,
+          actorType: 'ApiKey',
+          clientId,
+          resourceType: 'ApiKey',
+          resourceId: validatedApiKey.id,
+          metadata: {
+            authenticationMethod: AuthenticationMethod.API_KEY,
+          },
+        });
+
+        this.loginSucceededCounter.add(1);
+
+        span.setAttribute('auth.api_key.id', validatedApiKey.id);
+        span.addEvent('auth.login.api_key.succeeded', {
+          'auth.api_key.id': validatedApiKey.id,
+          'auth.client.id': clientId,
+        });
+
+        return {
+          requiresMfa: false,
+          apiKeyId: validatedApiKey.id,
+          publicId: validatedApiKey.publicId,
+          clientId: validatedApiKey.clientId,
+          expiresAt: validatedApiKey.expiresAt,
+        };
+      } catch (error) {
+        recordException(error);
+        this.logger.warn(
+          {
+            error,
+            clientId,
+          },
+          'API key authentication failed.',
+        );
+
+        if (error instanceof InvalidApiKeyException) {
+          throw error;
+        }
+
+        throw new InvalidApiKeyException();
+      }
+    });
+  }
+
   async verifyMfa(
     verificationToken: string,
     code: string,
@@ -365,7 +431,7 @@ export class AuthenticationService {
       code,
     );
 
-    return this.createAuthentication(
+    const authentication = await this.createAuthentication(
       challenge.userId,
       clientId,
       ipAddress,
@@ -373,6 +439,20 @@ export class AuthenticationService {
       true,
       AuthenticationMethod.PASSWORD,
     );
+
+    await this.audit.record({
+      action: 'auth.mfa.verified',
+      actorId: challenge.userId,
+      actorType: 'User',
+      clientId,
+      resourceType: 'User',
+      resourceId: challenge.userId,
+      metadata: {
+        purpose: challenge.purpose,
+      },
+    });
+
+    return authentication;
   }
 
   async forgotPassword(
@@ -434,6 +514,15 @@ export class AuthenticationService {
       ipAddress,
       userAgent,
     );
+
+    await this.audit.record({
+      action: 'auth.password.reset',
+      actorId: challenge.userId,
+      actorType: 'User',
+      clientId,
+      resourceType: 'User',
+      resourceId: challenge.userId,
+    });
   }
 
   private async createAuthentication(
@@ -463,6 +552,18 @@ export class AuthenticationService {
     await this.events.recordLoginSucceeded(
       userId, session.session.id, clientId, authenticationMethod, ipAddress, userAgent,
     );
+    await this.audit.record({
+      action: 'auth.login',
+      actorId: userId,
+      actorType: 'User',
+      clientId,
+      resourceType: 'Session',
+      resourceId: session.session.id,
+      metadata: {
+        authenticationMethod,
+        authenticatedWithMfa,
+      },
+    });
     return {
       sessionId: session.session.id,
       sessionToken: session.token,
@@ -527,6 +628,15 @@ export class AuthenticationService {
         // =====================================================
 
         await this.sessions.touchSession(refreshToken.sessionId);
+
+        await this.audit.record({
+          action: 'auth.refresh',
+          actorId: userId,
+          actorType: 'User',
+          clientId,
+          resourceType: 'RefreshToken',
+          resourceId: rotated.refreshTokenId,
+        });
 
         // =====================================================
         // Observability
@@ -613,6 +723,15 @@ export class AuthenticationService {
           userAgent,
         );
 
+        await this.audit.record({
+          action: 'auth.logout',
+          actorId: userId,
+          actorType: 'User',
+          clientId,
+          resourceType: 'Session',
+          resourceId: sessionId,
+        });
+
         this.logoutCounter.add(1);
 
         span.addEvent('auth.logout.completed');
@@ -670,6 +789,15 @@ export class AuthenticationService {
           userAgent,
           AuthenticationMethod.PASSWORD,
         );
+
+        await this.audit.record({
+          action: 'auth.logout_all',
+          actorId: userId,
+          actorType: 'User',
+          clientId,
+          resourceType: 'User',
+          resourceId: userId,
+        });
 
         this.logoutAllCounter.add(1);
 
@@ -737,6 +865,15 @@ export class AuthenticationService {
           ipAddress,
           userAgent,
         );
+
+        await this.audit.record({
+          action: 'auth.password.changed',
+          actorId: userId,
+          actorType: 'User',
+          clientId,
+          resourceType: 'User',
+          resourceId: userId,
+        });
 
         // =====================================================
         // Observability
@@ -816,6 +953,20 @@ export class AuthenticationService {
               ipAddress,
               userAgent,
             );
+
+          await this.audit.record({
+            action: 'apikey.created',
+            actorId: userId,
+            actorType: 'User',
+            clientId,
+            resourceType: 'ApiKey',
+            resourceId: apiKey.apiKeyId,
+            metadata: {
+              name,
+              publicId: apiKey.publicId,
+              prefix: apiKey.prefix,
+            },
+          });
 
           // =====================================================
           // Observability
@@ -902,6 +1053,19 @@ export class AuthenticationService {
               userAgent,
             );
 
+          await this.audit.record({
+            action: 'apikey.rotated',
+            actorId: userId,
+            actorType: 'User',
+            clientId,
+            resourceType: 'ApiKey',
+            resourceId: rotatedApiKey.apiKeyId,
+            metadata: {
+              publicId: rotatedApiKey.publicId,
+              prefix: rotatedApiKey.prefix,
+            },
+          });
+
           // =====================================================
           // Observability
           // =====================================================
@@ -965,7 +1129,7 @@ export class AuthenticationService {
           // Business logic
           // =====================================================
 
-          await this.apiKeys.revoke(
+          const revokedApiKey = await this.apiKeys.revoke(
             apiKey,
             clientId,
             userId,
@@ -973,6 +1137,15 @@ export class AuthenticationService {
             ipAddress,
             userAgent,
           );
+
+          await this.audit.record({
+            action: 'apikey.revoked',
+            actorId: userId,
+            actorType: 'User',
+            clientId,
+            resourceType: 'ApiKey',
+            resourceId: revokedApiKey.id,
+          });
 
           // =====================================================
           // Observability
@@ -1026,5 +1199,14 @@ export class AuthenticationService {
       ipAddress,
       userAgent,
     );
+
+    await this.audit.record({
+      action: 'apikey.revoked',
+      actorId: userId,
+      actorType: 'User',
+      clientId,
+      resourceType: 'ApiKey',
+      resourceId: apiKeyId,
+    });
   }
 }

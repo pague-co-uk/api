@@ -6,35 +6,26 @@ import {
   HttpStatus
 } from "@nestjs/common";
 import {
-  Counter,
   SpanStatusCode,
   trace
 } from "@opentelemetry/api";
 import { Prisma } from "@prisma/client";
 import { Request, Response } from "express";
 
-import { getComponentLogger, getMeter } from "@pague-co-uk/sms-gateway-telemetry";
+import { createCounterMetric, getComponentLogger } from "@pague-co-uk/sms-gateway-telemetry";
 import { ApiErrorResponse } from "src/common/interfaces/api-error.response.interface.js";
 import { DomainException } from "../exceptions/domain.exception.js";
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
-  private readonly exceptionCounter: Counter;
+  private readonly exceptionCounter = createCounterMetric({
+    name: "http.server.exceptions",
+    description: "Total HTTP exceptions handled by the global exception filter",
+  });
   private readonly logger =
     getComponentLogger(
       GlobalExceptionFilter.name,
     );
-  constructor(
-  ) {
-    this.exceptionCounter = getMeter().createCounter(
-      "http.server.exceptions",
-      {
-        description:
-          "Total HTTP exceptions handled by the global exception filter",
-      },
-    );
-  }
-
   catch(
     exception: unknown,
     host: ArgumentsHost,

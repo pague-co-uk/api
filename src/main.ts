@@ -21,6 +21,7 @@ async function bootstrap(): Promise<void> {
     collector: {
       tracesEndpoint: config.telemetry.tracesEndpoint,
       metricsEndpoint: config.telemetry.metricsEndpoint,
+      logsEndpoint: config.telemetry.logsEndpoint,
     },
     metrics: {
       exportIntervalMillis:
@@ -83,7 +84,6 @@ async function bootstrap(): Promise<void> {
   );
 
   app.enableShutdownHooks();
-
   await app.listen(
     configService.get<number>("app.port"),
   );

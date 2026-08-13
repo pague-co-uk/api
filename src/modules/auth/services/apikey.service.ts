@@ -11,8 +11,8 @@ import { SecretHasher } from "../../../common/services/secretHasher.service.js";
 
 import { InvalidApiKeyException } from "../../../exceptions/auth/invalid-apikey.exception.js";
 
-import { getComponentLogger, getMeter, recordException, withSpan } from "@pague-co-uk/sms-gateway-telemetry";
-import { ApiKeyRepository } from "../repositories/ApiKeyRepository.js";
+import { createCounterMetric, getComponentLogger, recordException, withSpan } from "@pague-co-uk/sms-gateway-telemetry";
+import { ApiKeyRepository } from "../../../repositories/ApiKeyRepository.js";
 import { AuthenticationEventService } from "./authentication-event.service.js";
 
 @Injectable()
@@ -467,7 +467,7 @@ export class ApiKeyService {
     authenticationMethod: AuthenticationMethod,
     ipAddress?: string | null,
     userAgent?: string | null,
-  ): Promise<void> {
+  ): Promise<ApiKey> {
     return withSpan(
       "ApiKeyService.revoke",
       async (span) => {
@@ -565,6 +565,8 @@ export class ApiKeyService {
             },
             "API key revoked.",
           );
+
+          return revoked;
         } catch (error) {
           recordException(error);
 
@@ -677,22 +679,16 @@ export class ApiKeyService {
   }
 
   private readonly apiKeysValidatedCounter =
-    getMeter().createCounter(
-      "auth.api_key.validated",
-      {
-        description:
-          "Number of successfully validated API keys.",
-      },
-    );
+    createCounterMetric({
+      name: "auth.api_key.validated",
+      description: "Number of successfully validated API keys.",
+    });
 
   private readonly apiKeysRotatedCounter =
-    getMeter().createCounter(
-      "auth.api_key.rotated",
-      {
-        description:
-          "Number of rotated API keys.",
-      },
-    );
+    createCounterMetric({
+      name: "auth.api_key.rotated",
+      description: "Number of rotated API keys.",
+    });
   private toValidatedApiKey(
     apiKey: ApiKey,
   ): {
@@ -715,14 +711,17 @@ export class ApiKeyService {
     };
   }
 
-  private async verifySecret(
+  private verifySecret(
     secret: string,
     apiKey: ApiKey,
-  ): Promise<void> {
-    const secretHash =
-      await this.hashSecret(secret);
+  ): void {
+    const valid =
+      this.hasher.verify(
+        secret,
+        apiKey.secretHash,
+      );
 
-    if (secretHash !== apiKey.secretHash) {
+    if (!valid) {
       throw new InvalidApiKeyException(
         "Invalid API key.",
       );

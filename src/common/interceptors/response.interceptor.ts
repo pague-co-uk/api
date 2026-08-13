@@ -8,8 +8,8 @@ import { Request } from "express";
 import { Observable } from "rxjs";
 import { map } from "rxjs/operators";
 
-import { ApiCollectionResponse } from "../interfaces/api-collection.response.interface.js";
-import { ApiSuccessResponse } from "../interfaces/api-success.response.interface.js";
+import { ApiCollectionResponseDto } from "../interfaces/api-collection.response.interface.js";
+import { ApiSuccessResponseDto } from "../interfaces/api-success.response.interface.js";
 import { PaginatedResponse } from "../interfaces/paginated.response.js";
 import { UnPaginatedResponse } from "../interfaces/unpaginated.response.js";
 
@@ -18,13 +18,13 @@ export class ResponseInterceptor<T>
   implements
   NestInterceptor<
     T,
-    ApiSuccessResponse<unknown> | ApiCollectionResponse<unknown>
+    ApiSuccessResponseDto | ApiCollectionResponseDto
   > {
   intercept(
     context: ExecutionContext,
     next: CallHandler<T>,
   ): Observable<
-    ApiSuccessResponse<unknown> | ApiCollectionResponse<unknown>
+    ApiSuccessResponseDto | ApiCollectionResponseDto
   > {
     const request = context
       .switchToHttp()

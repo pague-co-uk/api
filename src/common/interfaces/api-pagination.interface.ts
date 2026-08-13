@@ -1,8 +1,21 @@
-export interface Pagination {
-  page: number;
-  pageSize: number;
-  totalItems: number;
-  totalPages: number;
-  hasNext: boolean;
-  hasPrevious: boolean;
+import { ApiProperty } from "@nestjs/swagger";
+
+export class ApiPaginationDto {
+  @ApiProperty()
+  readonly page!: number;
+
+  @ApiProperty()
+  readonly pageSize!: number;
+
+  @ApiProperty()
+  readonly totalItems!: number;
+
+  @ApiProperty()
+  readonly totalPages!: number;
+
+  @ApiProperty()
+  readonly hasNext!: boolean;
+
+  @ApiProperty()
+  readonly hasPrevious!: boolean;
 }

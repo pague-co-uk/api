@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
-  createCounter,
+  createCounterMetric,
   getComponentLogger,
   recordException,
   withSpan,
@@ -10,8 +10,8 @@ import { ClockService } from '../../../common/services/clock.service.js';
 import { RandomGenerator } from '../../../common/services/random.service.js';
 import { SecretHasher } from '../../../common/services/secretHasher.service.js';
 import { AppConfigService } from '../../../config/config.service.js';
+import { SessionRepository } from '../../../repositories/sessionRepository.js';
 import { SessionValidationFailureReason } from '../enums/session-validation-failure-reason.enum.js';
-import { SessionRepository } from '../repositories/sessionRepository.js';
 import { SessionToken } from '../utils/sessionToken.js';
 
 type CreateSessionResult = {
@@ -40,47 +40,35 @@ export class SessionService {
   ) { }
   private readonly logger = getComponentLogger(SessionService.name);
 
-  private readonly sessionsCreatedCounter = createCounter(
-    'auth.sessions.created',
-    {
-      description: 'Number of authenticated sessions created.',
-    },
-  );
+  private readonly sessionsCreatedCounter = createCounterMetric({
+    name: 'auth.sessions.created',
+    description: 'Number of authenticated sessions created.',
+  });
 
-  private readonly sessionsValidatedCounter = createCounter(
-    'auth.sessions.validated',
-    {
-      description: 'Number of successful session validations.',
-    },
-  );
+  private readonly sessionsValidatedCounter = createCounterMetric({
+    name: 'auth.sessions.validated',
+    description: 'Number of successful session validations.',
+  });
 
-  private readonly sessionsValidationFailedCounter = createCounter(
-    'auth.sessions.validation.failed',
-    {
-      description: 'Number of failed session validations.',
-    },
-  );
+  private readonly sessionsValidationFailedCounter = createCounterMetric({
+    name: 'auth.sessions.validation.failed',
+    description: 'Number of failed session validations.',
+  });
 
-  private readonly sessionsTouchedCounter = createCounter(
-    'auth.sessions.touched',
-    {
-      description: 'Number of session activity updates.',
-    },
-  );
+  private readonly sessionsTouchedCounter = createCounterMetric({
+    name: 'auth.sessions.touched',
+    description: 'Number of session activity updates.',
+  });
 
-  private readonly sessionsRevokedCounter = createCounter(
-    'auth.sessions.revoked',
-    {
-      description: 'Number of sessions revoked.',
-    },
-  );
+  private readonly sessionsRevokedCounter = createCounterMetric({
+    name: 'auth.sessions.revoked',
+    description: 'Number of sessions revoked.',
+  });
 
-  private readonly sessionsRevokedAllCounter = createCounter(
-    'auth.sessions.revoked_all',
-    {
-      description: 'Number of users whose sessions were revoked.',
-    },
-  );
+  private readonly sessionsRevokedAllCounter = createCounterMetric({
+    name: 'auth.sessions.revoked_all',
+    description: 'Number of users whose sessions were revoked.',
+  });
 
   /**
    * Creates a new authenticated session.
