@@ -6,19 +6,27 @@ import {
   Param,
   Post,
 } from "@nestjs/common";
-import { ApiOperation, ApiParam, ApiTags } from "@nestjs/swagger";
+import {
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+} from "@nestjs/swagger";
 
 import { CurrentAuthentication } from "../../../common/authorization/decorators/current-authentication.decorator.js";
 import {
   Authorize,
   CurrentUser,
 } from "../../../common/authorization/decorators/index.js";
+
 import type { AuthenticationContext } from "../../../common/authorization/interfaces/authentication-contenxt.interface.js";
 import type {
   AuthenticatedUser,
 } from "../../../common/authorization/interfaces/index.js";
+
 import { Permissions } from "../../../common/authorization/permissions/permissions.registry.js";
+
 import { AuthorizationService } from "../../../common/authorization/services/authorization.service.js";
+
 import { ApiSuccessResponse } from "../../../decorators/api-success-response.decorator.js";
 
 import { ApiKeyMapper } from "../api-key.mapper.js";
@@ -81,6 +89,7 @@ export class ApiKeysController {
     return this.apiKeys.create(
       clientId,
       dto.name,
+      dto.capabilities,
       user.userId,
       authentication.method,
       dto.expiresAt

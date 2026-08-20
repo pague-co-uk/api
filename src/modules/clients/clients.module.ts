@@ -21,6 +21,7 @@ import { ClientService } from "./services/clients.service.js";
   ],
   exports: [
     ClientService,
+    ClientRepository,
   ],
 })
 export class ClientsModule { }

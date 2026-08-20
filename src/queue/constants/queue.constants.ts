@@ -1,1 +1,0 @@
-export const QUEUE_CLIENT = Symbol("QUEUE_CLIENT");

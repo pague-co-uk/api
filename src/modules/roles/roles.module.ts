@@ -3,8 +3,8 @@ import {
   OnModuleInit,
 } from "@nestjs/common";
 
-import { AuditModule } from "src/audit/audit.module.js";
-import { DatabaseModule } from "src/database/database.module.js";
+import { AuditModule } from "../../audit/audit.module.js";
+import { DatabaseModule } from "../../database/database.module.js";
 import { PermissionRepository } from "../../repositories/PermissionRepository.js";
 import { RolePermissionRepository } from "../../repositories/RolePermissionRepository.js";
 import { RoleRepository } from "../../repositories/RoleRepository.js";

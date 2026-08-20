@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE `outbox_events` ADD COLUMN `processingAt` DATETIME(3) NULL,
+    MODIFY `status` ENUM('PENDING', 'PROCESSING', 'PUBLISHED', 'FAILED') NOT NULL DEFAULT 'PENDING';

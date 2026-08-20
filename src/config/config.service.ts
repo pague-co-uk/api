@@ -5,6 +5,7 @@ import type {
   AppConfig,
   AuthenticationConfig,
   DatabaseConfig,
+  OutboxConfig,
   RabbitMqConfig,
   SecurityConfig,
   TelemetryConfig,
@@ -17,6 +18,7 @@ export class AppConfigService {
   private readonly rabbitMqConfig: RabbitMqConfig;
   private readonly telemetryConfig: TelemetryConfig;
   private readonly authenticationConfig: AuthenticationConfig;
+  private readonly outboxConfig: OutboxConfig;
 
   constructor(
     private readonly configService: NestConfigService,
@@ -25,6 +27,10 @@ export class AppConfigService {
     this.databaseConfig = Object.freeze(this.buildDatabaseConfig());
     this.rabbitMqConfig = Object.freeze(this.buildRabbitMqConfig());
     this.telemetryConfig = Object.freeze(this.buildTelemetryConfig());
+    this.outboxConfig =
+      Object.freeze(
+        this.buildOutboxConfig(),
+      );
     this.authenticationConfig = Object.freeze(
       this.buildAuthenticationConfig(),
     );
@@ -48,6 +54,10 @@ export class AppConfigService {
 
   get auth(): AuthenticationConfig {
     return this.authenticationConfig;
+  }
+
+  get outbox(): OutboxConfig {
+    return this.outboxConfig;
   }
 
   public get<T>(key: string): T {
@@ -116,6 +126,26 @@ export class AppConfigService {
 
       maxReconnectAttempts: this.getOptional(
         "rabbitmq.maxReconnectAttempts",
+      ),
+    };
+  }
+
+  private buildOutboxConfig(): OutboxConfig {
+    return {
+      batchSize: this.get(
+        "outbox.batchSize",
+      ),
+
+      pollIntervalMillis: this.get(
+        "outbox.pollIntervalMillis",
+      ),
+
+      staleAfterMillis: this.get(
+        "outbox.staleAfterMillis",
+      ),
+
+      maxAttempts: this.get(
+        "outbox.maxAttempts",
       ),
     };
   }

@@ -1,4 +1,5 @@
 import {
+  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -11,29 +12,39 @@ import {
   AuthenticationMethod,
 } from "@prisma/client";
 
-import { initTelemetry } from "@pague-co-uk/sms-gateway-telemetry";
 import type { ApiKey } from "@prisma/client";
+
+import { initTelemetry } from "@pague-co-uk/sms-gateway-telemetry";
+
+import { ApiKeyCapabilityDefinitions } from "../../../common/authorization/permissions/api-key-capabilities.definitions.js";
 import { ApiKeyService } from "./apikey.service.js";
-
-
 describe("ApiKeyService", () => {
   let service: ApiKeyService;
 
   beforeAll(() => {
     initTelemetry({
       enabled: false,
+
       service: {
         name: "control-plane-api-test",
         version: "test",
       },
+
       collector: {
-        tracesEndpoint: "http://localhost:4318/v1/traces",
-        metricsEndpoint: "http://localhost:4318/v1/metrics",
-        logsEndpoint: "http://localhost:4318/v1/logs",
+        tracesEndpoint:
+          "http://localhost:4318/v1/traces",
+
+        metricsEndpoint:
+          "http://localhost:4318/v1/metrics",
+
+        logsEndpoint:
+          "http://localhost:4318/v1/logs",
       },
+
       metrics: {
         exportIntervalMillis: 60_000,
       },
+
       registerShutdownHooks: false,
     });
   });
@@ -56,13 +67,22 @@ describe("ApiKeyService", () => {
     withDatabase: jest.fn(),
 
     create: jest.fn(),
+    createCapabilities: jest.fn(),
+
     findByPrefix: jest.fn(),
+    findByPrefixWithCapabilities: jest.fn(),
     findByClient: jest.fn(),
     findById: jest.fn(),
 
     updateLastUsed: jest.fn(),
     updateSecret: jest.fn(),
     revoke: jest.fn(),
+  };
+
+  const apiKeyCapabilities = {
+    withDatabase: jest.fn(),
+    findByNames: jest.fn(),
+    upsert: jest.fn(),
   };
 
   const authenticationEvents = {
@@ -102,6 +122,10 @@ describe("ApiKeyService", () => {
   const createTransactionMocks = () => {
     apiKeys.withDatabase.mockReturnValue(
       apiKeys,
+    );
+
+    apiKeyCapabilities.withDatabase.mockReturnValue(
+      apiKeyCapabilities,
     );
 
     authenticationEvents.withDatabase.mockReturnValue(
@@ -156,6 +180,14 @@ describe("ApiKeyService", () => {
       },
     );
 
+    apiKeyCapabilities.findByNames.mockResolvedValue(
+      [],
+    );
+
+    apiKeys.createCapabilities.mockResolvedValue({
+      count: 0,
+    });
+
     createTransactionMocks();
 
     service =
@@ -165,7 +197,128 @@ describe("ApiKeyService", () => {
         clock as any,
         apiKeys as any,
         authenticationEvents as any,
+        apiKeyCapabilities as any,
       );
+  });
+
+  // -------------------------------------------------------------------------
+  // synchronizeRegistry
+  // -------------------------------------------------------------------------
+
+  describe("synchronizeRegistry", () => {
+    it("should synchronize all API key capabilities", async () => {
+      apiKeyCapabilities.upsert.mockResolvedValue(
+        {},
+      );
+
+      await service.synchronizeRegistry();
+
+      const entries =
+        Object.entries(
+          ApiKeyCapabilityDefinitions,
+        );
+
+      expect(
+        apiKeyCapabilities.upsert,
+      ).toHaveBeenCalledTimes(
+        entries.length,
+      );
+
+      for (
+        const [
+          name,
+          definition,
+        ] of entries
+      ) {
+        expect(
+          apiKeyCapabilities.upsert,
+        ).toHaveBeenCalledWith({
+          where: {
+            name,
+          },
+
+          create: {
+            name,
+            module:
+              definition.module,
+            description:
+              definition.description,
+          },
+
+          update: {
+            module:
+              definition.module,
+            description:
+              definition.description,
+          },
+        });
+      }
+    });
+
+    it("should synchronize the registry idempotently", async () => {
+      apiKeyCapabilities.upsert.mockResolvedValue(
+        {},
+      );
+
+      await service.synchronizeRegistry();
+      await service.synchronizeRegistry();
+
+      const capabilityCount =
+        Object.keys(
+          ApiKeyCapabilityDefinitions,
+        ).length;
+
+      expect(
+        apiKeyCapabilities.upsert,
+      ).toHaveBeenCalledTimes(
+        capabilityCount * 2,
+      );
+    });
+
+    it("should propagate repository errors", async () => {
+      const error =
+        new Error(
+          "Database unavailable",
+        );
+
+      apiKeyCapabilities.upsert.mockRejectedValueOnce(
+        error,
+      );
+
+      await expect(
+        service.synchronizeRegistry(),
+      ).rejects.toThrow(
+        "Database unavailable",
+      );
+    });
+
+    it("should stop synchronization when an upsert fails", async () => {
+      const entries =
+        Object.entries(
+          ApiKeyCapabilityDefinitions,
+        );
+
+      const error =
+        new Error(
+          "Database unavailable",
+        );
+
+      apiKeyCapabilities.upsert
+        .mockResolvedValueOnce({})
+        .mockRejectedValueOnce(error);
+
+      await expect(
+        service.synchronizeRegistry(),
+      ).rejects.toThrow(
+        "Database unavailable",
+      );
+
+      expect(
+        apiKeyCapabilities.upsert,
+      ).toHaveBeenCalledTimes(
+        Math.min(2, entries.length),
+      );
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -174,6 +327,30 @@ describe("ApiKeyService", () => {
 
   describe("create", () => {
     it("should create an API key", async () => {
+      const requestedCapabilities = [
+        "messages.send",
+      ];
+
+      const capabilityRecords = [
+        {
+          id: "capability-1",
+          name: "messages.send",
+          module: "messages",
+          description:
+            "Send SMS messages.",
+          createdAt: now,
+          updatedAt: now,
+        },
+      ];
+
+      apiKeyCapabilities.findByNames.mockResolvedValue(
+        capabilityRecords,
+      );
+
+      apiKeys.createCapabilities.mockResolvedValue({
+        count: 1,
+      });
+
       const created = {
         ...baseApiKey,
         publicId: "cHVibGljLWlk",
@@ -188,9 +365,16 @@ describe("ApiKeyService", () => {
         await service.create(
           clientId,
           "Production",
+          requestedCapabilities,
           userId,
           AuthenticationMethod.SESSION,
         );
+
+      expect(
+        apiKeyCapabilities.findByNames,
+      ).toHaveBeenCalledWith(
+        requestedCapabilities,
+      );
 
       expect(
         apiKeys.create,
@@ -214,6 +398,13 @@ describe("ApiKeyService", () => {
 
         expiresAt: undefined,
       });
+
+      expect(
+        apiKeys.createCapabilities,
+      ).toHaveBeenCalledWith(
+        created.id,
+        ["capability-1"],
+      );
 
       expect(
         hasher.hash,
@@ -244,6 +435,26 @@ describe("ApiKeyService", () => {
           "2027-01-01T00:00:00.000Z",
         );
 
+      const requestedCapabilities = [
+        "messages.send",
+      ];
+
+      apiKeyCapabilities.findByNames.mockResolvedValue([
+        {
+          id: "capability-1",
+          name: "messages.send",
+          module: "messages",
+          description:
+            "Send SMS messages.",
+          createdAt: now,
+          updatedAt: now,
+        },
+      ]);
+
+      apiKeys.createCapabilities.mockResolvedValue({
+        count: 1,
+      });
+
       apiKeys.create.mockResolvedValue({
         ...baseApiKey,
         expiresAt,
@@ -252,6 +463,7 @@ describe("ApiKeyService", () => {
       await service.create(
         clientId,
         "Production",
+        requestedCapabilities,
         userId,
         AuthenticationMethod.SESSION,
         expiresAt,
@@ -267,6 +479,26 @@ describe("ApiKeyService", () => {
     });
 
     it("should record the API key creation event inside the transaction", async () => {
+      const requestedCapabilities = [
+        "messages.send",
+      ];
+
+      apiKeyCapabilities.findByNames.mockResolvedValue([
+        {
+          id: "capability-1",
+          name: "messages.send",
+          module: "messages",
+          description:
+            "Send SMS messages.",
+          createdAt: now,
+          updatedAt: now,
+        },
+      ]);
+
+      apiKeys.createCapabilities.mockResolvedValue({
+        count: 1,
+      });
+
       apiKeys.create.mockResolvedValue(
         baseApiKey,
       );
@@ -274,6 +506,7 @@ describe("ApiKeyService", () => {
       await service.create(
         clientId,
         "Production",
+        requestedCapabilities,
         userId,
         AuthenticationMethod.SESSION,
         null,
@@ -292,7 +525,37 @@ describe("ApiKeyService", () => {
       );
     });
 
-    it("should use the API key repository transaction", async () => {
+    it("should assign the requested capabilities inside the transaction", async () => {
+      const requestedCapabilities = [
+        "messages.send",
+        "messages.status.read",
+      ];
+
+      apiKeyCapabilities.findByNames.mockResolvedValue([
+        {
+          id: "capability-1",
+          name: "messages.send",
+          module: "messages",
+          description:
+            "Send SMS messages.",
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: "capability-2",
+          name: "messages.status.read",
+          module: "messages",
+          description:
+            "Read message status.",
+          createdAt: now,
+          updatedAt: now,
+        },
+      ]);
+
+      apiKeys.createCapabilities.mockResolvedValue({
+        count: 2,
+      });
+
       apiKeys.create.mockResolvedValue(
         baseApiKey,
       );
@@ -300,6 +563,125 @@ describe("ApiKeyService", () => {
       await service.create(
         clientId,
         "Production",
+        requestedCapabilities,
+        userId,
+        AuthenticationMethod.SESSION,
+      );
+
+      expect(
+        apiKeys.createCapabilities,
+      ).toHaveBeenCalledWith(
+        baseApiKey.id,
+        [
+          "capability-1",
+          "capability-2",
+        ],
+      );
+    });
+
+    it("should reject an unknown capability", async () => {
+      const requestedCapabilities = [
+        "messages.send",
+        "messages.fake",
+      ];
+
+      apiKeyCapabilities.findByNames.mockResolvedValue([
+        {
+          id: "capability-1",
+          name: "messages.send",
+          module: "messages",
+          description:
+            "Send SMS messages.",
+          createdAt: now,
+          updatedAt: now,
+        },
+      ]);
+
+      await expect(
+        service.create(
+          clientId,
+          "Production",
+          requestedCapabilities,
+          userId,
+          AuthenticationMethod.SESSION,
+        ),
+      ).rejects.toThrow(
+        "Unknown API key capability: messages.fake",
+      );
+
+      expect(
+        apiKeys.create,
+      ).not.toHaveBeenCalled();
+
+      expect(
+        apiKeys.createCapabilities,
+      ).not.toHaveBeenCalled();
+
+      expect(
+        authenticationEvents.recordApiKeyCreated,
+      ).not.toHaveBeenCalled();
+    });
+
+    it("should reject duplicate capabilities", async () => {
+      const requestedCapabilities = [
+        "messages.send",
+        "messages.send",
+      ];
+
+      await expect(
+        service.create(
+          clientId,
+          "Production",
+          requestedCapabilities,
+          userId,
+          AuthenticationMethod.SESSION,
+        ),
+      ).rejects.toThrow(
+        "Duplicate API key capabilities are not allowed.",
+      );
+
+      expect(
+        apiKeyCapabilities.findByNames,
+      ).not.toHaveBeenCalled();
+
+      expect(
+        apiKeys.create,
+      ).not.toHaveBeenCalled();
+
+      expect(
+        apiKeys.createCapabilities,
+      ).not.toHaveBeenCalled();
+    });
+
+    it("should use the API key repository transaction", async () => {
+      const requestedCapabilities = [
+        "messages.send",
+      ];
+
+      apiKeyCapabilities.findByNames.mockResolvedValue([
+        {
+          id: "capability-1",
+          name: "messages.send",
+          module: "messages",
+          description:
+            "Send SMS messages.",
+          createdAt: now,
+          updatedAt: now,
+        },
+      ]);
+
+      apiKeys.createCapabilities.mockResolvedValue({
+        count: 1,
+      });
+
+      apiKeys.create.mockResolvedValue(
+        baseApiKey,
+      );
+
+      await service.create(
+        clientId,
+        "Production",
+        requestedCapabilities,
         userId,
         AuthenticationMethod.SESSION,
       );
@@ -313,6 +695,10 @@ describe("ApiKeyService", () => {
       ).toHaveBeenCalledTimes(1);
 
       expect(
+        apiKeyCapabilities.withDatabase,
+      ).toHaveBeenCalledTimes(1);
+
+      expect(
         authenticationEvents.withDatabase,
       ).toHaveBeenCalledTimes(1);
     });
@@ -323,19 +709,31 @@ describe("ApiKeyService", () => {
   // -------------------------------------------------------------------------
 
   describe("validate", () => {
-    const storedKey: ApiKey = {
+    const storedKey = {
       ...baseApiKey,
       prefix: "abcdef1234567890",
       secretHash: "hashed-secret",
+      capabilities: [
+        {
+          capability: {
+            name: "messages.send",
+          },
+        },
+        {
+          capability: {
+            name: "messages.status.read",
+          },
+        },
+      ],
     };
 
-    it("should validate a valid API key", async () => {
+    it("should validate a valid API key and return its capabilities", async () => {
       const updated = {
         ...storedKey,
         lastUsedAt: now,
       };
 
-      apiKeys.findByPrefix.mockResolvedValue(
+      apiKeys.findByPrefixWithCapabilities.mockResolvedValue(
         storedKey,
       );
 
@@ -353,10 +751,14 @@ describe("ApiKeyService", () => {
         );
 
       expect(
-        apiKeys.findByPrefix,
+        apiKeys.findByPrefixWithCapabilities,
       ).toHaveBeenCalledWith(
         "abcdef1234567890",
       );
+
+      expect(
+        apiKeys.findByPrefix,
+      ).not.toHaveBeenCalled();
 
       expect(
         hasher.verify,
@@ -380,6 +782,57 @@ describe("ApiKeyService", () => {
         status: storedKey.status,
         expiresAt: storedKey.expiresAt,
         lastUsedAt: updated.lastUsedAt,
+        capabilities: [
+          "messages.send",
+          "messages.status.read",
+        ],
+      });
+    });
+
+    it("should return an empty capability list when the API key has no capabilities", async () => {
+      const keyWithoutCapabilities = {
+        ...baseApiKey,
+        prefix: "abcdef1234567890",
+        secretHash: "hashed-secret",
+        capabilities: [],
+      };
+
+      const updated = {
+        ...keyWithoutCapabilities,
+        lastUsedAt: now,
+      };
+
+      apiKeys.findByPrefixWithCapabilities.mockResolvedValue(
+        keyWithoutCapabilities,
+      );
+
+      apiKeys.updateLastUsed.mockResolvedValue(
+        updated,
+      );
+
+      hasher.verify.mockReturnValue(
+        true,
+      );
+
+      const result =
+        await service.validate(
+          "pk_live_abcdef1234567890.secret",
+        );
+
+      expect(result).toEqual({
+        id: keyWithoutCapabilities.id,
+        publicId:
+          keyWithoutCapabilities.publicId,
+        clientId:
+          keyWithoutCapabilities.clientId,
+        name: keyWithoutCapabilities.name,
+        status:
+          keyWithoutCapabilities.status,
+        expiresAt:
+          keyWithoutCapabilities.expiresAt,
+        lastUsedAt:
+          updated.lastUsedAt,
+        capabilities: [],
       });
     });
 
@@ -389,12 +842,12 @@ describe("ApiKeyService", () => {
       ).rejects.toThrow();
 
       expect(
-        apiKeys.findByPrefix,
+        apiKeys.findByPrefixWithCapabilities,
       ).not.toHaveBeenCalled();
     });
 
     it("should reject an API key with an invalid secret", async () => {
-      apiKeys.findByPrefix.mockResolvedValue(
+      apiKeys.findByPrefixWithCapabilities.mockResolvedValue(
         storedKey,
       );
 
@@ -416,7 +869,7 @@ describe("ApiKeyService", () => {
     });
 
     it("should reject a missing API key", async () => {
-      apiKeys.findByPrefix.mockResolvedValue(
+      apiKeys.findByPrefixWithCapabilities.mockResolvedValue(
         null,
       );
 
@@ -434,10 +887,9 @@ describe("ApiKeyService", () => {
     });
 
     it("should reject an inactive API key", async () => {
-      apiKeys.findByPrefix.mockResolvedValue({
+      apiKeys.findByPrefixWithCapabilities.mockResolvedValue({
         ...storedKey,
-        status:
-          ApiKeyStatus.REVOKED,
+        status: ApiKeyStatus.REVOKED,
       });
 
       await expect(
@@ -447,10 +899,14 @@ describe("ApiKeyService", () => {
       ).rejects.toThrow(
         "API key is inactive.",
       );
+
+      expect(
+        apiKeys.updateLastUsed,
+      ).not.toHaveBeenCalled();
     });
 
     it("should reject a revoked API key", async () => {
-      apiKeys.findByPrefix.mockResolvedValue({
+      apiKeys.findByPrefixWithCapabilities.mockResolvedValue({
         ...storedKey,
         revokedAt:
           new Date(
@@ -465,10 +921,14 @@ describe("ApiKeyService", () => {
       ).rejects.toThrow(
         "API key has been revoked.",
       );
+
+      expect(
+        apiKeys.updateLastUsed,
+      ).not.toHaveBeenCalled();
     });
 
     it("should reject an expired API key", async () => {
-      apiKeys.findByPrefix.mockResolvedValue({
+      apiKeys.findByPrefixWithCapabilities.mockResolvedValue({
         ...storedKey,
         expiresAt:
           new Date(
@@ -483,6 +943,10 @@ describe("ApiKeyService", () => {
       ).rejects.toThrow(
         "API key has expired.",
       );
+
+      expect(
+        apiKeys.updateLastUsed,
+      ).not.toHaveBeenCalled();
     });
 
     it("should accept an API key that expires exactly after the current time", async () => {
@@ -496,22 +960,26 @@ describe("ApiKeyService", () => {
         expiresAt,
       };
 
-      apiKeys.findByPrefix.mockResolvedValue(
+      apiKeys.findByPrefixWithCapabilities.mockResolvedValue(
         key,
       );
 
-      apiKeys.updateLastUsed.mockResolvedValue(
-        {
-          ...key,
-          lastUsedAt: now,
-        },
-      );
+      apiKeys.updateLastUsed.mockResolvedValue({
+        ...key,
+        lastUsedAt: now,
+      });
 
       await expect(
         service.validate(
           "pk_live_abcdef1234567890.secret",
         ),
       ).resolves.toBeDefined();
+
+      expect(
+        apiKeys.findByPrefixWithCapabilities,
+      ).toHaveBeenCalledWith(
+        "abcdef1234567890",
+      );
     });
   });
 
@@ -739,7 +1207,6 @@ describe("ApiKeyService", () => {
       ).toHaveBeenCalledWith(
         current.id,
         "hashed-secret",
-        now,
       );
 
       expect(

@@ -340,4 +340,105 @@ describe("AuthorizationService", () => {
       ).toBe(false);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // hasCapabilities
+  // -------------------------------------------------------------------------
+
+  describe("hasCapabilities", () => {
+    const apiKey = {
+      id: "api-key-1",
+      publicId: "AK-001",
+      clientId: "client-1",
+      name: "Production",
+      capabilities: [
+        "messages.send",
+        "messages.status.read",
+      ],
+    };
+
+    it("should authorize when the API key has the required capability", () => {
+      expect(
+        service.hasCapabilities(
+          apiKey,
+          ["messages.send"],
+        ),
+      ).toBe(true);
+    });
+
+    it("should authorize when the API key has all required capabilities", () => {
+      expect(
+        service.hasCapabilities(
+          apiKey,
+          [
+            "messages.send",
+            "messages.status.read",
+          ],
+        ),
+      ).toBe(true);
+    });
+
+    it("should reject when the API key is missing a required capability", () => {
+      expect(
+        service.hasCapabilities(
+          apiKey,
+          ["messages.delete"],
+        ),
+      ).toBe(false);
+    });
+
+    it("should reject when the API key is missing one of multiple required capabilities", () => {
+      expect(
+        service.hasCapabilities(
+          apiKey,
+          [
+            "messages.send",
+            "messages.delete",
+          ],
+        ),
+      ).toBe(false);
+    });
+
+    it("should authorize when no capabilities are required", () => {
+      expect(
+        service.hasCapabilities(
+          apiKey,
+          [],
+        ),
+      ).toBe(true);
+    });
+
+    it("should reject an API key with no capabilities when a capability is required", () => {
+      expect(
+        service.hasCapabilities(
+          {
+            ...apiKey,
+            capabilities: [],
+          },
+          ["messages.send"],
+        ),
+      ).toBe(false);
+    });
+
+    it("should not mutate the API key capabilities", () => {
+      const capabilities = [
+        "messages.send",
+        "messages.status.read",
+      ];
+
+      const key = {
+        ...apiKey,
+        capabilities,
+      };
+
+      service.hasCapabilities(
+        key,
+        ["messages.send"],
+      );
+
+      expect(
+        key.capabilities,
+      ).toEqual(capabilities);
+    });
+  });
 });

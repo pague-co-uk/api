@@ -30,7 +30,7 @@
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/swagger": "^11.4.6",
-    "@pague-co-uk/sms-gateway-db": "^3.0.9",
+    "@pague-co-uk/sms-gateway-db": "^3.0.12",
     "@pague-co-uk/sms-gateway-queue-client": "^0.1.2",
     "@pague-co-uk/sms-gateway-telemetry": "^1.0.26",
     "@prisma/client": "^6.16.3",

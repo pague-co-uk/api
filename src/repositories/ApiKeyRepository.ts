@@ -172,10 +172,50 @@ export class ApiKeyRepository extends DatabaseRepository {
     );
   }
 
+  async findByPrefixWithCapabilities(
+    prefix: string,
+  ): Promise<
+    (ApiKey & {
+      capabilities: Array<{
+        capability: {
+          name: string;
+        };
+      }>;
+    }) | null
+  > {
+    return this.execute(
+      "SELECT",
+      "api_keys",
+      async () => {
+        const result =
+          await this.db.apiKey.findUnique({
+            where: {
+              prefix,
+            },
+            include: {
+              capabilities: {
+                include: {
+                  capability: {
+                    select: {
+                      name: true,
+                    },
+                  },
+                },
+              },
+            },
+          });
+
+        return {
+          result,
+          rowsAffected: result ? 1 : 0,
+        };
+      },
+    );
+  }
+
   updateSecret(
     id: string,
     secretHash: string,
-    rotatedAt: Date,
   ): Promise<ApiKey> {
     return this.execute(
       "UPDATE",
@@ -233,6 +273,63 @@ export class ApiKeyRepository extends DatabaseRepository {
           }),
         rowsAffected: 1,
       }),
+    );
+  }
+
+  async deleteCapabilities(
+    apiKeyId: string,
+  ): Promise<void> {
+    return this.execute(
+      "DELETE",
+      "api_key_capability_assignments",
+      async () => {
+        const result =
+          await this.db.apiKeyCapabilityAssignment.deleteMany({
+            where: {
+              apiKeyId,
+            },
+          });
+
+        return {
+          result: undefined,
+          rowsAffected: result.count,
+        };
+      },
+    );
+  }
+
+  async createCapabilities(
+    apiKeyId: string,
+    capabilityIds: readonly string[],
+  ): Promise<{
+    count: number;
+  }> {
+    if (capabilityIds.length === 0) {
+      return {
+        count: 0,
+      };
+    }
+
+    return this.execute(
+      "INSERT",
+      "api_key_capability_assignments",
+      async () => {
+        const result =
+          await this.db.apiKeyCapabilityAssignment.createMany({
+            data: capabilityIds.map(
+              (capabilityId) => ({
+                apiKeyId,
+                capabilityId,
+              }),
+            ),
+            skipDuplicates: true,
+          });
+
+        return {
+          result,
+          rowsAffected: result.count,
+        };
+      },
     );
   }
 }

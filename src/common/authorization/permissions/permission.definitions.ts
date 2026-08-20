@@ -187,4 +187,117 @@ export const PermissionDefinitions: {
     module: "api_keys",
     description: "Revoke API keys.",
   },
+  // -------------------------------------------------------------------------
+  // Float
+  // -------------------------------------------------------------------------
+
+  [Permissions.FLOAT_READ]: {
+    module: "float",
+    description: "View client float balances and ledger entries.",
+  },
+
+  [Permissions.FLOAT_TOP_UP]: {
+    module: "float",
+    description: "Top up client float balances.",
+  },
+
+  [Permissions.FLOAT_DEBIT]: {
+    module: "float",
+    description: "Debit credits from client float balances.",
+  },
+
+  [Permissions.FLOAT_REFUND]: {
+    module: "float",
+    description: "Refund credits to client float balances.",
+  },
+
+  [Permissions.FLOAT_ADJUST]: {
+    module: "float",
+    description: "Adjust client float balances.",
+  },
+  // -------------------------------------------------------------------------
+  // SMPP Accounts
+  // -------------------------------------------------------------------------
+
+  [Permissions.SMPP_ACCOUNTS_READ]: {
+    module: "smpp_accounts",
+    description: "View SMPP accounts.",
+  },
+
+  [Permissions.SMPP_ACCOUNTS_CREATE]: {
+    module: "smpp_accounts",
+    description: "Create SMPP accounts.",
+  },
+
+  [Permissions.SMPP_ACCOUNTS_UPDATE]: {
+    module: "smpp_accounts",
+    description: "Update SMPP account configuration.",
+  },
+
+  [Permissions.SMPP_ACCOUNTS_PASSWORD_UPDATE]: {
+    module: "smpp_accounts",
+    description: "Change SMPP account passwords.",
+  },
+
+  [Permissions.SMPP_ACCOUNTS_ACTIVATE]: {
+    module: "smpp_accounts",
+    description: "Activate SMPP accounts.",
+  },
+
+  [Permissions.SMPP_ACCOUNTS_DISABLE]: {
+    module: "smpp_accounts",
+    description: "Disable SMPP accounts.",
+  },
+  // -------------------------------------------------------------------------
+  // Audit Logs
+  // -------------------------------------------------------------------------
+
+  [Permissions.AUDIT_LOGS_READ]: {
+    module: "audit_logs",
+    description: "View audit logs.",
+  },
+  // -------------------------------------------------------------------------
+  // Messages
+  // -------------------------------------------------------------------------
+
+  [Permissions.MESSAGES_READ]: {
+    module: "messages",
+    description: "View messages.",
+  },
+
+  [Permissions.MESSAGES_CREATE]: {
+    module: "messages",
+    description: "Submit messages.",
+  },
+  // -------------------------------------------------------------------------
+  // Webhooks
+  // -------------------------------------------------------------------------
+  [Permissions.WEBHOOKS_READ]: {
+    module: "webhooks",
+    description: "View webhook endpoints.",
+  },
+
+  [Permissions.WEBHOOKS_CREATE]: {
+    module: "webhooks",
+    description: "Create webhook endpoints.",
+  },
+
+  [Permissions.WEBHOOKS_UPDATE]: {
+    module: "webhooks",
+    description: "Update, enable, or disable webhook endpoints.",
+  },
+
+  [Permissions.WEBHOOKS_DELETE]: {
+    module: "webhooks",
+    description: "Delete webhook endpoints.",
+  },
+
+  [Permissions.WEBHOOKS_ROTATE_SECRET]: {
+    module: "webhooks",
+    description: "Rotate webhook signing secrets.",
+  },
+  [Permissions.WEBHOOKS_DELIVERIES_READ]: {
+    module: "webhooks",
+    description: "View webhook delivery history.",
+  },
 } as const;

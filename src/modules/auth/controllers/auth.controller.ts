@@ -13,7 +13,6 @@ import {
   Res,
   UnauthorizedException,
 } from "@nestjs/common";
-import { AuthenticationMethod } from "@prisma/client";
 import type {
   Request,
   Response,
@@ -27,7 +26,6 @@ import { ClientIp, UserAgent } from "../../../decorators/index.js";
 import { AuthenticationCookieService } from "../services/authentication-cookie.service.js";
 import { AuthenticationService } from "../services/authentication.service.js";
 import { ChangePasswordRequestDto } from "./requests/change-password.request.dto.js";
-import { CreateApiKeyRequestDto } from "./requests/create-api-key.request.dto.js";
 import { ForgotPasswordRequestDto } from "./requests/forgot-password.request.dto.js";
 import { LoginWithApiKeyRequestDto } from "./requests/index.js";
 import { LoginRequestDto } from "./requests/login.request.dto.js";
@@ -311,34 +309,6 @@ export class AuthenticationController {
 
     await this.authentication.resetPassword(
       request.token, request.code, request.password, clientId, ipAddress, userAgent,
-    );
-  }
-
-  @Post("api-keys")
-  @HttpCode(HttpStatus.CREATED)
-  async createApiKey(
-    @Body()
-    request: CreateApiKeyRequestDto,
-
-    @CurrentUser()
-    user: AuthenticatedUser,
-
-    @ClientIp()
-    ipAddress: string,
-
-    @UserAgent()
-    userAgent: string,
-  ) {
-    return this.authentication.createApiKey(
-      user.clientId,
-      request.name,
-      user.userId,
-      AuthenticationMethod.SESSION,
-      request.expiresAt
-        ? new Date(request.expiresAt)
-        : undefined,
-      ipAddress,
-      userAgent,
     );
   }
 

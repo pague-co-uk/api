@@ -12,8 +12,20 @@ import { SecretHasher } from "../../../common/services/secretHasher.service.js";
 import { InvalidApiKeyException } from "../../../exceptions/auth/invalid-apikey.exception.js";
 
 import { createCounterMetric, getComponentLogger, recordException, withSpan } from "@pague-co-uk/sms-gateway-telemetry";
+import { ApiKeyCapabilityDefinitions } from "../../../common/authorization/permissions/api-key-capabilities.definitions.js";
+import { ApiKeyCapability } from "../../../common/authorization/permissions/api-key-capabilities.registry.js";
+import { ApiKeyCapabilityRepository } from "../../../repositories/ApiKeyCapabilityRepository.js";
 import { ApiKeyRepository } from "../../../repositories/ApiKeyRepository.js";
 import { AuthenticationEventService } from "./authentication-event.service.js";
+
+type ApiKeyWithCapabilities =
+  ApiKey & {
+    capabilities: Array<{
+      capability: {
+        name: string;
+      };
+    }>;
+  };
 
 @Injectable()
 export class ApiKeyService {
@@ -29,11 +41,13 @@ export class ApiKeyService {
     private readonly clock: ClockService,
     private readonly apiKeys: ApiKeyRepository,
     private readonly authenticationEvents: AuthenticationEventService,
+    private readonly apiKeyCapabilities: ApiKeyCapabilityRepository,
   ) { }
 
   async create(
     clientId: string,
     name: string,
+    capabilities: readonly ApiKeyCapability[],
     createdByUserId: string,
     authenticationMethod: AuthenticationMethod,
     expiresAt?: Date | null,
@@ -49,6 +63,18 @@ export class ApiKeyService {
     return withSpan(
       "ApiKeyService.create",
       async (span) => {
+        const uniqueCapabilities =
+          new Set(capabilities);
+
+        if (
+          uniqueCapabilities.size !==
+          capabilities.length
+        ) {
+          throw new InvalidApiKeyException(
+            "Duplicate API key capabilities are not allowed.",
+          );
+        }
+
         const publicId =
           this.generatePublicId();
 
@@ -73,28 +99,71 @@ export class ApiKeyService {
               const apiKeys =
                 this.apiKeys.withDatabase(tx);
 
+              const capabilityRepository =
+                this.apiKeyCapabilities.withDatabase(
+                  tx,
+                );
+
               const events =
                 this.authenticationEvents.withDatabase(
                   tx,
                 );
 
+              const capabilityRecords =
+                await capabilityRepository.findByNames(
+                  capabilities,
+                );
+
+              if (
+                capabilityRecords.length !==
+                capabilities.length
+              ) {
+                const found =
+                  new Set(
+                    capabilityRecords.map(
+                      ({ name }) => name,
+                    ),
+                  );
+
+                const missing =
+                  capabilities.filter(
+                    (capability) =>
+                      !found.has(capability),
+                  );
+
+                throw new InvalidApiKeyException(
+                  `Unknown API key capability: ${missing.join(", ")}`,
+                );
+              }
+
               const created =
                 await apiKeys.create({
                   publicId,
+
                   client: {
                     connect: {
                       id: clientId,
                     },
                   },
-                  name:
-                    name,
+
+                  name,
+
                   prefix,
+
                   secretHash,
+
                   status:
                     ApiKeyStatus.ACTIVE,
-                  expiresAt:
-                    expiresAt,
+
+                  expiresAt,
                 });
+
+              await apiKeys.createCapabilities(
+                created.id,
+                capabilityRecords.map(
+                  ({ id }) => id,
+                ),
+              );
 
               await events.recordApiKeyCreated(
                 clientId,
@@ -111,24 +180,35 @@ export class ApiKeyService {
         span.setAttributes({
           "api_key.id":
             created.id,
+
           "api_key.public_id":
             created.publicId,
+
           "api_key.prefix":
             created.prefix,
+
           "client.id":
             clientId,
+
+          "api_key.capability_count":
+            capabilities.length,
         });
 
         this.logger.info(
           {
             apiKeyId:
               created.id,
+
             publicId:
               created.publicId,
-            clientId:
-              clientId,
+
+            clientId,
+
             prefix:
               created.prefix,
+
+            capabilityCount:
+              capabilities.length,
           },
           "API key created.",
         );
@@ -136,11 +216,15 @@ export class ApiKeyService {
         return {
           apiKeyId:
             created.id,
+
           publicId:
             created.publicId,
+
           apiKey,
+
           prefix:
             created.prefix,
+
           expiresAt:
             created.expiresAt,
         };
@@ -158,6 +242,7 @@ export class ApiKeyService {
     status: ApiKeyStatus;
     expiresAt: Date | null;
     lastUsedAt: Date | null;
+    capabilities: readonly string[];
   }> {
     return withSpan(
       "ApiKeyService.validate",
@@ -187,15 +272,21 @@ export class ApiKeyService {
 
                 const key =
                   this.ensureUsable(
-                    await apiKeys.findByPrefix(
+                    await apiKeys.findByPrefixWithCapabilities(
                       parsed.prefix,
                     ),
                   );
 
-                await this.verifySecret(
+                this.verifySecret(
                   parsed.secret,
                   key,
                 );
+
+                const capabilities =
+                  key.capabilities.map(
+                    ({ capability }) =>
+                      capability.name,
+                  );
 
                 const updated =
                   await apiKeys.updateLastUsed(
@@ -203,7 +294,10 @@ export class ApiKeyService {
                     this.clock.now(),
                   );
 
-                return updated;
+                return {
+                  ...updated,
+                  capabilities,
+                };
               },
             );
 
@@ -218,20 +312,30 @@ export class ApiKeyService {
           span.setAttributes({
             "api_key.id":
               validated.id,
+
             "api_key.public_id":
               validated.publicId,
+
             "client.id":
               validated.clientId,
+
+            "api_key.capability_count":
+              validated.capabilities.length,
           });
 
           this.logger.info(
             {
               apiKeyId:
                 validated.id,
+
               publicId:
                 validated.publicId,
+
               clientId:
                 validated.clientId,
+
+              capabilityCount:
+                validated.capabilities.length,
             },
             "API key validated.",
           );
@@ -364,9 +468,7 @@ export class ApiKeyService {
                   await apiKeys.updateSecret(
                     current.id,
                     newSecretHash,
-                    this.clock.now(),
                   );
-
                 await events.recordApiKeyRotated(
                   clientId,
                   userId,
@@ -584,6 +686,90 @@ export class ApiKeyService {
       },
     );
   }
+
+  async synchronizeRegistry(): Promise<void> {
+    return withSpan(
+      "ApiKeyCapabilityService.synchronizeRegistry",
+      async (span) => {
+        const capabilityCount =
+          Object.keys(
+            ApiKeyCapabilityDefinitions,
+          ).length;
+
+        this.logger.info(
+          {
+            capabilityCount,
+          },
+          "Synchronizing API key capability registry.",
+        );
+
+        span.setAttribute(
+          "api_key_capabilities.registry.count",
+          capabilityCount,
+        );
+
+        try {
+          for (const [
+            name,
+            definition,
+          ] of Object.entries(
+            ApiKeyCapabilityDefinitions,
+          )) {
+            await this.apiKeyCapabilities.upsert({
+              where: {
+                name,
+              },
+
+              create: {
+                name,
+                module:
+                  definition.module,
+                description:
+                  definition.description,
+              },
+
+              update: {
+                module:
+                  definition.module,
+                description:
+                  definition.description,
+              },
+            });
+          }
+
+          this.capabilitiesSynchronizedCounter.add(
+            1,
+          );
+
+          span.addEvent(
+            "api_key_capabilities.registry.synchronized",
+            {
+              "api_key_capabilities.count":
+                capabilityCount,
+            },
+          );
+
+          this.logger.info(
+            {
+              capabilityCount,
+            },
+            "API key capability registry synchronized successfully.",
+          );
+        } catch (error) {
+          recordException(error);
+
+          this.logger.error(
+            {
+              err: error,
+            },
+            "Failed to synchronize API key capability registry.",
+          );
+
+          throw error;
+        }
+      },
+    );
+  }
   private generateSecret(): string {
     return this.random
       .bytes(32)
@@ -641,9 +827,11 @@ export class ApiKeyService {
     return this.hasher.hash(secret);
   }
 
-  private ensureUsable(
-    apiKey: ApiKey | null,
-  ): ApiKey {
+  private ensureUsable<
+    T extends ApiKey,
+  >(
+    apiKey: T | null,
+  ): T {
     if (!apiKey) {
       throw new InvalidApiKeyException(
         "API key not found.",
@@ -678,6 +866,14 @@ export class ApiKeyService {
     return apiKey;
   }
 
+  private readonly capabilitiesSynchronizedCounter =
+    createCounterMetric({
+      name:
+        "auth.api_key_capabilities.registry.synchronized",
+      description:
+        "Number of successful API key capability registry synchronizations.",
+    });
+
   private readonly apiKeysValidatedCounter =
     createCounterMetric({
       name: "auth.api_key.validated",
@@ -689,8 +885,11 @@ export class ApiKeyService {
       name: "auth.api_key.rotated",
       description: "Number of rotated API keys.",
     });
+
   private toValidatedApiKey(
-    apiKey: ApiKey,
+    apiKey: ApiKey & {
+      capabilities: readonly string[];
+    },
   ): {
     id: string;
     publicId: string;
@@ -699,6 +898,7 @@ export class ApiKeyService {
     status: ApiKeyStatus;
     expiresAt: Date | null;
     lastUsedAt: Date | null;
+    capabilities: readonly string[];
   } {
     return {
       id: apiKey.id,
@@ -708,6 +908,7 @@ export class ApiKeyService {
       status: apiKey.status,
       expiresAt: apiKey.expiresAt,
       lastUsedAt: apiKey.lastUsedAt,
+      capabilities: apiKey.capabilities,
     };
   }
 

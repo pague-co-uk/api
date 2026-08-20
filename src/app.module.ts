@@ -10,9 +10,13 @@ import { ResponseInterceptor } from "./common/interceptors/response.interceptor.
 import { ConfigModule } from "./config/config.module.js";
 import { DatabaseModule } from "./database/index.js";
 import { GlobalExceptionFilter } from "./filters/global-exception.filter.js";
+import { AuditLogModule } from "./modules/audit/audit-log.module.js";
 import { AuthenticationModule } from "./modules/auth/auth.module.js";
 import { ClientsModule } from "./modules/clients/clients.module.js";
+import { FloatLedgerModule } from "./modules/float-ledger/float-ledger.module.js";
 import { HealthModule } from "./modules/health/health.module.js";
+import { MessagesModule } from "./modules/messages/messages.module.js";
+import { OutboxModule } from "./modules/outbox/outbox.module.js";
 import { RolesModule } from "./modules/roles/roles.module.js";
 import { SenderIdsModule } from "./modules/sender-ids/sender-ids.module.js";
 import { UsersModule } from "./modules/users/users.module.js";
@@ -31,7 +35,11 @@ import { QueueModule } from "./queue/index.js";
     AuthorizationModule,
     RolesModule,
     ClientsModule,
-    SenderIdsModule
+    SenderIdsModule,
+    FloatLedgerModule,
+    AuditLogModule,
+    MessagesModule,
+    OutboxModule
   ],
   providers: [
     {

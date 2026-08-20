@@ -1,10 +1,15 @@
 import { Injectable } from "@nestjs/common";
 
-import type { AuthenticatedUser } from "../interfaces/index.js";
+import type {
+  AuthenticatedUser,
+} from "../interfaces/index.js";
+
+import { AuthenticatedApiKey } from "../interfaces/authentication-contenxt.interface.js";
 
 @Injectable()
 export class AuthorizationService {
-  private static readonly PAGUE_SUPER_USER_ROLE = "Pague Super User";
+  private static readonly PAGUE_SUPER_USER_ROLE =
+    "Pague Super User";
 
   hasPermissions(
     user: AuthenticatedUser,
@@ -30,6 +35,23 @@ export class AuthorizationService {
     return this.hasPermissions(
       user,
       required,
+    );
+  }
+
+  hasCapabilities(
+    apiKey: AuthenticatedApiKey,
+    required: readonly string[],
+  ): boolean {
+    if (required.length === 0) {
+      return true;
+    }
+
+    const granted =
+      new Set(apiKey.capabilities);
+
+    return required.every(
+      (capability) =>
+        granted.has(capability),
     );
   }
 

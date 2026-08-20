@@ -9,7 +9,7 @@ import {
   AuthenticationMethod,
   MfaMethod,
   VerificationChannel,
-  VerificationPurpose,
+  VerificationPurpose
 } from '@prisma/client';
 import { AuditService } from '../../../audit/services/audit.service.js';
 import { ClockService } from '../../../common/services/clock.service.js';
@@ -905,108 +905,6 @@ export class AuthenticationService {
         throw error;
       }
     });
-  }
-
-  async createApiKey(
-    clientId: string,
-    name: string,
-    userId: string,
-    authenticationMethod: AuthenticationMethod,
-    expiresAt?: Date | null,
-    ipAddress?: string | null,
-    userAgent?: string | null,
-  ): Promise<{
-    apiKeyId: string;
-    publicId: string;
-    apiKey: string;
-    prefix: string;
-    expiresAt: Date | null;
-  }> {
-    return withSpan(
-      "AuthenticationService.createApiKey",
-      async (span) => {
-        this.logger.info(
-          {
-            clientId,
-            name,
-          },
-          "Creating API key.",
-        );
-
-        span.setAttribute(
-          "auth.client.id",
-          clientId,
-        );
-
-        try {
-          // =====================================================
-          // Business logic
-          // =====================================================
-
-          const apiKey =
-            await this.apiKeys.create(
-              clientId,
-              name,
-              userId,
-              authenticationMethod,
-              expiresAt,
-              ipAddress,
-              userAgent,
-            );
-
-          await this.audit.record({
-            action: 'apikey.created',
-            actorId: userId,
-            actorType: 'User',
-            clientId,
-            resourceType: 'ApiKey',
-            resourceId: apiKey.apiKeyId,
-            metadata: {
-              name,
-              publicId: apiKey.publicId,
-              prefix: apiKey.prefix,
-            },
-          });
-
-          // =====================================================
-          // Observability
-          // =====================================================
-
-          this.apiKeyCreatedCounter.add(1);
-
-          span.setAttribute(
-            "auth.api_key.id",
-            apiKey.apiKeyId,
-          );
-
-          span.addEvent(
-            "auth.api_key.created",
-          );
-
-          this.logger.info(
-            {
-              apiKeyId: apiKey.apiKeyId,
-              clientId,
-            },
-            "API key created successfully.",
-          );
-
-          return apiKey;
-        } catch (error) {
-          recordException(error);
-
-          this.logger.error(
-            {
-              error,
-              clientId,
-            },
-            "Failed to create API key.",
-          );
-
-          throw error;
-        }
-      },
-    );
   }
 
   async rotateApiKey(

@@ -214,4 +214,25 @@ export default () => ({
     queueRecovery:
       process.env.ENABLE_QUEUE_RECOVERY !== "false",
   },
+  outbox: {
+    batchSize: Number.parseInt(
+      process.env.OUTBOX_BATCH_SIZE ?? "50",
+      10,
+    ),
+
+    pollIntervalMillis: Number.parseInt(
+      process.env.OUTBOX_POLL_INTERVAL_MILLIS ?? "1000",
+      10,
+    ),
+
+    staleAfterMillis: Number.parseInt(
+      process.env.OUTBOX_STALE_AFTER_MILLIS ?? "300000",
+      10,
+    ),
+
+    maxAttempts: Number.parseInt(
+      process.env.OUTBOX_MAX_ATTEMPTS ?? "10",
+      10,
+    ),
+  },
 });

@@ -5,6 +5,6 @@ import type { AuthenticationContext } from "./authentication-contenxt.interface.
 
 export interface AuthenticatedRequest
   extends Request {
-  user: AuthenticatedUser;
+  user?: AuthenticatedUser;
   auth: AuthenticationContext;
 }

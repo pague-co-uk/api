@@ -17,7 +17,6 @@ import {
 
 import { ApiKeysController } from "./api-keys.controller.js";
 
-
 describe("ApiKeysController", () => {
   let controller: ApiKeysController;
 
@@ -211,6 +210,10 @@ describe("ApiKeysController", () => {
     const dto = {
       name: "Production",
       expiresAt: "2027-01-01T00:00:00.000Z",
+      capabilities: [
+        "messages.send",
+        "messages.read",
+      ],
     };
 
     const created = {
@@ -253,6 +256,10 @@ describe("ApiKeysController", () => {
       ).toHaveBeenCalledWith(
         "client-1",
         "Production",
+        [
+          "messages.send",
+          "messages.read",
+        ],
         "user-1",
         AuthenticationMethod.SESSION,
         new Date(
@@ -300,6 +307,10 @@ describe("ApiKeysController", () => {
       ).toHaveBeenCalledWith(
         "client-1",
         "Production",
+        [
+          "messages.send",
+          "messages.read",
+        ],
         "user-1",
         AuthenticationMethod.SESSION,
         new Date(
