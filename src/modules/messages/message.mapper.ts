@@ -38,7 +38,7 @@ export class MessageMapper {
         message.currentStatus,
 
       submittedAt:
-        message.submittedAt,
+        message.submittedAt!,
 
       createdAt:
         message.createdAt,

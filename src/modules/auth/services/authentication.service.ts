@@ -11,6 +11,7 @@ import {
   VerificationChannel,
   VerificationPurpose
 } from '@prisma/client';
+import ms from 'ms';
 import { AuditService } from '../../../audit/services/audit.service.js';
 import { ClockService } from '../../../common/services/clock.service.js';
 import { AppConfigService } from '../../../config/config.service.js';
@@ -232,12 +233,15 @@ export class AuthenticationService {
 
         const now = this.clock.now();
 
-        const refreshTokenExpiresAt = new Date(now.getTime());
+        const refreshTokenTtlMs = ms(this.config.auth.refreshTokenTtl as ms.StringValue);
 
-        refreshTokenExpiresAt.setDate(
-          refreshTokenExpiresAt.getDate() +
-          Number(this.config.auth.refreshTokenTtl),
-        );
+        if (refreshTokenTtlMs === undefined) {
+          throw new Error(
+            `Invalid refreshTokenTtl value: "${this.config.auth.refreshTokenTtl}"`,
+          );
+        }
+
+        const refreshTokenExpiresAt = new Date(now.getTime() + refreshTokenTtlMs);
         const refresh = await this.refreshTokens.issue(
           session.session.id,
           user.id,

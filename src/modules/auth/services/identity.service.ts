@@ -185,7 +185,24 @@ export class IdentityService {
       span.setAttribute('user.id', user.id);
 
       try {
-        await this.passwords.verify(password, user.passwordHash);
+        const valid =
+          await this.passwords.verify(
+            user.passwordHash,
+            password,
+          );
+
+        if (!valid) {
+          throw new Error(
+            "Password verification failed.",
+          );
+        }
+
+        this.logger.debug(
+          {
+            userId: user.id,
+          },
+          "Password verified successfully.",
+        );
 
         this.logger.debug(
           {

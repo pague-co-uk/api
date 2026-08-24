@@ -16,18 +16,15 @@ import { ClientsModule } from "./modules/clients/clients.module.js";
 import { FloatLedgerModule } from "./modules/float-ledger/float-ledger.module.js";
 import { HealthModule } from "./modules/health/health.module.js";
 import { MessagesModule } from "./modules/messages/messages.module.js";
-import { OutboxModule } from "./modules/outbox/outbox.module.js";
 import { RolesModule } from "./modules/roles/roles.module.js";
 import { SenderIdsModule } from "./modules/sender-ids/sender-ids.module.js";
 import { UsersModule } from "./modules/users/users.module.js";
-import { QueueModule } from "./queue/index.js";
 
 @Module({
   imports: [
     AuditModule,
     ConfigModule,
     DatabaseModule,
-    QueueModule,
     HealthModule,
     AuthenticationModule,
     UsersModule,
@@ -39,7 +36,6 @@ import { QueueModule } from "./queue/index.js";
     FloatLedgerModule,
     AuditLogModule,
     MessagesModule,
-    OutboxModule
   ],
   providers: [
     {

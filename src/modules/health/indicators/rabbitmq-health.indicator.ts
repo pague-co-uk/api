@@ -1,18 +1,17 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { QueueClient } from "@pague-co-uk/sms-gateway-queue-client";
 import {
   Loggers,
 } from "@pague-co-uk/sms-gateway-telemetry";
-import { QueueClient } from "@pague-co-uk/sms-gateway-queue-client";
 
 import { QUEUE_CLIENT } from "../../../queue/constants/queue.constants.js";
 
-import type { HealthIndicator } from "./health-indicator.interface.js";
 import type { HealthCheck } from "../responses/health.response.js";
+import type { HealthIndicator } from "./health-indicator.interface.js";
 
 @Injectable()
 export class RabbitMqHealthIndicator
-  implements HealthIndicator
-{
+  implements HealthIndicator {
   public readonly name = "rabbitmq";
 
   private readonly logger =
@@ -21,7 +20,7 @@ export class RabbitMqHealthIndicator
   constructor(
     @Inject(QUEUE_CLIENT)
     private readonly client: QueueClient,
-  ) {}
+  ) { }
 
   public async check(): Promise<HealthCheck> {
     const start = performance.now();
