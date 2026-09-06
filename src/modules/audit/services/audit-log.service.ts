@@ -7,6 +7,7 @@ import {
 } from "@prisma/client";
 
 import { AuditLogRepository } from "../../../repositories/auditLogRepository.js";
+import { FindAuditLogsDto } from "../dto/find-audit-logs.dto.js";
 
 @Injectable()
 export class AuditLogService {
@@ -109,18 +110,23 @@ export class AuditLogService {
   async findByEntity(
     entityType: string,
     entityId: string,
+    options?: {
+      readonly page?: number;
+      readonly pageSize?: number;
+    },
   ) {
     return this.auditLogs.findByEntity(
       entityType,
       entityId,
+      options,
     );
   }
 
   async findByClient(
     clientId: string,
     options?: {
-      readonly limit?: number;
-      readonly offset?: number;
+      readonly page?: number;
+      readonly pageSize?: number;
     },
   ) {
     return this.auditLogs.findByClient(
@@ -132,8 +138,8 @@ export class AuditLogService {
   async findByUser(
     userId: string,
     options?: {
-      readonly limit?: number;
-      readonly offset?: number;
+      readonly page?: number;
+      readonly pageSize?: number;
     },
   ) {
     return this.auditLogs.findByUser(
@@ -145,13 +151,28 @@ export class AuditLogService {
   async findByAction(
     action: string,
     options?: {
-      readonly limit?: number;
-      readonly offset?: number;
+      readonly page?: number;
+      readonly pageSize?: number;
     },
   ) {
     return this.auditLogs.findByAction(
       action,
       options,
     );
+  }
+
+  async findMany(
+    query: FindAuditLogsDto,
+  ) {
+    return this.auditLogs.findMany({
+      search: query.search,
+      clientId: query.clientId,
+      userId: query.userId,
+      action: query.action,
+      entityType: query.entityType,
+      entityId: query.entityId,
+      page: query.page ?? 1,
+      pageSize: query.pageSize ?? 20,
+    });
   }
 }

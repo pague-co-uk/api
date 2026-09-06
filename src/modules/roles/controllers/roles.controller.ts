@@ -29,7 +29,6 @@ import { ApiSuccessResponse } from "../../../decorators/api-success-response.dec
 import { Permissions } from "../../../common/authorization/permissions/permissions.registry.js";
 import { CreateRoleDto } from "../dto/create-role.dto.js";
 import { FindRolesDto } from "../dto/find-roles.dto.js";
-import { RoleSummaryResponseDto } from "../dto/role-summary.response.dto.js";
 import { RoleResponseDto } from "../dto/role.response.dto.js";
 import { UpdateRolePermissionsDto } from "../dto/update-role-permissions.dto.js";
 import { UpdateRoleDto } from "../dto/update-role.dto.js";
@@ -50,11 +49,11 @@ export class RolesController {
     summary: "Retrieve a paginated list of roles.",
   })
   @ApiPaginatedResponse(
-    RoleSummaryResponseDto,
+    RoleResponseDto,
   )
   async findMany(
     @Query() dto: FindRolesDto,
-  ): Promise<PaginatedResponse<RoleSummaryResponseDto>> {
+  ): Promise<PaginatedResponse<RoleResponseDto>> {
     const page =
       await this.roles.findMany({
         page: dto.page,
@@ -63,7 +62,7 @@ export class RolesController {
       });
 
     return new PaginatedResponse(
-      this.mapper.toSummaries(page.items),
+      this.mapper.toResponses(page.items),
       page,
     );
   }

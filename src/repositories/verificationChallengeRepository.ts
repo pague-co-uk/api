@@ -156,4 +156,20 @@ export class VerificationChallengeRepository extends DatabaseRepository {
       },
     });
   }
+
+  consume(id: string) {
+    return this.db.verificationChallenge.updateMany({
+      where: {
+        id,
+        status: VerificationStatus.PENDING,
+        expiresAt: {
+          gt: new Date(),
+        },
+      },
+      data: {
+        status: VerificationStatus.VERIFIED,
+        verifiedAt: new Date(),
+      },
+    });
+  }
 }

@@ -10,15 +10,21 @@ import {
   MinLength,
 } from "class-validator";
 
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import {
+  ApiProperty,
+  ApiPropertyOptional,
+} from "@nestjs/swagger";
 
 export class CreateUserDto {
-  @ApiProperty({
-    description: "Client (tenant) identifier.",
-    example: "01989d74-2f97-70b0-9cb5-91a9ef3a9a9d",
+  @ApiPropertyOptional({
+    description:
+      "Client (tenant) identifier. Required when creating a user as a platform super administrator. For client-scoped users, the client is derived from the authenticated user.",
+    example:
+      "01989d74-2f97-70b0-9cb5-91a9ef3a9a9d",
   })
+  @IsOptional()
   @IsUUID()
-  readonly clientId!: string;
+  readonly clientId?: string;
 
   @ApiProperty({
     description: "User's first name.",

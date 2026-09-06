@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
@@ -7,6 +8,7 @@ import {
   LedgerReferenceType,
   MessageEncoding,
   MessageStatus,
+  SenderIdStatus,
 } from "@prisma/client";
 
 import {
@@ -14,6 +16,8 @@ import {
   recordException,
   withSpan,
 } from "@pague-co-uk/sms-gateway-telemetry";
+
+import * as XLSX from "xlsx";
 
 import { ClockService } from "../../../common/services/clock.service.js";
 import { RandomGenerator } from "../../../common/services/random.service.js";
@@ -23,7 +27,30 @@ import { MessageRepository } from "../../../repositories/messageRepository.js";
 import { MessageStatusEventRepository } from "../../../repositories/messageStatusEventRepository.js";
 import { OutboxEventRepository } from "../../../repositories/OutboxRepository.js";
 
+import { SenderIdService } from "../../../modules/sender-ids/services/sender-id.service.js";
 import type { CreateMessageDto } from "../dto/create-message.dto.js";
+import { MessageWithRelations } from "../message.mapper.js";
+
+interface BulkMessageRow {
+  readonly rowNumber: number;
+  readonly destination: unknown;
+  readonly message: unknown;
+  readonly senderId: unknown;
+  readonly encoding: unknown;
+}
+
+interface UploadedSpreadsheet {
+  readonly buffer: Buffer;
+  readonly originalname: string;
+  readonly mimetype: string;
+  readonly size: number;
+}
+
+interface SpreadsheetValidationError {
+  readonly row: number;
+  readonly field: string;
+  readonly message: string;
+}
 
 @Injectable()
 export class MessageService {
@@ -56,6 +83,7 @@ export class MessageService {
       [MessageStatus.EXPIRED]:
         "sms.expired",
     };
+
   // -------------------------------------------------------------------------
   // Terminal states
   // -------------------------------------------------------------------------
@@ -158,256 +186,312 @@ export class MessageService {
 
     private readonly clock:
       ClockService,
+
+    private readonly senderIds:
+      SenderIdService,
   ) { }
 
   // =========================================================================
   // Create
   // =========================================================================
 
-  async create(
-    clientId: string,
-    dto: CreateMessageDto,
-  ) {
-    return withSpan(
-      "MessageService.create",
-      async (span) => {
-        const publicId =
-          this.generatePublicId();
+  /**
+   * Creates one or more messages through a single transaction.
+   *
+   * A single-message submission calls this method with a one-element array.
+   * Spreadsheet submissions call this method with all validated messages.
+   *
+   * Everything that establishes an accepted message is persisted together:
+   *
+   *   1. Messages
+   *   2. Float debits
+   *   3. Status events
+   *   4. Outbox events
+   *
+   * RabbitMQ is deliberately not touched here.
+   */
+async create(
+  clientId: string,
+  dtos: readonly CreateMessageDto[],
+): Promise<MessageWithRelations[]> {
+  return withSpan(
+    "MessageService.create",
+    async (span) => {
+      if (dtos.length === 0) {
+        throw new Error(
+          "At least one message is required.",
+        );
+      }
 
-        const segmentCount =
-          this.calculateSegmentCount(
-            dto.body,
-            dto.encoding,
+      span.setAttributes({
+        "client.id": clientId,
+        "message.count": dtos.length,
+      });
+
+      try {
+        const result =
+          await this.messages.withTransaction(
+            async (tx) => {
+              const messages =
+                this.messages.withDatabase(
+                  tx,
+                );
+
+              const statusEvents =
+                this.statusEvents.withDatabase(
+                  tx,
+                );
+
+              const outbox =
+                this.outbox.withDatabase(
+                  tx,
+                );
+
+              const float =
+                this.float.withDatabase(
+                  tx,
+                );
+
+              // -----------------------------------------------------------
+              // Prepare messages
+              // -----------------------------------------------------------
+
+              const prepared =
+                dtos.map((dto) => {
+                  const publicId =
+                    this.generatePublicId();
+
+                  const segmentCount =
+                    this.calculateSegmentCount(
+                      dto.body,
+                      dto.encoding,
+                    );
+
+                  return {
+                    publicId,
+                    dto,
+                    segmentCount,
+                  };
+                });
+
+              // -----------------------------------------------------------
+              // Create messages
+              // -----------------------------------------------------------
+
+              const created =
+                await messages.createManyAndReturn(
+                  prepared.map(
+                    ({
+                      publicId,
+                      dto,
+                      segmentCount,
+                    }) => ({
+                      publicId,
+                      clientId,
+                      senderIdId:
+                        dto.senderIdId ?? null,
+                      destination:
+                        dto.destination,
+                      body: dto.body,
+                      encoding:
+                        dto.encoding,
+                      segmentCount,
+                      currentStatus:
+                        MessageStatus.QUEUED,
+                      submittedAt:
+                        this.clock.now(),
+                    }),
+                  ),
+                  prepared.map(
+                    ({
+                      publicId,
+                    }) => publicId,
+                  ),
+                );
+
+              // -----------------------------------------------------------
+              // Debit float
+              // -----------------------------------------------------------
+
+              await float.debitMessages(
+                clientId,
+                created.map(
+                  (message) => ({
+                    messageId:
+                      message.id,
+                    publicId:
+                      message.publicId,
+                    segmentCount:
+                      message.segmentCount,
+                  }),
+                ),
+              );
+
+              // -----------------------------------------------------------
+              // Status history
+              // -----------------------------------------------------------
+
+              await statusEvents.createMany(
+                created.map(
+                  (message) => ({
+                    messageId:
+                      message.id,
+                    status:
+                      MessageStatus.QUEUED,
+                    source:
+                      "CONTROL_PLANE",
+                    description:
+                      "Message accepted and queued.",
+                  }),
+                ),
+              );
+
+              // -----------------------------------------------------------
+              // Outbox
+              // -----------------------------------------------------------
+
+              await outbox.createMany(
+                created.map(
+                  (message) => ({
+                    eventType:
+                      "MESSAGE_STATUS",
+                    aggregateType:
+                      "MESSAGE",
+                    aggregateId:
+                      message.id,
+                    queueName:
+                      this.queueForStatus(
+                        MessageStatus.QUEUED,
+                      ),
+                    payload: {
+                      eventId:
+                        this.generateEventId(),
+                      occurredAt:
+                        this.clock
+                          .now()
+                          .toISOString(),
+                      version: 1,
+                      messageId:
+                        message.id,
+                      publicId:
+                        message.publicId,
+                      clientId:
+                        message.clientId,
+                      destination:
+                        message.destination,
+                      body:
+                        message.body,
+                      encoding:
+                        message.encoding,
+                      segmentCount:
+                        message.segmentCount,
+                      status:
+                        MessageStatus.QUEUED,
+                    },
+                    availableAt:
+                      this.clock.now(),
+                  }),
+                ),
+              );
+
+              return created;
+            },
           );
 
-        span.setAttributes({
-          "client.id":
+        // ---------------------------------------------------------------
+        // Logging
+        // ---------------------------------------------------------------
+
+        this.logger.info(
+          {
             clientId,
-
-          "message.public_id":
-            publicId,
-
-          "message.encoding":
-            dto.encoding,
-
-          "message.segment_count":
-            segmentCount,
-
-          "message.status":
-            MessageStatus.QUEUED,
-
-          "message.queue":
-            this.queueForStatus(
+            count:
+              result.length,
+            status:
               MessageStatus.QUEUED,
-            ),
+            queue:
+              this.queueForStatus(
+                MessageStatus.QUEUED,
+              ),
+          },
+          "Messages accepted.",
+        );
+
+        return result;
+      } catch (error) {
+        recordException(error);
+
+        this.logger.error(
+          {
+            err: error,
+            clientId,
+            count:
+              dtos.length,
+          },
+          "Failed to create messages.",
+        );
+
+        throw error;
+      }
+    },
+  );
+}
+
+  // =========================================================================
+  // Bulk Create
+  // =========================================================================
+
+  /**
+   * Parses, validates and prepares a spreadsheet for message creation.
+   *
+   * The spreadsheet is completely validated before create() is called.
+   * Therefore, a validation failure results in zero persisted messages.
+   *
+   * Spreadsheet Sender IDs are human-readable Sender ID names. They are
+   * resolved to the internal Sender ID UUID after validating client ownership
+   * and approval status.
+   */
+  async createFromSpreadsheet(
+    clientId: string,
+    file: UploadedSpreadsheet,
+  ) {
+    return withSpan(
+      "MessageService.createFromSpreadsheet",
+      async (span) => {
+        span.setAttributes({
+          "client.id": clientId,
+
+          "bulk.file.name":
+            file.originalname,
+
+          "bulk.file.size":
+            file.size,
         });
 
         try {
-          /*
-           * Everything that establishes the accepted
-           * message must happen in one transaction:
-           *
-           *   1. Create message
-           *   2. Debit float
-           *   3. Create status event
-           *   4. Create outbox event
-           *
-           * RabbitMQ is deliberately NOT touched here.
-           */
-          const message =
-            await this.messages.withTransaction(
-              async (tx) => {
-                const messages =
-                  this.messages.withDatabase(
-                    tx,
-                  );
+          const rows =
+            this.parseSpreadsheet(file);
 
-                const statusEvents =
-                  this.statusEvents.withDatabase(
-                    tx,
-                  );
-
-                const outbox =
-                  this.outbox.withDatabase(
-                    tx,
-                  );
-
-                const float =
-                  this.float.withDatabase(
-                    tx,
-                  );
-
-                // -----------------------------------------------------------
-                // Create message
-                // -----------------------------------------------------------
-
-                const message =
-                  await messages.create({
-                    publicId,
-
-                    client: {
-                      connect: {
-                        id: clientId,
-                      },
-                    },
-
-                    ...(dto.senderIdId
-                      ? {
-                        senderId: {
-                          connect: {
-                            id:
-                              dto.senderIdId,
-                          },
-                        },
-                      }
-                      : {}),
-
-                    destination:
-                      dto.destination,
-
-                    body:
-                      dto.body,
-
-                    encoding:
-                      dto.encoding,
-
-                    segmentCount,
-
-                    currentStatus:
-                      MessageStatus.QUEUED,
-
-                    submittedAt:
-                      this.clock.now(),
-                  });
-
-                // -----------------------------------------------------------
-                // Debit float
-                // -----------------------------------------------------------
-
-                /*
-                 * The message ID is the ledger reference.
-                 *
-                 * FloatLedgerService handles ledger
-                 * idempotency for this reference.
-                 */
-                await float.debit(
-                  clientId,
-
-                  segmentCount,
-
-                  LedgerReferenceType.MESSAGE,
-
-                  message.id,
-
-                  `Message submission: ${message.publicId}`,
-                );
-
-                // -----------------------------------------------------------
-                // Status history
-                // -----------------------------------------------------------
-
-                await statusEvents.create({
-                  message: {
-                    connect: {
-                      id: message.id,
-                    },
-                  },
-
-                  status:
-                    MessageStatus.QUEUED,
-
-                  source:
-                    "CONTROL_PLANE",
-
-                  description:
-                    "Message accepted and queued.",
-                });
-
-                // -----------------------------------------------------------
-                // Outbox
-                // -----------------------------------------------------------
-
-                await outbox.create({
-                  eventType:
-                    "MESSAGE_STATUS",
-
-                  aggregateType:
-                    "MESSAGE",
-
-                  aggregateId:
-                    message.id,
-
-                  queueName:
-                    this.queueForStatus(
-                      MessageStatus.QUEUED,
-                    ),
-
-                  payload: {
-                    eventId:
-                      this.generateEventId(),
-
-                    occurredAt:
-                      this.clock
-                        .now()
-                        .toISOString(),
-
-                    version: 1,
-
-                    messageId:
-                      message.id,
-
-                    publicId:
-                      message.publicId,
-
-                    clientId:
-                      message.clientId,
-
-                    destination:
-                      message.destination,
-
-                    body:
-                      message.body,
-
-                    encoding:
-                      message.encoding,
-
-                    segmentCount:
-                      message.segmentCount,
-
-                    status:
-                      MessageStatus.QUEUED,
-                  },
-
-                  availableAt:
-                    this.clock.now(),
-                });
-
-                return message;
-              },
+          const messages =
+            await this.validateAndPrepareMessages(
+              clientId,
+              rows,
             );
 
-          this.logger.info(
-            {
-              messageId:
-                message.id,
-
-              publicId:
-                message.publicId,
-
-              clientId,
-
-              status:
-                message.currentStatus,
-
-              queue:
-                this.queueForStatus(
-                  MessageStatus.QUEUED,
-                ),
-            },
-            "Message accepted.",
+          span.setAttribute(
+            "message.count",
+            messages.length,
           );
 
-          return message;
+          /*
+           * All validated spreadsheet messages now
+           * use the exact same persistence path as
+           * normal message submission.
+           */
+          return await this.create(
+            clientId,
+            messages,
+          );
         } catch (error) {
           recordException(error);
 
@@ -417,9 +501,13 @@ export class MessageService {
 
               clientId,
 
-              publicId,
+              fileName:
+                file.originalname,
+
+              fileSize:
+                file.size,
             },
-            "Failed to create message.",
+            "Failed to create messages from spreadsheet.",
           );
 
           throw error;
@@ -435,9 +523,15 @@ export class MessageService {
   async findByClient(
     clientId: string,
     options?: {
-      readonly limit?: number;
-      readonly offset?: number;
+      readonly page?: number;
+      readonly pageSize?: number;
+      readonly search?: string;
+      readonly destination?: string;
+      readonly senderIdId?: string;
       readonly status?: MessageStatus;
+      readonly encoding?: MessageEncoding;
+      readonly submittedFrom?: Date;
+      readonly submittedTo?: Date;
     },
   ) {
     return this.messages.findByClient(
@@ -530,12 +624,6 @@ export class MessageService {
           // Terminal state
           // ---------------------------------------------------------------
 
-          /*
-           * A terminal message can NEVER be mutated.
-           *
-           * This is important for duplicate callbacks,
-           * late DLRs and competing consumers.
-           */
           if (
             MessageService
               .TERMINAL_STATUSES
@@ -550,10 +638,6 @@ export class MessageService {
           // Same transient state
           // ---------------------------------------------------------------
 
-          /*
-           * Receiving the same transient status twice
-           * is idempotent.
-           */
           if (
             message.currentStatus ===
             status
@@ -572,9 +656,6 @@ export class MessageService {
 
           /*
            * Re-read and mutate inside one transaction.
-           *
-           * This protects against two consumers processing
-           * the same message concurrently.
            */
           return this.messages.withTransaction(
             async (tx) => {
@@ -693,16 +774,6 @@ export class MessageService {
               // Refund failed / expired messages
               // -----------------------------------------------------------
 
-              /*
-               * The debit was made when the message was
-               * accepted.
-               *
-               * If delivery ultimately fails or expires,
-               * reverse that debit.
-               *
-               * FloatLedgerService makes this operation
-               * idempotent using the message reference.
-               */
               if (
                 status ===
                 MessageStatus.FAILED ||
@@ -726,14 +797,6 @@ export class MessageService {
               // Outbox
               // -----------------------------------------------------------
 
-              /*
-               * Only statuses that have downstream processing
-               * receive a queue event.
-               *
-               * DELIVERED, FAILED and EXPIRED are terminal,
-               * so they do not need another message-processing
-               * queue.
-               */
               const queueName =
                 this.queueForStatus(
                   status,
@@ -869,7 +932,7 @@ export class MessageService {
 
   /**
    * Returns the queue responsible for
-   * processing a particular non-terminal state.
+   * processing a particular message state.
    */
   private queueForStatus(
     status: MessageStatus,
@@ -908,6 +971,513 @@ export class MessageService {
     }
   }
 
+  // =========================================================================
+  // Spreadsheet parsing
+  // =========================================================================
+
+  private parseSpreadsheet(
+    file: UploadedSpreadsheet,
+  ): readonly BulkMessageRow[] {
+    if (!file?.buffer) {
+      throw new BadRequestException(
+        "Spreadsheet file is required.",
+      );
+    }
+
+    if (file.size === 0) {
+      throw new BadRequestException(
+        "Spreadsheet file is empty.",
+      );
+    }
+
+    let workbook: XLSX.WorkBook;
+
+    try {
+      workbook = XLSX.read(
+        file.buffer,
+        {
+          type: "buffer",
+          cellDates: false,
+          cellNF: false,
+          cellText: true,
+        },
+      );
+    } catch {
+      throw new BadRequestException(
+        "Unable to read spreadsheet file.",
+      );
+    }
+
+    if (
+      workbook.SheetNames.length === 0
+    ) {
+      throw new BadRequestException(
+        "Spreadsheet contains no worksheets.",
+      );
+    }
+
+    const sheetName =
+      workbook.SheetNames[0];
+
+    const worksheet =
+      workbook.Sheets[sheetName];
+
+    if (!worksheet) {
+      throw new BadRequestException(
+        "Spreadsheet worksheet could not be read.",
+      );
+    }
+
+    const records =
+      XLSX.utils.sheet_to_json<
+        Record<string, unknown>
+      >(worksheet, {
+        defval: null,
+        raw: false,
+        blankrows: false,
+      });
+
+    if (records.length === 0) {
+      throw new BadRequestException(
+        "Spreadsheet contains no message rows.",
+      );
+    }
+
+    return records.map(
+      (record, index) => ({
+        rowNumber:
+          index + 2,
+
+        destination:
+          this.getColumnValue(
+            record,
+            "destination",
+          ),
+
+        message:
+          this.getColumnValue(
+            record,
+            "message",
+          ),
+
+        senderId:
+          this.getColumnValue(
+            record,
+            "senderId",
+          ),
+
+        encoding:
+          this.getColumnValue(
+            record,
+            "encoding",
+          ),
+      }),
+    );
+  }
+
+  private getColumnValue(
+    row: Record<string, unknown>,
+    column: string,
+  ): unknown {
+    const key =
+      Object.keys(row).find(
+        (value) =>
+          value
+            .trim()
+            .toLowerCase() ===
+          column.toLowerCase(),
+      );
+
+    return key
+      ? row[key]
+      : undefined;
+  }
+
+  async findManyPlatform(
+    options?: {
+      readonly page?: number;
+      readonly pageSize?: number;
+      readonly clientId?: string;
+      readonly search?: string;
+      readonly destination?: string;
+      readonly senderIdId?: string;
+      readonly status?: MessageStatus;
+      readonly encoding?: MessageEncoding;
+      readonly submittedFrom?: Date;
+      readonly submittedTo?: Date;
+    },
+  ) {
+    return withSpan(
+      "MessageService.findManyPlatform",
+      async (span) => {
+        span.setAttributes({
+          ...(options?.clientId
+            ? {
+              "client.id":
+                options.clientId,
+            }
+            : {}),
+
+          ...(options?.page !== undefined
+            ? {
+              "pagination.page":
+                options.page,
+            }
+            : {}),
+
+          ...(options?.pageSize !== undefined
+            ? {
+              "pagination.page_size":
+                options.pageSize,
+            }
+            : {}),
+        });
+
+        try {
+          const result =
+            await this.messages.findManyPlatform(
+              options,
+            );
+
+          span.setAttributes({
+            "pagination.total_items":
+              result.totalItems,
+
+            "message.count":
+              result.items.length,
+          });
+
+          this.logger.debug(
+            {
+              clientId:
+                options?.clientId,
+
+              page:
+                result.page,
+
+              pageSize:
+                result.pageSize,
+
+              totalItems:
+                result.totalItems,
+
+              count:
+                result.items.length,
+            },
+            "Platform messages retrieved successfully.",
+          );
+
+          return result;
+        } catch (error) {
+          recordException(error);
+
+          this.logger.error(
+            {
+              err: error,
+
+              clientId:
+                options?.clientId,
+
+              page:
+                options?.page,
+
+              pageSize:
+                options?.pageSize,
+            },
+            "Failed to retrieve platform messages.",
+          );
+
+          throw error;
+        }
+      },
+    );
+  }
+
+  // =========================================================================
+  // Spreadsheet validation
+  // =========================================================================
+
+  private async validateAndPrepareMessages(
+    clientId: string,
+    rows: readonly BulkMessageRow[],
+  ): Promise<readonly CreateMessageDto[]> {
+    const errors:
+      SpreadsheetValidationError[] =
+      [];
+
+    const messages:
+      CreateMessageDto[] =
+      [];
+
+    // -----------------------------------------------------------------------
+    // Collect unique Sender ID names.
+    //
+    // The spreadsheet contains the human-readable Sender ID name rather than
+    // the internal database UUID.
+    // -----------------------------------------------------------------------
+
+    const senderNames =
+      new Set<string>();
+
+    for (const row of rows) {
+      const senderName =
+        this.toStringValue(
+          row.senderId,
+        );
+
+      if (senderName) {
+        senderNames.add(
+          senderName,
+        );
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Resolve all Sender IDs in one database query.
+    //
+    // The lookup is scoped to the client, so a Sender ID belonging to another
+    // client will not be returned.
+    // -----------------------------------------------------------------------
+
+    const senderIds =
+      await this.senderIds.findByNamesForClient(
+        clientId,
+        [...senderNames],
+      );
+
+    const senderIdsByName =
+      new Map(
+        senderIds.map(
+          (senderId) => [
+            senderId.sender,
+            senderId,
+          ],
+        ),
+      );
+
+    // -----------------------------------------------------------------------
+    // Validate spreadsheet rows.
+    // -----------------------------------------------------------------------
+
+    for (const row of rows) {
+      const destination =
+        this.toStringValue(
+          row.destination,
+        );
+
+      const body =
+        this.toStringValue(
+          row.message,
+        );
+
+      const senderName =
+        this.toStringValue(
+          row.senderId,
+        );
+
+      const encoding =
+        this.toStringValue(
+          row.encoding,
+        );
+
+      // ---------------------------------------------------------------
+      // Required fields
+      // ---------------------------------------------------------------
+
+      if (!destination) {
+        errors.push({
+          row: row.rowNumber,
+          field: "destination",
+          message:
+            "Destination is required.",
+        });
+      }
+
+      if (!body) {
+        errors.push({
+          row: row.rowNumber,
+          field: "message",
+          message:
+            "Message is required.",
+        });
+      }
+
+      if (!senderName) {
+        errors.push({
+          row: row.rowNumber,
+          field: "senderId",
+          message:
+            "Sender ID is required.",
+        });
+      }
+
+      if (!encoding) {
+        errors.push({
+          row: row.rowNumber,
+          field: "encoding",
+          message:
+            "Encoding is required.",
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Destination
+      // ---------------------------------------------------------------
+
+      if (
+        destination &&
+        destination.length > 20
+      ) {
+        errors.push({
+          row: row.rowNumber,
+          field: "destination",
+          message:
+            "Destination must not exceed 20 characters.",
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Sender ID
+      // ---------------------------------------------------------------
+
+      let resolvedSenderId:
+        string | undefined;
+
+      if (senderName) {
+        const senderId =
+          senderIdsByName.get(
+            senderName,
+          );
+
+        if (!senderId) {
+          errors.push({
+            row: row.rowNumber,
+            field: "senderId",
+            message:
+              "Sender ID does not exist or does not belong to this client.",
+          });
+        } else if (
+          senderId.status !==
+          SenderIdStatus.APPROVED
+        ) {
+          errors.push({
+            row: row.rowNumber,
+            field: "senderId",
+            message:
+              "Sender ID is not approved.",
+          });
+        } else {
+          resolvedSenderId =
+            senderId.id;
+        }
+      }
+
+      // ---------------------------------------------------------------
+      // Encoding
+      // ---------------------------------------------------------------
+
+      let parsedEncoding:
+        | MessageEncoding
+        | undefined;
+
+      if (encoding) {
+        parsedEncoding =
+          this.parseEncoding(
+            encoding,
+          );
+
+        if (!parsedEncoding) {
+          errors.push({
+            row: row.rowNumber,
+            field: "encoding",
+            message:
+              "Encoding must be GSM7, UCS2, or BINARY.",
+          });
+        }
+      }
+
+      // ---------------------------------------------------------------
+      // Prepare DTO
+      // ---------------------------------------------------------------
+
+      if (
+        destination &&
+        body &&
+        resolvedSenderId &&
+        parsedEncoding
+      ) {
+        messages.push({
+          senderIdId:
+            resolvedSenderId,
+
+          destination,
+
+          body,
+
+          encoding:
+            parsedEncoding,
+        });
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Reject the entire spreadsheet if any row failed validation.
+    // -----------------------------------------------------------------------
+
+    if (errors.length > 0) {
+      throw new BadRequestException({
+        message:
+          "Spreadsheet validation failed.",
+
+        errors,
+      });
+    }
+
+    return messages;
+  }
+
+  private toStringValue(
+    value: unknown,
+  ): string | undefined {
+    if (
+      value === undefined ||
+      value === null
+    ) {
+      return undefined;
+    }
+
+    const result =
+      String(value).trim();
+
+    return result.length > 0
+      ? result
+      : undefined;
+  }
+
+  private parseEncoding(
+    value: string,
+  ): MessageEncoding | undefined {
+    switch (
+    value.trim().toUpperCase()
+    ) {
+      case "GSM7":
+        return MessageEncoding.GSM7;
+
+      case "UCS2":
+        return MessageEncoding.UCS2;
+
+      case "BINARY":
+        return MessageEncoding.BINARY;
+
+      default:
+        return undefined;
+    }
+  }
+
+  // =========================================================================
+  // IDs
+  // =========================================================================
+
   private generatePublicId(): string {
     return Buffer
       .from(
@@ -925,6 +1495,10 @@ export class MessageService {
       .toString("base64url")
       .slice(0, 20);
   }
+
+  // =========================================================================
+  // GSM-7 / segmentation
+  // =========================================================================
 
   private gsm7Length(
     body: string,

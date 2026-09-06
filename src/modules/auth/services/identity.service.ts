@@ -127,6 +127,47 @@ export class IdentityService {
     });
   }
 
+  async findByEmailAlone(email: string): Promise<User> {
+    return withSpan('UserService.findByEmail', async (span) => {
+      this.logger.debug(
+        {
+          email,
+        },
+        'Finding user by email.',
+      );
+
+
+      try {
+        const user = this.ensureExists(
+          await this.users.findByEmailAlone(email),
+        );
+
+        this.logger.debug(
+          {
+            userId: user.id,
+            clientId: user.clientId,
+            email: user.email,
+          },
+          'User found.',
+        );
+
+        return user;
+      } catch (error) {
+        recordException(error);
+
+        this.logger.error(
+          {
+            error,
+            email,
+          },
+          'Failed to find user by email.',
+        );
+
+        throw error;
+      }
+    });
+  }
+
   async findByEmail(clientId: string, email: string): Promise<User> {
     return withSpan('UserService.findByEmail', async (span) => {
       this.logger.debug(

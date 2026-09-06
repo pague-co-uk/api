@@ -19,6 +19,12 @@ import { ClockService } from "../../../common/services/clock.service.js";
 import { RandomGenerator } from "../../../common/services/random.service.js";
 import { FloatLedgerRepository } from "../../../repositories/FloatLedgerRepository.js";
 
+export interface MessageFloatDebit {
+  readonly messageId: string;
+  readonly publicId: string;
+  readonly segmentCount: number;
+}
+
 @Injectable()
 export class FloatLedgerService {
   private readonly logger =
@@ -92,9 +98,14 @@ export class FloatLedgerService {
 
           this.logger.info(
             {
-              ledgerEntryId: entry.id,
-              publicId: entry.publicId,
+              ledgerEntryId:
+                entry.id,
+
+              publicId:
+                entry.publicId,
+
               clientId,
+
               credits,
             },
             "Float top-up recorded.",
@@ -111,6 +122,86 @@ export class FloatLedgerService {
               credits,
             },
             "Failed to record float top-up.",
+          );
+
+          throw error;
+        }
+      },
+    );
+  }
+
+  async listPlatform(
+    options: {
+      readonly page: number;
+      readonly pageSize: number;
+      readonly clientId?: string;
+      readonly transactionType?: LedgerTransactionType;
+      readonly referenceType?: LedgerReferenceType;
+      readonly search?: string;
+    },
+  ) {
+    return withSpan(
+      "FloatLedgerService.listPlatform",
+      async (span) => {
+        span.setAttributes({
+          "float.page": options.page,
+          "float.page_size": options.pageSize,
+
+          ...(options.clientId
+            ? {
+              "client.id": options.clientId,
+            }
+            : {}),
+        });
+
+        try {
+          const result =
+            await this.ledger.findManyPlatform(
+              options,
+            );
+
+          const totalPages =
+            result.totalItems === 0
+              ? 0
+              : Math.ceil(
+                result.totalItems /
+                result.pageSize,
+              );
+
+          span.setAttributes({
+            "float.total_items":
+              result.totalItems,
+
+            "float.total_pages":
+              totalPages,
+          });
+
+          this.logger.info(
+            {
+              page: result.page,
+              pageSize: result.pageSize,
+              totalItems: result.totalItems,
+              totalPages,
+              clientId: options.clientId,
+            },
+            "Platform float ledger retrieved.",
+          );
+
+          return {
+            ...result,
+            totalPages,
+          };
+        } catch (error) {
+          recordException(error);
+
+          this.logger.error(
+            {
+              err: error,
+              page: options.page,
+              pageSize: options.pageSize,
+              clientId: options.clientId,
+            },
+            "Failed to retrieve platform float ledger.",
           );
 
           throw error;
@@ -139,11 +230,15 @@ export class FloatLedgerService {
 
         span.setAttributes({
           "client.id": clientId,
+
           "float.credits": credits,
+
           "float.transaction_type":
             LedgerTransactionType.DEBIT,
+
           "float.reference_type":
             referenceType,
+
           "float.reference_id":
             referenceId,
         });
@@ -190,7 +285,9 @@ export class FloatLedgerService {
                   balance,
                 );
 
-                if (balance < credits) {
+                if (
+                  balance < credits
+                ) {
                   throw new BadRequestException(
                     "Insufficient float balance.",
                   );
@@ -214,7 +311,8 @@ export class FloatLedgerService {
                     transactionType:
                       LedgerTransactionType.DEBIT,
 
-                    credits: -credits,
+                    credits:
+                      -credits,
 
                     referenceType,
 
@@ -236,11 +334,16 @@ export class FloatLedgerService {
             {
               ledgerEntryId:
                 entry.id,
+
               publicId:
                 entry.publicId,
+
               clientId,
+
               credits,
+
               referenceType,
+
               referenceId,
             },
             "Float debit recorded.",
@@ -253,12 +356,248 @@ export class FloatLedgerService {
           this.logger.error(
             {
               err: error,
+
               clientId,
+
               credits,
+
               referenceType,
+
               referenceId,
             },
             "Failed to record float debit.",
+          );
+
+          throw error;
+        }
+      },
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Message Debits
+  // -------------------------------------------------------------------------
+
+  /**
+   * Debits float for multiple messages in one transaction.
+   *
+   * Each message retains its own MESSAGE reference so that a failed or
+   * expired message can later be refunded independently.
+   *
+   * The operation performs:
+   *
+   *   1. One idempotency lookup for all messages
+   *   2. One balance calculation
+   *   3. One bulk INSERT for all required debit entries
+   *
+   * The caller normally invokes this inside the existing MessageService
+   * transaction. Therefore no additional transaction is opened here.
+   */
+  async debitMessages(
+    clientId: string,
+    messages: readonly MessageFloatDebit[],
+  ) {
+    return withSpan(
+      "FloatLedgerService.debitMessages",
+      async (span) => {
+        if (messages.length === 0) {
+          return [];
+        }
+
+        const totalCredits =
+          messages.reduce(
+            (total, message) =>
+              total +
+              message.segmentCount,
+            0,
+          );
+
+        this.validatePositiveCredits(
+          totalCredits,
+        );
+
+        span.setAttributes({
+          "client.id":
+            clientId,
+
+          "float.message_count":
+            messages.length,
+
+          "float.credits":
+            totalCredits,
+
+          "float.transaction_type":
+            LedgerTransactionType.DEBIT,
+        });
+
+        try {
+          /*
+           * This method is deliberately transaction-neutral.
+           *
+           * MessageService.create() already opened the transaction because
+           * message creation, float debit, status history and outbox must
+           * commit or roll back together.
+           *
+           * Because FloatLedgerService.withDatabase(tx) is used there,
+           * this.ledger is already transaction-bound.
+           */
+          const existing =
+            await this.ledger.findByReferences(
+              clientId,
+
+              LedgerReferenceType.MESSAGE,
+
+              messages.map(
+                (message) =>
+                  message.messageId,
+              ),
+
+              LedgerTransactionType.DEBIT,
+            );
+
+          const existingReferences =
+            new Set(
+              existing.map(
+                (entry) =>
+                  entry.referenceId,
+              ),
+            );
+
+          const pending =
+            messages.filter(
+              (message) =>
+                !existingReferences.has(
+                  message.messageId,
+                ),
+            );
+
+          // ---------------------------------------------------------------
+          // Idempotency
+          // ---------------------------------------------------------------
+
+          if (
+            pending.length === 0
+          ) {
+            span.setAttribute(
+              "float.idempotent",
+              true,
+            );
+
+            return existing;
+          }
+
+          const pendingCredits =
+            pending.reduce(
+              (total, message) =>
+                total +
+                message.segmentCount,
+              0,
+            );
+
+          // ---------------------------------------------------------------
+          // Balance
+          // ---------------------------------------------------------------
+
+          const balance =
+            await this.ledger.sumCreditsByClient(
+              clientId,
+            );
+
+          span.setAttribute(
+            "float.balance.before",
+            balance,
+          );
+
+          if (
+            balance <
+            pendingCredits
+          ) {
+            throw new BadRequestException(
+              "Insufficient float balance.",
+            );
+          }
+
+          // ---------------------------------------------------------------
+          // Create debit entries
+          // ---------------------------------------------------------------
+
+          const entries =
+            pending.map(
+              (message) => ({
+                publicId:
+                  this.generatePublicId(),
+
+                clientId,
+
+                transactionType:
+                  LedgerTransactionType.DEBIT,
+
+                credits:
+                  -message.segmentCount,
+
+                referenceType:
+                  LedgerReferenceType.MESSAGE,
+
+                referenceId:
+                  message.messageId,
+
+                description:
+                  `Message submission: ${message.publicId}`,
+              }),
+            );
+
+          await this.ledger.createMany(
+            entries,
+          );
+
+          span.setAttribute(
+            "float.balance.after",
+            balance -
+            pendingCredits,
+          );
+
+          this.logger.info(
+            {
+              clientId,
+
+              messageCount:
+                messages.length,
+
+              debitedCount:
+                pending.length,
+
+              idempotentCount:
+                existing.length,
+
+              credits:
+                pendingCredits,
+            },
+            "Message float debits recorded.",
+          );
+
+          /*
+           * We don't need to perform another SELECT here.
+           *
+           * The caller only needs confirmation that the debit succeeded.
+           * Database-generated ledger IDs are intentionally left under
+           * database control.
+           */
+          return entries;
+        } catch (error) {
+          recordException(error);
+
+          this.logger.error(
+            {
+              err: error,
+
+              clientId,
+
+              messageCount:
+                messages.length,
+
+              totalCredits,
+            },
+            "Failed to record message float debits.",
           );
 
           throw error;
@@ -287,11 +626,15 @@ export class FloatLedgerService {
 
         span.setAttributes({
           "client.id": clientId,
+
           "float.credits": credits,
+
           "float.transaction_type":
             LedgerTransactionType.REFUND,
+
           "float.reference_type":
             referenceType,
+
           "float.reference_id":
             referenceId,
         });
@@ -356,11 +699,16 @@ export class FloatLedgerService {
             {
               ledgerEntryId:
                 entry.id,
+
               publicId:
                 entry.publicId,
+
               clientId,
+
               credits,
+
               referenceType,
+
               referenceId,
             },
             "Float refund recorded.",
@@ -373,9 +721,13 @@ export class FloatLedgerService {
           this.logger.error(
             {
               err: error,
+
               clientId,
+
               credits,
+
               referenceType,
+
               referenceId,
             },
             "Failed to record float refund.",
@@ -409,7 +761,9 @@ export class FloatLedgerService {
 
         span.setAttributes({
           "client.id": clientId,
+
           "float.credits": credits,
+
           "float.transaction_type":
             LedgerTransactionType.ADJUSTMENT,
         });
@@ -447,10 +801,16 @@ export class FloatLedgerService {
 
           this.logger.info(
             {
-              ledgerEntryId: entry.id,
-              publicId: entry.publicId,
+              ledgerEntryId:
+                entry.id,
+
+              publicId:
+                entry.publicId,
+
               clientId,
+
               credits,
+
               createdById,
             },
             "Float adjustment recorded.",
@@ -463,8 +823,11 @@ export class FloatLedgerService {
           this.logger.error(
             {
               err: error,
+
               clientId,
+
               credits,
+
               createdById,
             },
             "Failed to record float adjustment.",
@@ -513,8 +876,8 @@ export class FloatLedgerService {
   async list(
     clientId: string,
     options?: {
-      readonly limit?: number;
-      readonly offset?: number;
+      readonly page?: number;
+      readonly pageSize?: number;
     },
   ) {
     return withSpan(
@@ -525,10 +888,38 @@ export class FloatLedgerService {
           clientId,
         );
 
-        return this.ledger.findByClient(
-          clientId,
-          options,
-        );
+        const page =
+          options?.page ?? 1;
+
+        const pageSize =
+          options?.pageSize ?? 20;
+
+        const { items, total } =
+          await this.ledger.findByClient(
+            clientId,
+            {
+              page,
+              pageSize,
+            },
+          );
+
+        const totalPages =
+          total === 0
+            ? 0
+            : Math.ceil(
+              total / pageSize,
+            );
+
+        return {
+          items,
+
+          meta: {
+            page,
+            pageSize,
+            total,
+            totalPages,
+          },
+        };
       },
     );
   }

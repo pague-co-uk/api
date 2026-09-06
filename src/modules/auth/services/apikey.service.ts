@@ -5,35 +5,33 @@ import {
   AuthenticationMethod,
 } from "@prisma/client";
 
+import {
+  createCounterMetric,
+  getComponentLogger,
+  recordException,
+  withSpan,
+} from "@pague-co-uk/sms-gateway-telemetry";
+
 import { ClockService } from "../../../common/services/clock.service.js";
 import { RandomGenerator } from "../../../common/services/random.service.js";
 import { SecretHasher } from "../../../common/services/secretHasher.service.js";
 
+import type { Page } from "../../../common/query/page.interface.js";
+
 import { InvalidApiKeyException } from "../../../exceptions/auth/invalid-apikey.exception.js";
 
-import { createCounterMetric, getComponentLogger, recordException, withSpan } from "@pague-co-uk/sms-gateway-telemetry";
 import { ApiKeyCapabilityDefinitions } from "../../../common/authorization/permissions/api-key-capabilities.definitions.js";
 import { ApiKeyCapability } from "../../../common/authorization/permissions/api-key-capabilities.registry.js";
+
 import { ApiKeyCapabilityRepository } from "../../../repositories/ApiKeyCapabilityRepository.js";
 import { ApiKeyRepository } from "../../../repositories/ApiKeyRepository.js";
-import { AuthenticationEventService } from "./authentication-event.service.js";
 
-type ApiKeyWithCapabilities =
-  ApiKey & {
-    capabilities: Array<{
-      capability: {
-        name: string;
-      };
-    }>;
-  };
+import { AuthenticationEventService } from "./authentication-event.service.js";
 
 @Injectable()
 export class ApiKeyService {
-
   private readonly logger =
-    getComponentLogger(
-      ApiKeyService.name,
-    );
+    getComponentLogger(ApiKeyService.name);
 
   constructor(
     private readonly hasher: SecretHasher,
@@ -93,141 +91,264 @@ export class ApiKeyService {
         const secretHash =
           this.hashSecret(secret);
 
-        const created =
-          await this.apiKeys.withTransaction(
-            async (tx) => {
-              const apiKeys =
-                this.apiKeys.withDatabase(tx);
+        try {
+          const created =
+            await this.apiKeys.withTransaction(
+              async (tx) => {
+                const apiKeys =
+                  this.apiKeys.withDatabase(tx);
 
-              const capabilityRepository =
-                this.apiKeyCapabilities.withDatabase(
-                  tx,
-                );
-
-              const events =
-                this.authenticationEvents.withDatabase(
-                  tx,
-                );
-
-              const capabilityRecords =
-                await capabilityRepository.findByNames(
-                  capabilities,
-                );
-
-              if (
-                capabilityRecords.length !==
-                capabilities.length
-              ) {
-                const found =
-                  new Set(
-                    capabilityRecords.map(
-                      ({ name }) => name,
-                    ),
+                const capabilityRepository =
+                  this.apiKeyCapabilities.withDatabase(
+                    tx,
                   );
 
-                const missing =
-                  capabilities.filter(
-                    (capability) =>
-                      !found.has(capability),
+                const events =
+                  this.authenticationEvents.withDatabase(
+                    tx,
                   );
 
-                throw new InvalidApiKeyException(
-                  `Unknown API key capability: ${missing.join(", ")}`,
-                );
-              }
+                const capabilityRecords =
+                  await capabilityRepository.findByNames(
+                    capabilities,
+                  );
 
-              const created =
-                await apiKeys.create({
-                  publicId,
+                if (
+                  capabilityRecords.length !==
+                  capabilities.length
+                ) {
+                  const found =
+                    new Set(
+                      capabilityRecords.map(
+                        ({ name }) => name,
+                      ),
+                    );
 
-                  client: {
-                    connect: {
-                      id: clientId,
+                  const missing =
+                    capabilities.filter(
+                      (capability) =>
+                        !found.has(capability),
+                    );
+
+                  throw new InvalidApiKeyException(
+                    `Unknown API key capability: ${missing.join(", ")}`,
+                  );
+                }
+
+                const created =
+                  await apiKeys.create({
+                    publicId,
+                    client: {
+                      connect: {
+                        id: clientId,
+                      },
                     },
-                  },
+                    name,
+                    prefix,
+                    secretHash,
+                    status:
+                      ApiKeyStatus.ACTIVE,
+                    expiresAt,
+                  });
 
-                  name,
+                await apiKeys.createCapabilities(
+                  created.id,
+                  capabilityRecords.map(
+                    ({ id }) => id,
+                  ),
+                );
 
-                  prefix,
+                await events.recordApiKeyCreated(
+                  clientId,
+                  createdByUserId,
+                  ipAddress,
+                  userAgent,
+                  authenticationMethod,
+                );
 
-                  secretHash,
+                return created;
+              },
+            );
 
-                  status:
-                    ApiKeyStatus.ACTIVE,
+          span.setAttributes({
+            "api_key.id": created.id,
+            "api_key.public_id": created.publicId,
+            "api_key.prefix": created.prefix,
+            "client.id": clientId,
+            "api_key.capability_count":
+              capabilities.length,
+          });
 
-                  expiresAt,
-                });
-
-              await apiKeys.createCapabilities(
-                created.id,
-                capabilityRecords.map(
-                  ({ id }) => id,
-                ),
-              );
-
-              await events.recordApiKeyCreated(
-                clientId,
-                createdByUserId,
-                ipAddress,
-                userAgent,
-                authenticationMethod,
-              );
-
-              return created;
+          this.logger.info(
+            {
+              apiKeyId: created.id,
+              publicId: created.publicId,
+              clientId,
+              prefix: created.prefix,
+              capabilityCount:
+                capabilities.length,
             },
+            "API key created.",
           );
 
+          return {
+            apiKeyId: created.id,
+            publicId: created.publicId,
+            apiKey,
+            prefix: created.prefix,
+            expiresAt: created.expiresAt,
+          };
+        } catch (error) {
+          recordException(error);
+
+          this.logger.error(
+            {
+              err: error,
+              clientId,
+              capabilityCount:
+                capabilities.length,
+            },
+            "Failed to create API key.",
+          );
+
+          throw error;
+        }
+      },
+    );
+  }
+
+  async listPlatform(
+    options: {
+      readonly page: number;
+      readonly pageSize: number;
+      readonly clientId?: string;
+      readonly status?: ApiKeyStatus;
+      readonly search?: string;
+    },
+  ): Promise<
+    Page<
+      ApiKey & {
+        client: {
+          id: string;
+          publicId: string;
+          companyName: string;
+          displayName: string;
+        };
+      }
+    >
+  > {
+    return withSpan(
+      "ApiKeyService.listPlatform",
+      async (span) => {
         span.setAttributes({
-          "api_key.id":
-            created.id,
-
-          "api_key.public_id":
-            created.publicId,
-
-          "api_key.prefix":
-            created.prefix,
-
-          "client.id":
-            clientId,
-
-          "api_key.capability_count":
-            capabilities.length,
+          "pagination.page":
+            options.page,
+          "pagination.page_size":
+            options.pageSize,
         });
 
-        this.logger.info(
+        if (
+          options.clientId !==
+          undefined
+        ) {
+          span.setAttribute(
+            "client.id",
+            options.clientId,
+          );
+        }
+
+        if (
+          options.status !==
+          undefined
+        ) {
+          span.setAttribute(
+            "api_key.filter.status",
+            options.status,
+          );
+        }
+
+        if (
+          options.search !==
+          undefined &&
+          options.search.trim()
+        ) {
+          span.setAttribute(
+            "api_key.filter.search",
+            options.search.trim(),
+          );
+        }
+
+        this.logger.debug(
           {
-            apiKeyId:
-              created.id,
-
-            publicId:
-              created.publicId,
-
-            clientId,
-
-            prefix:
-              created.prefix,
-
-            capabilityCount:
-              capabilities.length,
+            page:
+              options.page,
+            pageSize:
+              options.pageSize,
+            clientId:
+              options.clientId,
+            status:
+              options.status,
+            search:
+              options.search,
           },
-          "API key created.",
+          "Retrieving platform API keys.",
         );
 
-        return {
-          apiKeyId:
-            created.id,
+        try {
+          const page =
+            await this.apiKeys
+              .findManyPlatform(
+                options,
+              );
 
-          publicId:
-            created.publicId,
+          span.setAttributes({
+            "api_key.count":
+              page.items.length,
+            "api_key.total":
+              page.totalItems,
+          });
 
-          apiKey,
+          this.logger.debug(
+            {
+              count:
+                page.items.length,
+              total:
+                page.totalItems,
+              page:
+                page.page,
+              pageSize:
+                page.pageSize,
+              clientId:
+                options.clientId,
+              status:
+                options.status,
+            },
+            "Platform API keys retrieved successfully.",
+          );
 
-          prefix:
-            created.prefix,
+          return page;
+        } catch (error) {
+          recordException(error);
 
-          expiresAt:
-            created.expiresAt,
-        };
+          this.logger.error(
+            {
+              err: error,
+              page:
+                options.page,
+              pageSize:
+                options.pageSize,
+              clientId:
+                options.clientId,
+              status:
+                options.status,
+              search:
+                options.search,
+            },
+            "Failed to retrieve platform API keys.",
+          );
+
+          throw error;
+        }
       },
     );
   }
@@ -257,8 +378,7 @@ export class ApiKeyService {
 
         this.logger.debug(
           {
-            prefix:
-              parsed.prefix,
+            prefix: parsed.prefix,
           },
           "Validating API key.",
         );
@@ -310,30 +430,22 @@ export class ApiKeyService {
           );
 
           span.setAttributes({
-            "api_key.id":
-              validated.id,
-
+            "api_key.id": validated.id,
             "api_key.public_id":
               validated.publicId,
-
             "client.id":
               validated.clientId,
-
             "api_key.capability_count":
               validated.capabilities.length,
           });
 
           this.logger.info(
             {
-              apiKeyId:
-                validated.id,
-
+              apiKeyId: validated.id,
               publicId:
                 validated.publicId,
-
               clientId:
                 validated.clientId,
-
               capabilityCount:
                 validated.capabilities.length,
             },
@@ -348,9 +460,8 @@ export class ApiKeyService {
 
           this.logger.warn(
             {
-              error,
-              prefix:
-                parsed.prefix,
+              err: error,
+              prefix: parsed.prefix,
             },
             "API key validation failed.",
           );
@@ -361,8 +472,88 @@ export class ApiKeyService {
     );
   }
 
-  async list(clientId: string): Promise<ApiKey[]> {
-    return this.apiKeys.findByClient(clientId);
+  async list(
+    clientId: string,
+    options: {
+      readonly page: number;
+      readonly pageSize: number;
+      readonly status?: ApiKeyStatus;
+    },
+  ): Promise<Page<ApiKey>> {
+    return withSpan(
+      "ApiKeyService.list",
+      async (span) => {
+        span.setAttributes({
+          "client.id": clientId,
+          "pagination.page":
+            options.page,
+          "pagination.page_size":
+            options.pageSize,
+        });
+
+        if (options.status !== undefined) {
+          span.setAttribute(
+            "api_key.filter.status",
+            options.status,
+          );
+        }
+
+        this.logger.debug(
+          {
+            clientId,
+            page: options.page,
+            pageSize: options.pageSize,
+            status: options.status,
+          },
+          "Retrieving client API keys.",
+        );
+
+        try {
+          const page =
+            await this.apiKeys.findByClient(
+              clientId,
+              options,
+            );
+
+          span.setAttributes({
+            "api_key.count":
+              page.items.length,
+            "api_key.total":
+              page.totalItems,
+          });
+
+          this.logger.debug(
+            {
+              clientId,
+              count: page.items.length,
+              total: page.totalItems,
+              page: page.page,
+              pageSize: page.pageSize,
+            },
+            "Client API keys retrieved successfully.",
+          );
+
+          return page;
+        } catch (error) {
+          recordException(error);
+
+          this.logger.error(
+            {
+              err: error,
+              clientId,
+              page: options.page,
+              pageSize:
+                options.pageSize,
+              status:
+                options.status,
+            },
+            "Failed to retrieve client API keys.",
+          );
+
+          throw error;
+        }
+      },
+    );
   }
 
   async revokeById(
@@ -373,20 +564,173 @@ export class ApiKeyService {
     ipAddress?: string | null,
     userAgent?: string | null,
   ): Promise<void> {
-    const apiKey = await this.apiKeys.findById(id);
+    return withSpan(
+      "ApiKeyService.revokeById",
+      async (span) => {
+        span.setAttributes({
+          "api_key.id": id,
+          "client.id": clientId,
+        });
 
-    if (!apiKey || apiKey.clientId !== clientId) {
-      throw new InvalidApiKeyException("API key not found.");
-    }
+        try {
+          const apiKey =
+            await this.apiKeys.findById(id);
 
-    if (apiKey.status !== ApiKeyStatus.ACTIVE ||
-      (apiKey.expiresAt && apiKey.expiresAt <= this.clock.now())) {
-      throw new InvalidApiKeyException("API key is not active.");
-    }
+          if (
+            !apiKey ||
+            apiKey.clientId !== clientId
+          ) {
+            throw new InvalidApiKeyException(
+              "API key not found.",
+            );
+          }
 
-    await this.apiKeys.revoke(id, this.clock.now());
-    await this.authenticationEvents.recordApiKeyRevoked(
-      clientId, userId, authenticationMethod, ipAddress, userAgent,
+          if (
+            apiKey.status !==
+            ApiKeyStatus.ACTIVE ||
+            (
+              apiKey.expiresAt &&
+              apiKey.expiresAt <=
+              this.clock.now()
+            )
+          ) {
+            throw new InvalidApiKeyException(
+              "API key is not active.",
+            );
+          }
+
+          await this.apiKeys.revoke(
+            id,
+            this.clock.now(),
+          );
+
+          await this.authenticationEvents
+            .recordApiKeyRevoked(
+              clientId,
+              userId,
+              authenticationMethod,
+              ipAddress,
+              userAgent,
+            );
+
+          span.addEvent(
+            "api_key.revoked",
+            {
+              "api_key.id": id,
+              "client.id": clientId,
+            },
+          );
+
+          this.logger.info(
+            {
+              apiKeyId: id,
+              clientId,
+            },
+            "API key revoked.",
+          );
+        } catch (error) {
+          recordException(error);
+
+          this.logger.error(
+            {
+              err: error,
+              apiKeyId: id,
+              clientId,
+            },
+            "Failed to revoke API key.",
+          );
+
+          throw error;
+        }
+      },
+    );
+  }
+
+  // ==========================================================================
+  // Find by ID
+  // ==========================================================================
+
+  async findById(
+    id: string,
+    clientId: string,
+  ): Promise<ApiKey | null> {
+    return withSpan(
+      "ApiKeyService.findById",
+      async (span) => {
+        span.setAttributes({
+          "api_key.id": id,
+          "client.id": clientId,
+        });
+
+        this.logger.debug(
+          {
+            apiKeyId: id,
+            clientId,
+          },
+          "Retrieving API key.",
+        );
+
+        try {
+          const apiKey =
+            await this.apiKeys.findById(
+              id,
+            );
+
+          if (
+            !apiKey ||
+            apiKey.clientId !==
+            clientId
+          ) {
+            this.logger.debug(
+              {
+                apiKeyId: id,
+                clientId,
+              },
+              "API key not found for client.",
+            );
+
+            return null;
+          }
+
+          span.setAttributes({
+            "api_key.public_id":
+              apiKey.publicId,
+            "api_key.prefix":
+              apiKey.prefix,
+            "api_key.status":
+              apiKey.status,
+          });
+
+          this.logger.debug(
+            {
+              apiKeyId:
+                apiKey.id,
+              publicId:
+                apiKey.publicId,
+              clientId:
+                apiKey.clientId,
+              status:
+                apiKey.status,
+            },
+            "API key retrieved successfully.",
+          );
+
+          return apiKey;
+        } catch (error) {
+          recordException(error);
+
+          this.logger.error(
+            {
+              err: error,
+              apiKeyId: id,
+              clientId,
+            },
+            "Failed to retrieve API key.",
+          );
+
+          throw error;
+        }
+      },
     );
   }
 
@@ -408,9 +752,7 @@ export class ApiKeyService {
       "ApiKeyService.rotate",
       async (span) => {
         const parsed =
-          this.parseApiKey(
-            apiKey,
-          );
+          this.parseApiKey(apiKey);
 
         span.setAttribute(
           "api_key.prefix",
@@ -419,10 +761,8 @@ export class ApiKeyService {
 
         this.logger.debug(
           {
-            prefix:
-              parsed.prefix,
-            clientId:
-              clientId,
+            prefix: parsed.prefix,
+            clientId,
           },
           "Rotating API key.",
         );
@@ -437,7 +777,6 @@ export class ApiKeyService {
             );
 
           const {
-            previousApiKey,
             rotatedApiKey,
           } =
             await this.apiKeys.withTransaction(
@@ -459,7 +798,16 @@ export class ApiKeyService {
                     ),
                   );
 
-                await this.verifySecret(
+                if (
+                  current.clientId !==
+                  clientId
+                ) {
+                  throw new InvalidApiKeyException(
+                    "API key not found.",
+                  );
+                }
+
+                this.verifySecret(
                   parsed.secret,
                   current,
                 );
@@ -469,6 +817,7 @@ export class ApiKeyService {
                     current.id,
                     newSecretHash,
                   );
+
                 await events.recordApiKeyRotated(
                   clientId,
                   userId,
@@ -478,15 +827,13 @@ export class ApiKeyService {
                 );
 
                 return {
-                  previousApiKey:
-                    current,
                   rotatedApiKey:
                     rotated,
                 };
               },
             );
 
-          const apiKey =
+          const generatedApiKey =
             this.buildApiKey(
               rotatedApiKey.prefix,
               newSecret,
@@ -538,7 +885,8 @@ export class ApiKeyService {
               rotatedApiKey.id,
             publicId:
               rotatedApiKey.publicId,
-            apiKey,
+            apiKey:
+              generatedApiKey,
             prefix:
               rotatedApiKey.prefix,
             expiresAt:
@@ -549,9 +897,9 @@ export class ApiKeyService {
 
           this.logger.error(
             {
-              error,
-              prefix:
-                parsed.prefix,
+              err: error,
+              prefix: parsed.prefix,
+              clientId,
             },
             "Failed to rotate API key.",
           );
@@ -574,9 +922,7 @@ export class ApiKeyService {
       "ApiKeyService.revoke",
       async (span) => {
         const parsed =
-          this.parseApiKey(
-            apiKey,
-          );
+          this.parseApiKey(apiKey);
 
         span.setAttribute(
           "api_key.prefix",
@@ -585,10 +931,8 @@ export class ApiKeyService {
 
         this.logger.debug(
           {
-            prefix:
-              parsed.prefix,
-            clientId:
-              clientId,
+            prefix: parsed.prefix,
+            clientId,
           },
           "Revoking API key.",
         );
@@ -598,7 +942,9 @@ export class ApiKeyService {
             await this.apiKeys.withTransaction(
               async (tx) => {
                 const apiKeys =
-                  this.apiKeys.withDatabase(tx);
+                  this.apiKeys.withDatabase(
+                    tx,
+                  );
 
                 const events =
                   this.authenticationEvents.withDatabase(
@@ -612,7 +958,16 @@ export class ApiKeyService {
                     ),
                   );
 
-                await this.verifySecret(
+                if (
+                  current.clientId !==
+                  clientId
+                ) {
+                  throw new InvalidApiKeyException(
+                    "API key not found.",
+                  );
+                }
+
+                this.verifySecret(
                   parsed.secret,
                   current,
                 );
@@ -674,9 +1029,9 @@ export class ApiKeyService {
 
           this.logger.error(
             {
-              error,
-              prefix:
-                parsed.prefix,
+              err: error,
+              prefix: parsed.prefix,
+              clientId,
             },
             "Failed to revoke API key.",
           );
@@ -719,7 +1074,6 @@ export class ApiKeyService {
               where: {
                 name,
               },
-
               create: {
                 name,
                 module:
@@ -727,7 +1081,6 @@ export class ApiKeyService {
                 description:
                   definition.description,
               },
-
               update: {
                 module:
                   definition.module,
@@ -770,6 +1123,7 @@ export class ApiKeyService {
       },
     );
   }
+
   private generateSecret(): string {
     return this.random
       .bytes(32)
@@ -797,19 +1151,24 @@ export class ApiKeyService {
 
   private parseApiKey(
     apiKey: string,
-  ): { prefix: string; secret: string } {
+  ): {
+    prefix: string;
+    secret: string;
+  } {
     const parts = apiKey.split(".");
 
     if (parts.length !== 2) {
       throw new InvalidApiKeyException();
     }
 
-    const [identifier, secret] = parts;
+    const [identifier, secret] =
+      parts;
 
-    const prefix = identifier.replace(
-      /^pk_(live|test)_/,
-      "",
-    );
+    const prefix =
+      identifier.replace(
+        /^pk_(live|test)_/,
+        "",
+      );
 
     if (!prefix || !secret) {
       throw new InvalidApiKeyException();
@@ -876,14 +1235,18 @@ export class ApiKeyService {
 
   private readonly apiKeysValidatedCounter =
     createCounterMetric({
-      name: "auth.api_key.validated",
-      description: "Number of successfully validated API keys.",
+      name:
+        "auth.api_key.validated",
+      description:
+        "Number of successfully validated API keys.",
     });
 
   private readonly apiKeysRotatedCounter =
     createCounterMetric({
-      name: "auth.api_key.rotated",
-      description: "Number of rotated API keys.",
+      name:
+        "auth.api_key.rotated",
+      description:
+        "Number of rotated API keys.",
     });
 
   private toValidatedApiKey(
@@ -906,9 +1269,12 @@ export class ApiKeyService {
       clientId: apiKey.clientId,
       name: apiKey.name,
       status: apiKey.status,
-      expiresAt: apiKey.expiresAt,
-      lastUsedAt: apiKey.lastUsedAt,
-      capabilities: apiKey.capabilities,
+      expiresAt:
+        apiKey.expiresAt,
+      lastUsedAt:
+        apiKey.lastUsedAt,
+      capabilities:
+        apiKey.capabilities,
     };
   }
 

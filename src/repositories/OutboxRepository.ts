@@ -56,6 +56,35 @@ export class OutboxEventRepository
     );
   }
 
+  async createMany(
+    data: readonly Prisma.OutboxEventCreateManyInput[],
+  ) {
+    return this.execute(
+      "INSERT",
+      "outbox_events",
+      async () => {
+        if (data.length === 0) {
+          return {
+            result: {
+              count: 0,
+            },
+            rowsAffected: 0,
+          };
+        }
+
+        const result =
+          await this.db.outboxEvent.createMany({
+            data: [...data],
+          });
+
+        return {
+          result,
+          rowsAffected: result.count,
+        };
+      },
+    );
+  }
+
   // -------------------------------------------------------------------------
   // Queries
   // -------------------------------------------------------------------------

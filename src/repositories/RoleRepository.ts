@@ -10,18 +10,20 @@ import { DATABASE } from "../database/database.constants.js";
 import { DatabaseRepository } from "../database/database.repository.js";
 import type { RoleQueryOptions } from "./options/role.options.js";
 
-export type RoleWithPermissions = Prisma.RoleGetPayload<{
-  include: {
-    permissions: {
-      include: {
-        permission: true;
+export type RoleWithPermissions =
+  Prisma.RoleGetPayload<{
+    include: {
+      permissions: {
+        include: {
+          permission: true;
+        };
       };
     };
-  };
-}>;
+  }>;
 
 @Injectable()
-export class RoleRepository extends DatabaseRepository {
+export class RoleRepository
+  extends DatabaseRepository {
   constructor(
     @Inject(DATABASE)
     db: PrismaClient | Prisma.TransactionClient,
@@ -42,9 +44,10 @@ export class RoleRepository extends DatabaseRepository {
       "INSERT",
       "roles",
       async () => ({
-        result: await this.db.role.create({
-          data,
-        }),
+        result:
+          await this.db.role.create({
+            data,
+          }),
         rowsAffected: 1,
       }),
     );
@@ -122,6 +125,11 @@ export class RoleRepository extends DatabaseRepository {
                 include: {
                   permission: true,
                 },
+                orderBy: {
+                  permission: {
+                    name: "asc",
+                  },
+                },
               },
             },
           });
@@ -183,7 +191,7 @@ export class RoleRepository extends DatabaseRepository {
 
   findMany(
     query: RoleQueryOptions,
-  ): Promise<Page<Role>> {
+  ): Promise<Page<RoleWithPermissions>> {
     return this.execute(
       "SELECT",
       "roles",
@@ -206,6 +214,18 @@ export class RoleRepository extends DatabaseRepository {
                 name: "asc",
               },
             ],
+            include: {
+              permissions: {
+                include: {
+                  permission: true,
+                },
+                orderBy: {
+                  permission: {
+                    name: "asc",
+                  },
+                },
+              },
+            },
           }),
 
           this.db.role.count({

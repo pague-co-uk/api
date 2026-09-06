@@ -1,14 +1,28 @@
 import { Inject, Injectable } from "@nestjs/common";
+
 import {
   Prisma,
   PrismaClient,
-  SenderId
+  SenderId,
 } from "@prisma/client";
 
 import type { Page } from "../common/query/page.interface.js";
 import { DATABASE } from "../database/database.constants.js";
 import { DatabaseRepository } from "../database/database.repository.js";
 import type { SenderIdQueryOptions } from "./options/sender-id.options.js";
+
+export type SenderIdWithClient =
+  Prisma.SenderIdGetPayload<{
+    include: {
+      client: {
+        select: {
+          id: true;
+          companyName: true;
+          displayName: true;
+        };
+      };
+    };
+  }>;
 
 @Injectable()
 export class SenderIdRepository
@@ -32,7 +46,7 @@ export class SenderIdRepository
 
   create(
     data: Prisma.SenderIdCreateInput,
-  ): Promise<SenderId> {
+  ): Promise<SenderIdWithClient> {
     return this.execute(
       "INSERT",
       "sender_ids",
@@ -40,6 +54,15 @@ export class SenderIdRepository
         result:
           await this.db.senderId.create({
             data,
+            include: {
+              client: {
+                select: {
+                  id: true,
+                  companyName: true,
+                  displayName: true,
+                },
+              },
+            },
           }),
         rowsAffected: 1,
       }),
@@ -63,7 +86,8 @@ export class SenderIdRepository
 
         return {
           result: senderId,
-          rowsAffected: senderId ? 1 : 0,
+          rowsAffected:
+            senderId ? 1 : 0,
         };
       },
     );
@@ -97,7 +121,7 @@ export class SenderIdRepository
 
   findById(
     id: string,
-  ): Promise<SenderId | null> {
+  ): Promise<SenderIdWithClient | null> {
     return this.execute(
       "SELECT",
       "sender_ids",
@@ -105,11 +129,21 @@ export class SenderIdRepository
         const senderId =
           await this.db.senderId.findUnique({
             where: { id },
+            include: {
+              client: {
+                select: {
+                  id: true,
+                  companyName: true,
+                  displayName: true,
+                },
+              },
+            },
           });
 
         return {
           result: senderId,
-          rowsAffected: senderId ? 1 : 0,
+          rowsAffected:
+            senderId ? 1 : 0,
         };
       },
     );
@@ -129,7 +163,8 @@ export class SenderIdRepository
 
         return {
           result: senderId,
-          rowsAffected: senderId ? 1 : 0,
+          rowsAffected:
+            senderId ? 1 : 0,
         };
       },
     );
@@ -155,7 +190,8 @@ export class SenderIdRepository
 
         return {
           result: senderId,
-          rowsAffected: senderId ? 1 : 0,
+          rowsAffected:
+            senderId ? 1 : 0,
         };
       },
     );
@@ -163,7 +199,7 @@ export class SenderIdRepository
 
   findMany(
     query: SenderIdQueryOptions,
-  ): Promise<Page<SenderId>> {
+  ): Promise<Page<SenderIdWithClient>> {
     return this.execute(
       "SELECT",
       "sender_ids",
@@ -220,15 +256,26 @@ export class SenderIdRepository
             skip:
               (query.page - 1) *
               query.pageSize,
-            take: query.pageSize,
+            take:
+              query.pageSize,
             orderBy: [
               {
                 sender: "asc",
               },
               {
-                createdAt: "desc",
+                createdAt:
+                  "desc",
               },
             ],
+            include: {
+              client: {
+                select: {
+                  id: true,
+                  companyName: true,
+                  displayName: true,
+                },
+              },
+            },
           }),
 
           this.db.senderId.count({
@@ -239,7 +286,8 @@ export class SenderIdRepository
         return {
           result: {
             items,
-            page: query.page,
+            page:
+              query.page,
             pageSize:
               query.pageSize,
             totalItems,
@@ -269,7 +317,8 @@ export class SenderIdRepository
           });
 
         return {
-          result: result !== null,
+          result:
+            result !== null,
           rowsAffected:
             result ? 1 : 0,
         };
@@ -299,9 +348,59 @@ export class SenderIdRepository
           });
 
         return {
-          result: result !== null,
+          result:
+            result !== null,
           rowsAffected:
             result ? 1 : 0,
+        };
+      },
+    );
+  }
+
+  // =========================================================================
+  // Bulk message Sender ID resolution
+  // =========================================================================
+
+  /**
+   * Resolves human-readable Sender ID names for a client.
+   *
+   * The spreadsheet contains Sender ID names, not internal Sender ID UUIDs.
+   *
+   * The clientId is always part of the lookup so a Sender ID belonging to
+   * another client can never be resolved for this client.
+   *
+   * All requested names are resolved in a single database query.
+   */
+  findByNamesForClient(
+    clientId: string,
+    names: readonly string[],
+  ): Promise<readonly SenderId[]> {
+    return this.execute(
+      "SELECT",
+      "sender_ids",
+      async () => {
+        if (names.length === 0) {
+          return {
+            result: [],
+            rowsAffected: 0,
+          };
+        }
+
+        const senderIds =
+          await this.db.senderId.findMany({
+            where: {
+              clientId,
+
+              sender: {
+                in: [...names],
+              },
+            },
+          });
+
+        return {
+          result: senderIds,
+          rowsAffected:
+            senderIds.length,
         };
       },
     );
@@ -310,7 +409,7 @@ export class SenderIdRepository
   update(
     id: string,
     data: Prisma.SenderIdUpdateInput,
-  ): Promise<SenderId> {
+  ): Promise<SenderIdWithClient> {
     return this.execute(
       "UPDATE",
       "sender_ids",
@@ -319,6 +418,15 @@ export class SenderIdRepository
           await this.db.senderId.update({
             where: { id },
             data,
+            include: {
+              client: {
+                select: {
+                  id: true,
+                  companyName: true,
+                  displayName: true,
+                },
+              },
+            },
           }),
         rowsAffected: 1,
       }),

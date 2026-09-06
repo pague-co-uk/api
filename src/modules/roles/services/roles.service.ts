@@ -5,7 +5,7 @@ import {
   recordException,
   withSpan,
 } from "@pague-co-uk/sms-gateway-telemetry";
-import { Prisma, Role } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 import { AuditService } from "../../../audit/index.js";
 import type { Page } from "../../../common/query/page.interface.js";
@@ -105,7 +105,7 @@ export class RoleService {
 
   async findMany(
     query: RoleQueryOptions,
-  ): Promise<Page<Role>> {
+  ): Promise<Page<RoleWithPermissions>> {
     return withSpan(
       "RoleService.findMany",
       async (span) => {

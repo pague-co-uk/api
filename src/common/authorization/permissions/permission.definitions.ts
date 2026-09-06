@@ -47,7 +47,10 @@ export const PermissionDefinitions: {
     module: "users",
     description: "Unlock users.",
   },
-
+  [Permissions.USERS_LOCK]: {
+    module: "users",
+    description: "lock users.",
+  },
   [Permissions.USERS_ROLES_UPDATE]: {
     module: "users",
     description: "Replace a user's role assignments.",
@@ -163,10 +166,121 @@ export const PermissionDefinitions: {
     module: "sender_ids",
     description: "Disable Sender IDs.",
   },
+  [Permissions.SENDER_IDS_ENABLE]: {
+    module: "sender_ids",
+    description: "Enable Sender IDs.",
+  },
 
   [Permissions.SENDER_IDS_DEFAULT_UPDATE]: {
     module: "sender_ids",
     description: "Change the default Sender ID.",
+  },
+
+  // -------------------------------------------------------------------------
+  // Mobile Networks
+  // -------------------------------------------------------------------------
+
+  [Permissions.MOBILE_NETWORKS_READ]: {
+    module: "mobile_networks",
+    description: "View mobile networks.",
+  },
+
+  [Permissions.MOBILE_NETWORKS_CREATE]: {
+    module: "mobile_networks",
+    description: "Create mobile networks.",
+  },
+
+  [Permissions.MOBILE_NETWORKS_UPDATE]: {
+    module: "mobile_networks",
+    description: "Update mobile networks.",
+  },
+
+  [Permissions.MOBILE_NETWORKS_DELETE]: {
+    module: "mobile_networks",
+    description: "Delete mobile networks.",
+  },
+
+  [Permissions.MOBILE_NETWORKS_ENABLE]: {
+    module: "mobile_networks",
+    description: "Enable mobile networks.",
+  },
+
+  [Permissions.MOBILE_NETWORKS_DISABLE]: {
+    module: "mobile_networks",
+    description: "Disable mobile networks.",
+  },
+
+  // -------------------------------------------------------------------------
+  // Connectors
+  // -------------------------------------------------------------------------
+
+  [Permissions.CONNECTORS_READ]: {
+    module: "connectors",
+    description: "View connectors.",
+  },
+
+  [Permissions.CONNECTORS_CREATE]: {
+    module: "connectors",
+    description: "Create connectors.",
+  },
+
+  [Permissions.CONNECTORS_UPDATE]: {
+    module: "connectors",
+    description: "Update connectors.",
+  },
+
+  [Permissions.CONNECTORS_DELETE]: {
+    module: "connectors",
+    description: "Delete connectors.",
+  },
+
+  [Permissions.CONNECTORS_ENABLE]: {
+    module: "connectors",
+    description: "Enable connectors.",
+  },
+
+  [Permissions.CONNECTORS_DISABLE]: {
+    module: "connectors",
+    description: "Disable connectors.",
+  },
+
+  [Permissions.CONNECTORS_SUSPEND]: {
+    module: "connectors",
+    description: "Suspend connectors.",
+  },
+
+  // -------------------------------------------------------------------------
+  // Routes
+  // -------------------------------------------------------------------------
+
+  [Permissions.ROUTES_READ]: {
+    module: "routes",
+    description: "View routes.",
+  },
+
+  [Permissions.ROUTES_CREATE]: {
+    module: "routes",
+    description: "Create routes.",
+  },
+
+  [Permissions.ROUTES_UPDATE]: {
+    module: "routes",
+    description: "Update routes.",
+  },
+
+  [Permissions.ROUTES_DELETE]: {
+    module: "routes",
+    description: "Delete routes.",
+  },
+
+  [Permissions.ROUTES_ENABLE]: {
+    module: "routes",
+    description: "Enable routes.",
+  },
+
+  [Permissions.ROUTES_DISABLE]: {
+    module: "routes",
+    description: "Disable routes.",
   },
 
   // -------------------------------------------------------------------------
@@ -300,4 +414,8 @@ export const PermissionDefinitions: {
     module: "webhooks",
     description: "View webhook delivery history.",
   },
+  [Permissions.PLATFORM_SUPER_ADMIN]: {
+    module: "all",
+    description: "can access all clients"
+  }
 } as const;

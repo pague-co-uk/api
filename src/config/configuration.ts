@@ -5,6 +5,8 @@ export default () => ({
     environment: process.env.NODE_ENV ?? "development",
     host: process.env.HOST ?? "0.0.0.0",
     port: Number.parseInt(process.env.PORT ?? "9000", 10),
+    webUrl: process.env.PAGUE_WEB_URL,
+    logoUrl: process.env.PAGUE_LOGO_URL
   },
 
   database: {
@@ -180,7 +182,27 @@ export default () => ({
       10,
     ),
   },
+  email: {
+    smtp: {
+      host: process.env.SMTP_HOST!,
 
+      port: Number.parseInt(
+        process.env.SMTP_PORT ?? "587",
+        10,
+      ),
+
+      // Defaults to false (STARTTLS on 587), matching the same
+      // "=== 'true'" opt-in pattern used by LOG_FILE_ENABLED and
+      // OTEL_DISABLE_FS_INSTRUMENTATION above.
+      secure: process.env.SMTP_SECURE === "true",
+
+      user: process.env.SMTP_USER,
+      password: process.env.SMTP_PASSWORD,
+    },
+
+    fromAddress: process.env.SMTP_FROM_ADDRESS!,
+    fromName: process.env.SMTP_FROM_NAME ?? "Pague",
+  },
   webhooks: {
     secret:
       process.env.WEBHOOK_SECRET!,
@@ -235,4 +257,5 @@ export default () => ({
       10,
     ),
   },
+
 });

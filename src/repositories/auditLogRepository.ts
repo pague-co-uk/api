@@ -56,7 +56,7 @@ export class AuditLogRepository
   }
 
   // -------------------------------------------------------------------------
-  // Queries
+  // Find by ID
   // -------------------------------------------------------------------------
 
   async findById(
@@ -82,125 +82,468 @@ export class AuditLogRepository
     );
   }
 
-  async findByEntity(
-    entityType: string,
-    entityId: string,
+  // -------------------------------------------------------------------------
+  // Find many
+  //
+  // General audit-log search.
+  //
+  // Search is performed against the searchable audit fields and pagination
+  // is performed in the database.
+  // -------------------------------------------------------------------------
+
+  async findMany(
+    options?: {
+      readonly search?: string;
+      readonly clientId?: string;
+      readonly userId?: string;
+      readonly action?: string;
+      readonly entityType?: string;
+      readonly entityId?: string;
+      readonly page?: number;
+      readonly pageSize?: number;
+    },
   ) {
     return this.execute(
       "SELECT",
       "audit_logs",
       async () => {
-        const result =
-          await this.db.auditLog.findMany({
-            where: {
-              entityType,
-              entityId,
-            },
+        const page = Math.max(
+          options?.page ?? 1,
+          1,
+        );
+
+        const pageSize = Math.min(
+          Math.max(
+            options?.pageSize ?? 20,
+            1,
+          ),
+          100,
+        );
+
+        const search =
+          options?.search?.trim() || undefined;
+
+        const structuredWhere: Prisma.AuditLogWhereInput = {};
+
+        if (options?.clientId) {
+          structuredWhere.clientId = options.clientId;
+        }
+
+        if (options?.userId) {
+          structuredWhere.userId = options.userId;
+        }
+
+        if (options?.action) {
+          structuredWhere.action = options.action;
+        }
+
+        if (options?.entityType) {
+          structuredWhere.entityType = options.entityType;
+        }
+
+        if (options?.entityId) {
+          structuredWhere.entityId = options.entityId;
+        }
+
+        const skip =
+          (page - 1) * pageSize;
+
+        let where:
+          | Prisma.AuditLogWhereInput
+          | undefined;
+
+        const searchClause = search
+          ? {
+            OR: [
+              {
+                action: { contains: search },
+              },
+              {
+                entityType: { contains: search },
+              },
+              {
+                entityId: { contains: search },
+              },
+              {
+                userId: { contains: search },
+              },
+              {
+                clientId: { contains: search },
+              },
+              {
+                ipAddress: { contains: search },
+              },
+              {
+                userAgent: { contains: search },
+              },
+            ],
+          }
+          : undefined;
+
+        // Combine structured filters (AND) with search (OR) when both present.
+        if (
+          Object.keys(structuredWhere).length > 0 &&
+          searchClause
+        ) {
+          where = {
+            AND: [structuredWhere, searchClause],
+          };
+        } else if (Object.keys(structuredWhere).length > 0) {
+          where = structuredWhere;
+        } else {
+          where = searchClause;
+        }
+
+        const [
+          items,
+          totalItems,
+        ] = await Promise.all([
+          this.db.auditLog.findMany({
+            where,
             orderBy: {
               createdAt: "desc",
             },
-          });
+            skip,
+            take: pageSize,
+          }),
+
+          this.db.auditLog.count({
+            where,
+          }),
+        ]);
+
+        const totalPages =
+          totalItems === 0
+            ? 0
+            : Math.ceil(
+              totalItems / pageSize,
+            );
 
         return {
-          result,
+          result: {
+            items,
+            page,
+            pageSize,
+            totalItems,
+            totalPages,
+          },
+
           rowsAffected:
-            result.length,
+            items.length,
         };
       },
     );
   }
+
+  // -------------------------------------------------------------------------
+  // Find by entity
+  // -------------------------------------------------------------------------
+
+  async findByEntity(
+    entityType: string,
+    entityId: string,
+    options?: {
+      readonly page?: number;
+      readonly pageSize?: number;
+    },
+  ) {
+    return this.execute(
+      "SELECT",
+      "audit_logs",
+      async () => {
+        const page =
+          Math.max(
+            options?.page ?? 1,
+            1,
+          );
+
+        const pageSize =
+          Math.min(
+            Math.max(
+              options?.pageSize ?? 20,
+              1,
+            ),
+            100,
+          );
+
+        const skip =
+          (page - 1) * pageSize;
+
+        const where = {
+          entityType,
+          entityId,
+        };
+
+        const [
+          items,
+          totalItems,
+        ] = await Promise.all([
+          this.db.auditLog.findMany({
+            where,
+            orderBy: {
+              createdAt: "desc",
+            },
+            skip,
+            take: pageSize,
+          }),
+
+          this.db.auditLog.count({
+            where,
+          }),
+        ]);
+
+        const totalPages =
+          totalItems === 0
+            ? 0
+            : Math.ceil(
+              totalItems / pageSize,
+            );
+
+        return {
+          result: {
+            items,
+            page,
+            pageSize,
+            totalItems,
+            totalPages,
+          },
+
+          rowsAffected:
+            items.length,
+        };
+      },
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Find by client
+  // -------------------------------------------------------------------------
 
   async findByClient(
     clientId: string,
     options?: {
-      readonly limit?: number;
-      readonly offset?: number;
+      readonly page?: number;
+      readonly pageSize?: number;
     },
   ) {
     return this.execute(
       "SELECT",
       "audit_logs",
       async () => {
-        const result =
-          await this.db.auditLog.findMany({
-            where: {
-              clientId,
-            },
+        const page =
+          Math.max(
+            options?.page ?? 1,
+            1,
+          );
+
+        const pageSize =
+          Math.min(
+            Math.max(
+              options?.pageSize ?? 20,
+              1,
+            ),
+            100,
+          );
+
+        const skip =
+          (page - 1) * pageSize;
+
+        const where = {
+          clientId,
+        };
+
+        const [
+          items,
+          totalItems,
+        ] = await Promise.all([
+          this.db.auditLog.findMany({
+            where,
             orderBy: {
               createdAt: "desc",
             },
-            take: options?.limit,
-            skip: options?.offset,
-          });
+            skip,
+            take: pageSize,
+          }),
+
+          this.db.auditLog.count({
+            where,
+          }),
+        ]);
+
+        const totalPages =
+          totalItems === 0
+            ? 0
+            : Math.ceil(
+              totalItems / pageSize,
+            );
 
         return {
-          result,
+          result: {
+            items,
+            page,
+            pageSize,
+            totalItems,
+            totalPages,
+          },
+
           rowsAffected:
-            result.length,
+            items.length,
         };
       },
     );
   }
+
+  // -------------------------------------------------------------------------
+  // Find by user
+  // -------------------------------------------------------------------------
 
   async findByUser(
     userId: string,
     options?: {
-      readonly limit?: number;
-      readonly offset?: number;
+      readonly page?: number;
+      readonly pageSize?: number;
     },
   ) {
     return this.execute(
       "SELECT",
       "audit_logs",
       async () => {
-        const result =
-          await this.db.auditLog.findMany({
-            where: {
-              userId,
-            },
+        const page =
+          Math.max(
+            options?.page ?? 1,
+            1,
+          );
+
+        const pageSize =
+          Math.min(
+            Math.max(
+              options?.pageSize ?? 20,
+              1,
+            ),
+            100,
+          );
+
+        const skip =
+          (page - 1) * pageSize;
+
+        const where = {
+          userId,
+        };
+
+        const [
+          items,
+          totalItems,
+        ] = await Promise.all([
+          this.db.auditLog.findMany({
+            where,
             orderBy: {
               createdAt: "desc",
             },
-            take: options?.limit,
-            skip: options?.offset,
-          });
+            skip,
+            take: pageSize,
+          }),
+
+          this.db.auditLog.count({
+            where,
+          }),
+        ]);
+
+        const totalPages =
+          totalItems === 0
+            ? 0
+            : Math.ceil(
+              totalItems / pageSize,
+            );
 
         return {
-          result,
+          result: {
+            items,
+            page,
+            pageSize,
+            totalItems,
+            totalPages,
+          },
+
           rowsAffected:
-            result.length,
+            items.length,
         };
       },
     );
   }
 
+  // -------------------------------------------------------------------------
+  // Find by action
+  // -------------------------------------------------------------------------
+
   async findByAction(
     action: string,
     options?: {
-      readonly limit?: number;
-      readonly offset?: number;
+      readonly page?: number;
+      readonly pageSize?: number;
     },
   ) {
     return this.execute(
       "SELECT",
       "audit_logs",
       async () => {
-        const result =
-          await this.db.auditLog.findMany({
-            where: {
-              action,
-            },
+        const page =
+          Math.max(
+            options?.page ?? 1,
+            1,
+          );
+
+        const pageSize =
+          Math.min(
+            Math.max(
+              options?.pageSize ?? 20,
+              1,
+            ),
+            100,
+          );
+
+        const skip =
+          (page - 1) * pageSize;
+
+        const where = {
+          action,
+        };
+
+        const [
+          items,
+          totalItems,
+        ] = await Promise.all([
+          this.db.auditLog.findMany({
+            where,
             orderBy: {
               createdAt: "desc",
             },
-            take: options?.limit,
-            skip: options?.offset,
-          });
+            skip,
+            take: pageSize,
+          }),
+
+          this.db.auditLog.count({
+            where,
+          }),
+        ]);
+
+        const totalPages =
+          totalItems === 0
+            ? 0
+            : Math.ceil(
+              totalItems / pageSize,
+            );
 
         return {
-          result,
+          result: {
+            items,
+            page,
+            pageSize,
+            totalItems,
+            totalPages,
+          },
+
           rowsAffected:
-            result.length,
+            items.length,
         };
       },
     );

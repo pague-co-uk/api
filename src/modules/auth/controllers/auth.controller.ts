@@ -9,6 +9,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  Query,
   Req,
   Res,
   UnauthorizedException,
@@ -23,6 +24,7 @@ import { Public } from "../../../common/authorization/decorators/public.decorato
 import type { AuthenticatedUser } from "../../../common/authorization/interfaces/index.js";
 import { PrincipalMapper } from "../../../common/authorization/mapper/principal.mapper.js";
 import { ClientIp, UserAgent } from "../../../decorators/index.js";
+import { FindApiKeysDto } from "../dto/find-api-keys.dto.js";
 import { AuthenticationCookieService } from "../services/authentication-cookie.service.js";
 import { AuthenticationService } from "../services/authentication.service.js";
 import { ChangePasswordRequestDto } from "./requests/change-password.request.dto.js";
@@ -49,7 +51,6 @@ export class AuthenticationController {
   @HttpCode(HttpStatus.OK)
   async login(
     @Body() request: LoginRequestDto,
-    @Headers("x-client-id") clientId: string | undefined,
     @Res({ passthrough: true }) response: Response,
     @ClientIp() ipAddress: string,
     @UserAgent() userAgent: string,
@@ -59,16 +60,9 @@ export class AuthenticationController {
     verificationToken?: string;
     expiresAt?: Date;
   }> {
-    if (!clientId) {
-      throw new BadRequestException(
-        "The x-client-id header is required.",
-      );
-    }
-
     const result = await this.authentication.login(
       request.identifier,
       request.password,
-      clientId,
       ipAddress,
       userAgent,
       request.trustedDeviceId,
@@ -111,19 +105,14 @@ export class AuthenticationController {
   @HttpCode(HttpStatus.OK)
   async verifyMfa(
     @Body() request: VerifyMfaRequestDto,
-    @Headers("x-client-id") clientId: string | undefined,
     @Res({ passthrough: true }) response: Response,
     @ClientIp() ipAddress: string,
     @UserAgent() userAgent: string,
   ): Promise<{ sessionId: string }> {
-    if (!clientId) {
-      throw new BadRequestException("The x-client-id header is required.");
-    }
 
     const result = await this.authentication.verifyMfa(
       request.verificationToken,
       request.code,
-      clientId,
       ipAddress,
       userAgent,
     );
@@ -278,13 +267,9 @@ export class AuthenticationController {
   @HttpCode(HttpStatus.OK)
   async forgotPassword(
     @Body() request: ForgotPasswordRequestDto,
-    @Headers("x-client-id") clientId: string | undefined,
   ): Promise<{ success: boolean; message: string }> {
-    if (!clientId) {
-      throw new BadRequestException("The x-client-id header is required.");
-    }
 
-    await this.authentication.forgotPassword(request.identifier, clientId);
+    await this.authentication.forgotPassword(request.identifier);
     return {
       success: true,
       message: "If an account matches the supplied identifier, a verification code has been sent.",
@@ -296,19 +281,15 @@ export class AuthenticationController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async resetPassword(
     @Body() request: ResetPasswordRequestDto,
-    @Headers("x-client-id") clientId: string | undefined,
     @ClientIp() ipAddress: string,
     @UserAgent() userAgent: string,
   ): Promise<void> {
-    if (!clientId) {
-      throw new BadRequestException("The x-client-id header is required.");
-    }
     if (request.password !== request.confirmPassword) {
       throw new BadRequestException("Password confirmation does not match.");
     }
 
     await this.authentication.resetPassword(
-      request.token, request.code, request.password, clientId, ipAddress, userAgent,
+      request.token, request.password, ipAddress, userAgent,
     );
   }
 
@@ -316,15 +297,25 @@ export class AuthenticationController {
   async listApiKeys(
     @CurrentUser()
     user: AuthenticatedUser,
+    @Query() dto: FindApiKeysDto,
   ) {
-    const apiKeys =
+    const page =
       await this.authentication.listApiKeys(
         user.clientId,
+        {
+          page: dto.page ?? 1,
+          pageSize: dto.pageSize ?? 20,
+          status: dto.status,
+        },
       );
 
-    return apiKeys.map(
-      ({ secretHash, ...apiKey }) => apiKey,
-    );
+    return {
+      ...page,
+      items: page.items.map(
+        ({ secretHash, ...apiKey }) =>
+          apiKey,
+      ),
+    };
   }
 
   @Delete("api-keys/:id")

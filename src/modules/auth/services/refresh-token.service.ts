@@ -157,13 +157,18 @@ export class RefreshTokenService {
       span.setAttribute('auth.client.id', clientId);
 
       try {
+        const validExpiresAt =
+          this.ensureValidExpiry(
+            expiresAt,
+            'RefreshTokenService.issue',
+          );
         const refreshToken = this.generateRefreshToken();
 
         const tokenHash = await this.hashRefreshToken(refreshToken);
 
         const token = await this.tokens.create({
           tokenHash,
-          expiresAt,
+          expiresAt: validExpiresAt,
           session: {
             connect: {
               id: sessionId,
@@ -462,6 +467,11 @@ export class RefreshTokenService {
       span.setAttribute('auth.session.id', sessionId);
 
       try {
+        const validExpiresAt =
+          this.ensureValidExpiry(
+            expiresAt,
+            'RefreshTokenService.issue',
+          );
         const currentTokenHash = this.hashRefreshToken(refreshToken);
 
         const newRefreshToken = this.generateRefreshToken();
@@ -485,7 +495,7 @@ export class RefreshTokenService {
                 },
               },
               tokenHash: newTokenHash,
-              expiresAt,
+              expiresAt: validExpiresAt,
             });
 
             await tokens.replace(currentToken.id, created.id, this.clock.now());
@@ -543,5 +553,33 @@ export class RefreshTokenService {
         throw error;
       }
     });
+  }
+
+  private ensureValidExpiry(
+    expiresAt: Date,
+    operation: string,
+  ): Date {
+    if (
+      !(expiresAt instanceof Date) ||
+      !Number.isFinite(expiresAt.getTime())
+    ) {
+      const error = new Error(
+        `Invalid refresh token expiry supplied to ${operation}.`,
+      );
+
+      this.logger.error(
+        {
+          operation,
+          expiresAt,
+        },
+        'Invalid refresh token expiry.',
+      );
+
+      recordException(error);
+
+      throw error;
+    }
+
+    return expiresAt;
   }
 }

@@ -9,7 +9,8 @@ import {
   withSpan,
 } from "@pague-co-uk/sms-gateway-telemetry";
 
-import { WebhookDeliveryRepository } from "src/repositories/WebhookDeliveryRepository.js";
+import { WebhookDelivery, WebhookEndpoint } from "@prisma/client";
+import { Page } from "src/common/query/page.interface.js";
 import { RandomGenerator } from "../../../common/services/random.service.js";
 import { WebhookEndpointRepository } from "../../../repositories/WebhookEndpointRepository.js";
 
@@ -21,7 +22,7 @@ export class WebhookService {
   constructor(
     private readonly webhooks:
       WebhookEndpointRepository,
-    private readonly deliveries: WebhookDeliveryRepository,
+
     private readonly random:
       RandomGenerator,
   ) { }
@@ -96,7 +97,10 @@ export class WebhookService {
             "Webhook endpoint created.",
           );
 
-          return { webhook, secret };
+          return {
+            webhook,
+            secret,
+          };
         } catch (error) {
           recordException(error);
 
@@ -123,9 +127,9 @@ export class WebhookService {
 
   async findByClient(
     clientId: string,
-    options?: {
-      readonly limit?: number;
-      readonly offset?: number;
+    options: {
+      readonly page: number;
+      readonly pageSize: number;
       readonly enabled?: boolean;
     },
   ) {
@@ -134,7 +138,6 @@ export class WebhookService {
       options,
     );
   }
-
   async countByClient(
     clientId: string,
     enabled?: boolean,
@@ -157,6 +160,159 @@ export class WebhookService {
     return this.ensureClientOwnership(
       webhook,
       clientId,
+    );
+  }
+
+  async listPlatform(
+    options: {
+      readonly page: number;
+      readonly pageSize: number;
+      readonly clientId?: string;
+      readonly enabled?: boolean;
+      readonly search?: string;
+    },
+  ): Promise<
+    Page<
+      WebhookEndpoint & {
+        client: {
+          id: string;
+          publicId: string;
+          companyName: string;
+          displayName: string;
+        };
+      }
+    >
+  > {
+    return withSpan(
+      "WebhookService.listPlatform",
+      async (span) => {
+        span.setAttributes({
+          "pagination.page":
+            options.page,
+
+          "pagination.page_size":
+            options.pageSize,
+        });
+
+        if (
+          options.clientId !==
+          undefined
+        ) {
+          span.setAttribute(
+            "client.id",
+            options.clientId,
+          );
+        }
+
+        if (
+          options.enabled !==
+          undefined
+        ) {
+          span.setAttribute(
+            "webhook.filter.enabled",
+            options.enabled,
+          );
+        }
+
+        if (
+          options.search !==
+          undefined &&
+          options.search.trim()
+        ) {
+          span.setAttribute(
+            "webhook.filter.search",
+            options.search.trim(),
+          );
+        }
+
+        this.logger.debug(
+          {
+            page:
+              options.page,
+
+            pageSize:
+              options.pageSize,
+
+            clientId:
+              options.clientId,
+
+            enabled:
+              options.enabled,
+
+            search:
+              options.search,
+          },
+          "Retrieving platform webhooks.",
+        );
+
+        try {
+          const page =
+            await this.webhooks
+              .findManyPlatform(
+                options,
+              );
+
+          span.setAttributes({
+            "webhook.count":
+              page.items.length,
+
+            "webhook.total":
+              page.totalItems,
+          });
+
+          this.logger.debug(
+            {
+              count:
+                page.items.length,
+
+              total:
+                page.totalItems,
+
+              page:
+                page.page,
+
+              pageSize:
+                page.pageSize,
+
+              clientId:
+                options.clientId,
+
+              enabled:
+                options.enabled,
+            },
+            "Platform webhooks retrieved successfully.",
+          );
+
+          return page;
+        } catch (error) {
+          recordException(error);
+
+          this.logger.error(
+            {
+              err:
+                error,
+
+              page:
+                options.page,
+
+              pageSize:
+                options.pageSize,
+
+              clientId:
+                options.clientId,
+
+              enabled:
+                options.enabled,
+
+              search:
+                options.search,
+            },
+            "Failed to retrieve platform webhooks.",
+          );
+
+          throw error;
+        }
+      },
     );
   }
 
@@ -379,7 +535,10 @@ export class WebhookService {
             "Webhook secret rotated.",
           );
 
-          return { webhook: updated, secret };
+          return {
+            webhook: updated,
+            secret,
+          };
         } catch (error) {
           recordException(error);
 
@@ -459,29 +618,122 @@ export class WebhookService {
     );
   }
 
-  //======================================================================
-  //Find Deliveries
-  //======================================================================
+  // =========================================================================
+  // Find Deliveries
+  // =========================================================================
+
   async findDeliveries(
     clientId: string,
     webhookEndpointId: string,
-    options?: {
-      readonly limit?: number;
-      readonly offset?: number;
+    options: {
+      readonly page: number;
+      readonly pageSize: number;
     },
-  ) {
-    const webhook =
-      await this.findById(
-        clientId,
-        webhookEndpointId,
-      );
+  ): Promise<Page<WebhookDelivery>> {
+    return withSpan(
+      "WebhookService.findDeliveries",
+      async (span) => {
+        this.logger.debug(
+          {
+            clientId,
+            webhookEndpointId,
+            page: options.page,
+            pageSize: options.pageSize,
+          },
+          "Retrieving webhook deliveries.",
+        );
 
-    return this.deliveries.findByWebhookEndpoint(
-      webhook.id,
-      options,
+        span.setAttributes({
+          "client.id":
+            clientId,
+
+          "webhook.id":
+            webhookEndpointId,
+
+          "pagination.page":
+            options.page,
+
+          "pagination.page_size":
+            options.pageSize,
+        });
+
+        try {
+          // -------------------------------------------------------------------
+          // Verify that the webhook exists and belongs to the client.
+          // -------------------------------------------------------------------
+
+          const webhook =
+            await this.findById(
+              clientId,
+              webhookEndpointId,
+            );
+
+          // -------------------------------------------------------------------
+          // Retrieve paginated deliveries.
+          // -------------------------------------------------------------------
+
+          const page =
+            await this.webhooks.findDeliveries(
+              webhook.id,
+              {
+                page:
+                  options.page,
+
+                pageSize:
+                  options.pageSize,
+              },
+            );
+
+          span.setAttribute(
+            "deliveries.count",
+            page.items.length,
+          );
+
+          span.setAttribute(
+            "deliveries.total",
+            page.totalItems,
+          );
+
+          this.logger.debug(
+            {
+              clientId,
+              webhookId:
+                webhook.id,
+              count:
+                page.items.length,
+              total:
+                page.totalItems,
+              page:
+                page.page,
+              pageSize:
+                page.pageSize,
+            },
+            "Webhook deliveries retrieved successfully.",
+          );
+
+          return page;
+        } catch (error) {
+          recordException(error);
+
+          this.logger.error(
+            {
+              err: error,
+              clientId,
+              webhookId:
+                webhookEndpointId,
+              page:
+                options.page,
+              pageSize:
+                options.pageSize,
+            },
+            "Failed to retrieve webhook deliveries.",
+          );
+
+          throw error;
+        }
+      },
     );
   }
-
   // =========================================================================
   // Helpers
   // =========================================================================

@@ -6,10 +6,19 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from "@nestjs/common";
 
 import {
+  FileInterceptor,
+} from "@nestjs/platform-express";
+
+import 'multer';
+
+import {
   ApiBody,
+  ApiConsumes,
   ApiNotFoundResponse,
   ApiOperation,
   ApiParam,
@@ -20,9 +29,13 @@ import { Authorize } from "../../../common/authorization/decorators/authorize.de
 import { Permissions } from "../../../common/authorization/permissions/permissions.registry.js";
 import { ApiSuccessResponse } from "../../../decorators/api-success-response.decorator.js";
 
+import { PaginatedResponse } from "../../../common/interfaces/paginated.response.js";
+import { ApiPaginatedResponse } from "../../../decorators/api-paginated-response.decorator.js";
+
 import { CreateMessageDto } from "../dto/create-message.dto.js";
 import { FindMessagesDto } from "../dto/find-messages.dto.js";
 import { MessageResponseDto } from "../dto/message.response.dto.js";
+
 import { MessageMapper } from "../message.mapper.js";
 import { MessageService } from "../services/message.service.js";
 
@@ -41,54 +54,101 @@ export class MessagesController {
   @Get()
   @Authorize(Permissions.MESSAGES_READ)
   @ApiOperation({
-    summary: "Retrieve messages for a client.",
+    summary:
+      "Retrieve a paginated list of messages.",
   })
-  @ApiParam({
-    name: "clientId",
-    description: "Client identifier.",
-  })
+  @ApiPaginatedResponse(
+    MessageResponseDto,
+  )
   async findMany(
-    @Param("clientId", ParseUUIDPipe)
+    @Param(
+      "clientId",
+      ParseUUIDPipe,
+    )
     clientId: string,
 
-    @Query() dto: FindMessagesDto,
-  ) {
-    const messages =
+    @Query()
+    dto: FindMessagesDto,
+  ): Promise<
+    PaginatedResponse<MessageResponseDto>
+  > {
+    const page =
       await this.messages.findByClient(
         clientId,
         {
-          limit: dto.limit,
-          offset: dto.offset,
-          status: dto.status,
+          page:
+            dto.page,
+
+          pageSize:
+            dto.pageSize,
+
+          search:
+            dto.search,
+
+          destination:
+            dto.destination,
+
+          senderIdId:
+            dto.senderIdId,
+
+          status:
+            dto.status,
+
+          encoding:
+            dto.encoding,
+
+          submittedFrom:
+            dto.submittedFrom
+              ? new Date(
+                dto.submittedFrom,
+              )
+              : undefined,
+
+          submittedTo:
+            dto.submittedTo
+              ? new Date(
+                dto.submittedTo,
+              )
+              : undefined,
         },
       );
 
-    return this.mapper.toResponses(
-      messages,
+    return new PaginatedResponse(
+      this.mapper.toResponses(
+        page.items,
+      ),
+      page,
     );
   }
 
   @Get("public/:publicId")
   @Authorize(Permissions.MESSAGES_READ)
   @ApiOperation({
-    summary: "Retrieve a message by public identifier.",
+    summary:
+      "Retrieve a message by public identifier.",
   })
   @ApiParam({
     name: "clientId",
-    description: "Client identifier.",
+    description:
+      "Client identifier.",
   })
   @ApiParam({
     name: "publicId",
-    description: "Public message identifier.",
+    description:
+      "Public message identifier.",
   })
   @ApiSuccessResponse(
     MessageResponseDto,
   )
   @ApiNotFoundResponse({
-    description: "Message not found.",
+    description:
+      "Message not found.",
   })
   async findByPublicId(
-    @Param("clientId", ParseUUIDPipe)
+    @Param(
+      "clientId",
+      ParseUUIDPipe,
+    )
     clientId: string,
 
     @Param("publicId")
@@ -105,27 +165,37 @@ export class MessagesController {
   @Get(":id")
   @Authorize(Permissions.MESSAGES_READ)
   @ApiOperation({
-    summary: "Retrieve a message.",
+    summary:
+      "Retrieve a message.",
   })
   @ApiParam({
     name: "clientId",
-    description: "Client identifier.",
+    description:
+      "Client identifier.",
   })
   @ApiParam({
     name: "id",
-    description: "Message identifier.",
+    description:
+      "Message identifier.",
   })
   @ApiSuccessResponse(
     MessageResponseDto,
   )
   @ApiNotFoundResponse({
-    description: "Message not found.",
+    description:
+      "Message not found.",
   })
   async findById(
-    @Param("clientId", ParseUUIDPipe)
+    @Param(
+      "clientId",
+      ParseUUIDPipe,
+    )
     clientId: string,
 
-    @Param("id", ParseUUIDPipe)
+    @Param(
+      "id",
+      ParseUUIDPipe,
+    )
     id: string,
   ) {
     return this.mapper.toResponse(
@@ -139,21 +209,30 @@ export class MessagesController {
   @Get(":id/status-events")
   @Authorize(Permissions.MESSAGES_READ)
   @ApiOperation({
-    summary: "Retrieve message status history.",
+    summary:
+      "Retrieve message status history.",
   })
   @ApiParam({
     name: "clientId",
-    description: "Client identifier.",
+    description:
+      "Client identifier.",
   })
   @ApiParam({
     name: "id",
-    description: "Message identifier.",
+    description:
+      "Message identifier.",
   })
   async findStatusEvents(
-    @Param("clientId", ParseUUIDPipe)
+    @Param(
+      "clientId",
+      ParseUUIDPipe,
+    )
     clientId: string,
 
-    @Param("id", ParseUUIDPipe)
+    @Param(
+      "id",
+      ParseUUIDPipe,
+    )
     id: string,
   ) {
     return this.mapper.toStatusResponses(
@@ -175,7 +254,8 @@ export class MessagesController {
   })
   @ApiParam({
     name: "clientId",
-    description: "Client identifier.",
+    description:
+      "Client identifier.",
   })
   @ApiBody({
     type: CreateMessageDto,
@@ -184,16 +264,78 @@ export class MessagesController {
     MessageResponseDto,
   )
   async create(
-    @Param("clientId", ParseUUIDPipe)
+    @Param(
+      "clientId",
+      ParseUUIDPipe,
+    )
     clientId: string,
 
-    @Body() dto: CreateMessageDto,
+    @Body()
+    dto: CreateMessageDto,
   ) {
-    return this.mapper.toResponse(
+    const messages =
       await this.messages.create(
         clientId,
-        dto,
-      ),
+        [dto],
+      );
+
+    return this.mapper.toResponse(
+      messages[0],
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Bulk spreadsheet submission
+  // -------------------------------------------------------------------------
+
+  @Post("bulk")
+  @Authorize(Permissions.MESSAGES_CREATE)
+  @UseInterceptors(
+    FileInterceptor("file"),
+  )
+  @ApiOperation({
+    summary:
+      "Submit messages from a spreadsheet.",
+  })
+  @ApiParam({
+    name: "clientId",
+    description:
+      "Client identifier.",
+  })
+  @ApiConsumes(
+    "multipart/form-data",
+  )
+  @ApiBody({
+    schema: {
+      type: "object",
+
+      required: [
+        "file",
+      ],
+
+      properties: {
+        file: {
+          type: "string",
+          format: "binary",
+          description:
+            "Spreadsheet containing destination, message, senderIdId and encoding columns.",
+        },
+      },
+    },
+  })
+  async createBulk(
+    @Param(
+      "clientId",
+      ParseUUIDPipe,
+    )
+    clientId: string,
+
+    @UploadedFile()
+    file: Express.Multer.File,
+  ) {
+    return this.messages.createFromSpreadsheet(
+      clientId,
+      file,
     );
   }
 }

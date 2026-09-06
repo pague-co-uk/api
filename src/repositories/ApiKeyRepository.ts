@@ -1,11 +1,19 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { ApiKey, Prisma, PrismaClient } from "@prisma/client";
+import {
+  ApiKey,
+  ApiKeyStatus,
+  Prisma,
+  PrismaClient,
+} from "@prisma/client";
+
+import type { Page } from "../common/query/page.interface.js";
 
 import { DATABASE } from "../database/database.constants.js";
 import { DatabaseRepository } from "../database/database.repository.js";
 
 @Injectable()
-export class ApiKeyRepository extends DatabaseRepository {
+export class ApiKeyRepository
+  extends DatabaseRepository {
   constructor(
     @Inject(DATABASE)
     db:
@@ -30,9 +38,10 @@ export class ApiKeyRepository extends DatabaseRepository {
       "INSERT",
       "api_keys",
       async () => ({
-        result: await this.db.apiKey.create({
-          data,
-        }),
+        result:
+          await this.db.apiKey.create({
+            data,
+          }),
         rowsAffected: 1,
       }),
     );
@@ -52,7 +61,8 @@ export class ApiKeyRepository extends DatabaseRepository {
 
         return {
           result: apiKey,
-          rowsAffected: apiKey ? 1 : 0,
+          rowsAffected:
+            apiKey ? 1 : 0,
         };
       },
     );
@@ -74,7 +84,8 @@ export class ApiKeyRepository extends DatabaseRepository {
 
         return {
           result: apiKey,
-          rowsAffected: apiKey ? 1 : 0,
+          rowsAffected:
+            apiKey ? 1 : 0,
         };
       },
     );
@@ -96,37 +107,176 @@ export class ApiKeyRepository extends DatabaseRepository {
 
         return {
           result: apiKey,
-          rowsAffected: apiKey ? 1 : 0,
+          rowsAffected:
+            apiKey ? 1 : 0,
         };
       },
     );
   }
 
-  findByClient(
-    clientId: string,
-  ): Promise<ApiKey[]> {
+  async findManyPlatform(
+    options: {
+      readonly page: number;
+      readonly pageSize: number;
+      readonly clientId?: string;
+      readonly status?: ApiKeyStatus;
+      readonly search?: string;
+    },
+  ): Promise<
+    Page<
+      ApiKey & {
+        client: {
+          id: string;
+          publicId: string;
+          companyName: string;
+          displayName: string;
+        };
+      }
+    >
+  > {
     return this.execute(
       "SELECT",
       "api_keys",
       async () => {
-        const apiKeys =
-          await this.db.apiKey.findMany({
-            where: {
-              clientId,
+        const skip =
+          (options.page - 1) *
+          options.pageSize;
+
+        const search =
+          options.search?.trim();
+
+        const where: Prisma.ApiKeyWhereInput = {
+          ...(options.clientId !== undefined
+            ? {
+              clientId: options.clientId,
+            }
+            : {}),
+
+          ...(options.status !== undefined
+            ? {
+              status: options.status,
+            }
+            : {}),
+
+          ...(search
+            ? {
+              OR: [
+                {
+                  name: {
+                    contains: search,
+                  },
+                },
+                {
+                  publicId: {
+                    contains: search,
+                  },
+                },
+                {
+                  prefix: {
+                    contains: search,
+                  },
+                },
+              ],
+            }
+            : {}),
+        };
+
+        const [
+          items,
+          totalItems,
+        ] = await Promise.all([
+          this.db.apiKey.findMany({
+            where,
+            include: {
+              client: {
+                select: {
+                  id: true,
+                  publicId: true,
+                  companyName: true,
+                  displayName: true,
+                },
+              },
             },
             orderBy: {
               createdAt: "desc",
             },
-          });
+            take: options.pageSize,
+            skip,
+          }),
+
+          this.db.apiKey.count({
+            where,
+          }),
+        ]);
 
         return {
-          result: apiKeys,
-          rowsAffected: apiKeys.length,
+          result: {
+            items,
+            page: options.page,
+            pageSize:
+              options.pageSize,
+            totalItems,
+          },
+          rowsAffected:
+            items.length,
         };
       },
     );
   }
 
+  async findByClient(
+    clientId: string,
+    options: {
+      readonly page: number;
+      readonly pageSize: number;
+      readonly status?: ApiKeyStatus;
+    },
+  ): Promise<Page<ApiKey>> {
+    return this.execute(
+      "SELECT",
+      "api_keys",
+      async () => {
+        const skip =
+          (options.page - 1) *
+          options.pageSize;
+
+        const where: Prisma.ApiKeyWhereInput = {
+          clientId,
+          ...(options.status !== undefined
+            ? {
+              status: options.status,
+            }
+            : {}),
+        };
+
+        const [items, totalItems] =
+          await Promise.all([
+            this.db.apiKey.findMany({
+              where,
+              orderBy: {
+                createdAt: "desc",
+              },
+              take: options.pageSize,
+              skip,
+            }),
+
+            this.db.apiKey.count({
+              where,
+            }),
+          ]);
+
+        return {
+          result: {
+            items,
+            page: options.page,
+            pageSize: options.pageSize,
+            totalItems,
+          },
+          rowsAffected: items.length,
+        };
+      },
+    );
+  }
   updateLastUsed(
     id: string,
     lastUsedAt: Date,
@@ -164,7 +314,8 @@ export class ApiKeyRepository extends DatabaseRepository {
             },
             data: {
               revokedAt,
-              status: "REVOKED",
+              status:
+                ApiKeyStatus.REVOKED,
             },
           }),
         rowsAffected: 1,
@@ -207,7 +358,8 @@ export class ApiKeyRepository extends DatabaseRepository {
 
         return {
           result,
-          rowsAffected: result ? 1 : 0,
+          rowsAffected:
+            result ? 1 : 0,
         };
       },
     );
@@ -284,15 +436,17 @@ export class ApiKeyRepository extends DatabaseRepository {
       "api_key_capability_assignments",
       async () => {
         const result =
-          await this.db.apiKeyCapabilityAssignment.deleteMany({
-            where: {
-              apiKeyId,
-            },
-          });
+          await this.db.apiKeyCapabilityAssignment
+            .deleteMany({
+              where: {
+                apiKeyId,
+              },
+            });
 
         return {
           result: undefined,
-          rowsAffected: result.count,
+          rowsAffected:
+            result.count,
         };
       },
     );
@@ -315,19 +469,22 @@ export class ApiKeyRepository extends DatabaseRepository {
       "api_key_capability_assignments",
       async () => {
         const result =
-          await this.db.apiKeyCapabilityAssignment.createMany({
-            data: capabilityIds.map(
-              (capabilityId) => ({
-                apiKeyId,
-                capabilityId,
-              }),
-            ),
-            skipDuplicates: true,
-          });
+          await this.db.apiKeyCapabilityAssignment
+            .createMany({
+              data:
+                capabilityIds.map(
+                  (capabilityId) => ({
+                    apiKeyId,
+                    capabilityId,
+                  }),
+                ),
+              skipDuplicates: true,
+            });
 
         return {
           result,
-          rowsAffected: result.count,
+          rowsAffected:
+            result.count,
         };
       },
     );

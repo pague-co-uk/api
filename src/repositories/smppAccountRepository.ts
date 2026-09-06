@@ -74,6 +74,113 @@ export class SmppAccountRepository
     );
   }
 
+  async findManyPlatform(
+    options: {
+      readonly page: number;
+      readonly pageSize: number;
+      readonly clientId?: string;
+      readonly status?: Prisma.SmppAccountWhereInput["status"];
+      readonly search?: string;
+    },
+  ) {
+    return this.execute(
+      "SELECT",
+      "smpp_accounts",
+      async () => {
+        const skip =
+          (options.page - 1) *
+          options.pageSize;
+
+        const search =
+          options.search?.trim();
+
+        const where: Prisma.SmppAccountWhereInput = {
+          ...(options.clientId !==
+            undefined
+            ? {
+              clientId:
+                options.clientId,
+            }
+            : {}),
+
+          ...(options.status !==
+            undefined
+            ? {
+              status:
+                options.status,
+            }
+            : {}),
+
+          ...(search
+            ? {
+              OR: [
+                {
+                  systemId: {
+                    contains:
+                      search,
+                  },
+                },
+                {
+                  publicId: {
+                    contains:
+                      search,
+                  },
+                },
+              ],
+            }
+            : {}),
+        };
+
+        const [
+          items,
+          totalItems,
+        ] = await Promise.all([
+          this.db.smppAccount.findMany({
+            where,
+
+            include: {
+              client: {
+                select: {
+                  id: true,
+                  publicId: true,
+                  companyName: true,
+                  displayName: true,
+                },
+              },
+            },
+
+            orderBy: {
+              createdAt: "desc",
+            },
+
+            take:
+              options.pageSize,
+
+            skip,
+          }),
+
+          this.db.smppAccount.count({
+            where,
+          }),
+        ]);
+
+        return {
+          result: {
+            items,
+            page:
+              options.page,
+            pageSize:
+              options.pageSize,
+            totalItems,
+          },
+
+          rowsAffected:
+            items.length,
+        };
+      },
+    );
+  }
+
   async findByPublicId(
     publicId: string,
   ) {

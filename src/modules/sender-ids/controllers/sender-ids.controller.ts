@@ -210,6 +210,26 @@ export class SenderIdsController {
     );
   }
 
+  @Post(":id/enable")
+  @Authorize(Permissions.SENDER_IDS_ENABLE)
+  @ApiOperation({
+    summary: "Enable a Sender ID.",
+  })
+  @ApiParam({
+    name: "id",
+    description: "Sender ID identifier.",
+  })
+  @ApiSuccessResponse(SenderIdResponseDto)
+  async enable(
+    @Param("id", ParseUUIDPipe)
+    id: string,
+  ): Promise<SenderIdResponseDto> {
+    return this.mapper.toResponse(
+      await this.senderIds.enable(id),
+    );
+  }
+
+
   @Post(":id/default")
   @Authorize(Permissions.SENDER_IDS_DEFAULT_UPDATE)
   @ApiOperation({

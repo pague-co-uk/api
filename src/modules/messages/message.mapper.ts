@@ -1,26 +1,80 @@
 import { Injectable } from "@nestjs/common";
 
 import type {
-  Message,
   MessageStatusEvent,
+  Prisma,
 } from "@prisma/client";
 
 import {
   MessageStatusEventResponseDto,
 } from "./dto/message-status-event.response.dto.js";
-import { MessageResponseDto } from "./dto/message.response.dto.js";
+
+import {
+  MessageResponseDto,
+} from "./dto/message.response.dto.js";
+
+export type MessageWithRelations =
+  Prisma.MessageGetPayload<{
+    include: {
+      client: {
+        select: {
+          id: true;
+          publicId: true;
+          companyName: true;
+          displayName: true;
+        };
+      };
+      senderId: {
+        select: {
+          id: true;
+          publicId: true;
+          sender: true;
+        };
+      };
+    };
+  }>;
 
 @Injectable()
 export class MessageMapper {
   toResponse(
-    message: Message,
+    message: MessageWithRelations,
   ): MessageResponseDto {
     return {
       id: message.id,
       publicId: message.publicId,
 
-      clientId: message.clientId,
-      senderIdId: message.senderIdId,
+      clientId:
+        message.clientId,
+
+      senderIdId:
+        message.senderIdId,
+
+      client: {
+        id:
+          message.client.id,
+
+        publicId:
+          message.client.publicId,
+
+        companyName:
+          message.client.companyName,
+
+        displayName:
+          message.client.displayName,
+      },
+
+      senderId: message.senderId
+        ? {
+          id:
+            message.senderId.id,
+
+          publicId:
+            message.senderId.publicId,
+
+          sender:
+            message.senderId.sender,
+        }
+        : null,
 
       destination:
         message.destination,
@@ -49,7 +103,7 @@ export class MessageMapper {
   }
 
   toResponses(
-    messages: readonly Message[],
+    messages: readonly MessageWithRelations[],
   ): MessageResponseDto[] {
     return messages.map(
       (message) =>
@@ -91,7 +145,9 @@ export class MessageMapper {
   ): MessageStatusEventResponseDto[] {
     return events.map(
       (event) =>
-        this.toStatusResponse(event),
+        this.toStatusResponse(
+          event,
+        ),
     );
   }
 }

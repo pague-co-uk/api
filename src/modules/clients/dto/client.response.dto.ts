@@ -3,6 +3,12 @@ import { ClientStatus } from "@prisma/client";
 
 export class ClientResponseDto {
   @ApiProperty({
+    description: "Unique client identifier.",
+    example: "67c9b53f-b74e-43d0-859f-5349b5b9d0c7",
+  })
+  readonly id!: string;
+
+  @ApiProperty({
     example: "CLT_01HXYZ123456",
   })
   readonly publicId!: string;

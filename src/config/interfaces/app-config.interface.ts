@@ -10,4 +10,6 @@ export interface AppConfig {
   readonly isDevelopment: boolean;
   readonly isProduction: boolean;
   readonly isTest: boolean;
+  readonly webUrl: string;
+  readonly logoUrl: string;
 }

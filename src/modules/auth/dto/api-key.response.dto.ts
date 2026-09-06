@@ -2,11 +2,13 @@ import {
   ApiProperty,
   ApiPropertyOptional,
 } from "@nestjs/swagger";
+
 import {
   ApiKeyStatus,
 } from "@prisma/client";
 
 export class ApiKeyResponseDto {
+
   @ApiProperty()
   id!: string;
 
@@ -15,6 +17,30 @@ export class ApiKeyResponseDto {
 
   @ApiProperty()
   clientId!: string;
+
+  @ApiProperty({
+    type: "object",
+    properties: {
+      id: {
+        type: "string",
+      },
+      publicId: {
+        type: "string",
+      },
+      companyName: {
+        type: "string",
+      },
+      displayName: {
+        type: "string",
+      },
+    },
+  })
+  client?: {
+    id: string;
+    publicId: string;
+    companyName: string;
+    displayName: string;
+  };
 
   @ApiProperty()
   name!: string;

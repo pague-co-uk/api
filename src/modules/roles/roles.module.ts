@@ -8,6 +8,8 @@ import { DatabaseModule } from "../../database/database.module.js";
 import { PermissionRepository } from "../../repositories/PermissionRepository.js";
 import { RolePermissionRepository } from "../../repositories/RolePermissionRepository.js";
 import { RoleRepository } from "../../repositories/RoleRepository.js";
+import { PermissionsController } from "./controllers/permissions.controller.js";
+import { RolesController } from "./controllers/roles.controller.js";
 import { RoleMapper } from "./mapper/role.mapper.js";
 import { PermissionMapper } from "./permission.mapper.js";
 import { PermissionService } from "./services/permission.service.js";
@@ -26,6 +28,7 @@ import { RoleService } from "./services/roles.service.js";
     RoleService,
     RoleMapper,
   ],
+  controllers: [RolesController, PermissionsController],
   exports: [
     PermissionRepository,
     PermissionService,

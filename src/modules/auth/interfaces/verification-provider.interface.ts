@@ -5,6 +5,7 @@ export interface VerificationMessage {
   code: string;
   verificationToken: string;
   purpose: VerificationPurpose;
+  expiry: string;
 }
 
 export interface VerificationProvider {

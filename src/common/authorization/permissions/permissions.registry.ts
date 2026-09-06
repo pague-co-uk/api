@@ -10,6 +10,7 @@ export const Permissions = {
   USERS_ACTIVATE: "users.activate",
   USERS_DEACTIVATE: "users.deactivate",
   USERS_UNLOCK: "users.unlock",
+  USERS_LOCK: "users.lock",
   USERS_ROLES_UPDATE: "users.roles.update",
 
   // -------------------------------------------------------------------------
@@ -50,7 +51,42 @@ export const Permissions = {
   SENDER_IDS_APPROVE: "sender_ids.approve",
   SENDER_IDS_REJECT: "sender_ids.reject",
   SENDER_IDS_DISABLE: "sender_ids.disable",
+  SENDER_IDS_ENABLE: "sender_ids.enable",
   SENDER_IDS_DEFAULT_UPDATE: "sender_ids.default.update",
+
+  // -------------------------------------------------------------------------
+  // Mobile Networks
+  // -------------------------------------------------------------------------
+
+  MOBILE_NETWORKS_READ: "mobile_networks.read",
+  MOBILE_NETWORKS_CREATE: "mobile_networks.create",
+  MOBILE_NETWORKS_UPDATE: "mobile_networks.update",
+  MOBILE_NETWORKS_DELETE: "mobile_networks.delete",
+  MOBILE_NETWORKS_ENABLE: "mobile_networks.enable",
+  MOBILE_NETWORKS_DISABLE: "mobile_networks.disable",
+
+  // -------------------------------------------------------------------------
+  // Connectors
+  // -------------------------------------------------------------------------
+
+  CONNECTORS_READ: "connectors.read",
+  CONNECTORS_CREATE: "connectors.create",
+  CONNECTORS_UPDATE: "connectors.update",
+  CONNECTORS_DELETE: "connectors.delete",
+  CONNECTORS_ENABLE: "connectors.enable",
+  CONNECTORS_DISABLE: "connectors.disable",
+  CONNECTORS_SUSPEND: "connectors.suspend",
+
+  // -------------------------------------------------------------------------
+  // Routes
+  // -------------------------------------------------------------------------
+
+  ROUTES_READ: "routes.read",
+  ROUTES_CREATE: "routes.create",
+  ROUTES_UPDATE: "routes.update",
+  ROUTES_DELETE: "routes.delete",
+  ROUTES_ENABLE: "routes.enable",
+  ROUTES_DISABLE: "routes.disable",
 
   // -------------------------------------------------------------------------
   // API Keys
@@ -107,6 +143,8 @@ export const Permissions = {
 
   WEBHOOKS_ROTATE_SECRET: "webhooks:rotate-secret",
   WEBHOOKS_DELIVERIES_READ: "webhooks:deliveries:read",
+
+  PLATFORM_SUPER_ADMIN: "PLATFORM_SUPER_ADMIN"
 } as const;
 
 export type PermissionName =

@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService as NestConfigService } from "@nestjs/config";
 
+import { EmailConfig } from "./interfaces/email-settings-config.interface.js";
 import type {
   AppConfig,
   AuthenticationConfig,
@@ -19,6 +20,7 @@ export class AppConfigService {
   private readonly telemetryConfig: TelemetryConfig;
   private readonly authenticationConfig: AuthenticationConfig;
   private readonly outboxConfig: OutboxConfig;
+  private readonly emailConfig: EmailConfig;
 
   constructor(
     private readonly configService: NestConfigService,
@@ -27,6 +29,7 @@ export class AppConfigService {
     this.databaseConfig = Object.freeze(this.buildDatabaseConfig());
     this.rabbitMqConfig = Object.freeze(this.buildRabbitMqConfig());
     this.telemetryConfig = Object.freeze(this.buildTelemetryConfig());
+    this.emailConfig = Object.freeze(this.buildEmailConfig());
     this.outboxConfig =
       Object.freeze(
         this.buildOutboxConfig(),
@@ -60,6 +63,10 @@ export class AppConfigService {
     return this.outboxConfig;
   }
 
+  get email(): EmailConfig {
+    return this.emailConfig;
+  }
+
   public get<T>(key: string): T {
     const value = this.configService.get<T>(key);
 
@@ -91,6 +98,8 @@ export class AppConfigService {
       isDevelopment: environment === "development",
       isProduction: environment === "production",
       isTest: environment === "test",
+      webUrl: this.get("app.webUrl"),
+      logoUrl: this.get("app.logoUrl")
     };
   }
 
@@ -101,6 +110,24 @@ export class AppConfigService {
       log: this.appConfig.isDevelopment
         ? ["query", "warn", "error"]
         : ["warn", "error"],
+    };
+  }
+
+  private buildEmailConfig(): EmailConfig {
+    return {
+      smtp: {
+        host: this.get("email.smtp.host"),
+        port: this.get("email.smtp.port"),
+        secure: this.get("email.smtp.secure"),
+
+        // Optional — some SMTP relays (internal relay, Mailhog/Mailpit
+        // in local dev) don't require auth at all.
+        user: this.getOptional("email.smtp.user"),
+        password: this.getOptional("email.smtp.password"),
+      },
+
+      fromAddress: this.get("email.fromAddress"),
+      fromName: this.get("email.fromName"),
     };
   }
 

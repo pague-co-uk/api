@@ -5,6 +5,8 @@ import { AuditService } from "../../audit/services/audit.service.js";
 import type { Page } from "../../common/query/page.interface.js";
 
 import { Prisma, UserStatus } from "@prisma/client";
+import { AuthenticatedUser } from "../../common/authorization/interfaces/authenticated-user.interface.js";
+import { AuthorizationService } from "../../common/authorization/services/authorization.service.js";
 import { EmailAlreadyExistsException } from "../../exceptions/auth/email-already-exists.exception.js";
 import { UserNotFoundException } from "../../exceptions/auth/user-not-found.exception.js";
 import { UsernameAlreadyExistsException } from "../../exceptions/auth/username-not-available.exception.js";
@@ -28,7 +30,8 @@ export class UsersService {
     private readonly passwords: PasswordService,
     private readonly audit: AuditService,
     private readonly userRoles: UserRoleRepository,
-    private readonly roles: RoleRepository
+    private readonly roles: RoleRepository,
+    private readonly authorization: AuthorizationService
   ) { }
 
   private readonly usersCreatedCounter =
@@ -139,70 +142,139 @@ export class UsersService {
   // -------------------------------------------------------------------------
   // Lifecycle
   // -------------------------------------------------------------------------
-
   async create(
     dto: CreateUserDto,
+    authenticatedUser: AuthenticatedUser,
   ): Promise<UserWithRolesEntity> {
     return withSpan(
       "UsersService.create",
       async (span) => {
+        const clientId =
+          this.authorization.resolveClientId(
+            authenticatedUser,
+            dto.clientId,
+          );
+
         this.logger.info(
           {
             username: dto.username,
-            clientId: dto.clientId,
+            clientId,
+            actorUserId:
+              authenticatedUser.userId,
+            actorIsPagueSuperUser:
+              this.authorization.isPagueSuperUser(
+                authenticatedUser,
+              ),
           },
           "Creating user.",
         );
 
         span.setAttribute(
           "client.id",
-          dto.clientId,
+          clientId,
+        );
+
+        span.setAttribute(
+          "user.username",
+          dto.username,
+        );
+
+        span.setAttribute(
+          "auth.actor.user_id",
+          authenticatedUser.userId,
         );
 
         try {
+          // ====================================================================
+          // Validate uniqueness
+          // ====================================================================
+
           await this.ensureUsernameAvailable(
             dto.username,
           );
 
           await this.ensureEmailAvailable(
-            dto.clientId,
+            clientId,
             dto.email,
           );
+
+          // ====================================================================
+          // Hash password
+          // ====================================================================
 
           const passwordHash =
             await this.passwords.hash(
               dto.password,
             );
 
+          // ====================================================================
+          // Create user
+          // ====================================================================
+
           const user =
             await this.users.create({
               client: {
                 connect: {
-                  id: dto.clientId,
+                  id: clientId,
                 },
               },
-              firstName: dto.firstName,
-              lastName: dto.lastName,
-              username: dto.username,
-              email: dto.email,
-              phone: dto.phone,
+
+              firstName:
+                dto.firstName,
+
+              lastName:
+                dto.lastName,
+
+              username:
+                dto.username,
+
+              email:
+                dto.email,
+
+              phone:
+                dto.phone,
+
               passwordHash,
             });
+
           this.usersCreatedCounter.increment();
+
+          // ====================================================================
+          // Audit
+          // ====================================================================
+
           await this.audit.record({
             action: "user.created",
-            clientId: user.clientId,
+            actorId:
+              authenticatedUser.userId,
+            actorType: "User",
+            clientId:
+              user.clientId,
             resourceType: "User",
-            resourceId: user.id,
+            resourceId:
+              user.id,
             metadata: {
-              username: user.username,
-              email: user.email,
+              username:
+                user.username,
+              email:
+                user.email,
             },
           });
 
+          // ====================================================================
+          // Logging
+          // ====================================================================
+
           this.logger.info(
             {
-              userId: user.id,
+              userId:
+                user.id,
+
+              clientId:
+                user.clientId,
+
+              actorUserId:
+                authenticatedUser.userId,
             },
             "User created successfully.",
           );
@@ -214,8 +286,14 @@ export class UsersService {
           this.logger.error(
             {
               err: error,
-              username: dto.username,
-              clientId: dto.clientId,
+
+              username:
+                dto.username,
+
+              clientId,
+
+              actorUserId:
+                authenticatedUser.userId,
             },
             "Failed to create user.",
           );
@@ -402,6 +480,59 @@ export class UsersService {
     return this.updateStatus(
       id,
       UserStatus.DISABLED,
+    );
+  }
+
+  async lock(
+    id: string,
+  ): Promise<UserWithRolesEntity> {
+    return withSpan(
+      "UsersService.lock",
+      async (span) => {
+        this.logger.info(
+          { userId: id },
+          "Locking user.",
+        );
+
+        span.setAttribute(
+          "user.id",
+          id,
+        );
+
+        try {
+          await this.findEntityOrThrow(id);
+
+          const user =
+            await this.users.update(
+              id,
+              {
+                status:
+                  UserStatus.LOCKED,
+              },
+            );
+
+          this.logger.info(
+            {
+              userId: user.id,
+            },
+            "User locked successfully.",
+          );
+
+          return user;
+        } catch (error) {
+          recordException(error);
+
+          this.logger.error(
+            {
+              err: error,
+              userId: id,
+            },
+            "Failed to lock user.",
+          );
+
+          throw error;
+        }
+      },
     );
   }
 

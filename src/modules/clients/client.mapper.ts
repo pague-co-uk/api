@@ -10,6 +10,7 @@ export class ClientMapper {
     client: Client,
   ): ClientResponseDto {
     return {
+      id: client.id,
       publicId: client.publicId,
       companyName: client.companyName,
       displayName: client.displayName,
@@ -28,6 +29,7 @@ export class ClientMapper {
     client: Client,
   ): ClientSummaryResponseDto {
     return {
+      id:client.id,
       publicId: client.publicId,
       companyName: client.companyName,
       displayName: client.displayName,

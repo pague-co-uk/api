@@ -56,6 +56,45 @@ export class MessageStatusEventRepository
     );
   }
 
+  /**
+ * Creates multiple message status events in a single
+ * database operation.
+ *
+ * This is used when multiple messages are accepted
+ * together by MessageService.create().
+ */
+  async createMany(
+    data: readonly Prisma.MessageStatusEventCreateManyInput[],
+  ) {
+    return this.execute(
+      "INSERT",
+      "message_status_events",
+      async () => {
+        if (data.length === 0) {
+          return {
+            result: {
+              count: 0,
+            },
+
+            rowsAffected: 0,
+          };
+        }
+
+        const result =
+          await this.db.messageStatusEvent.createMany({
+            data: [...data],
+          });
+
+        return {
+          result,
+
+          rowsAffected:
+            result.count,
+        };
+      },
+    );
+  }
+
   // -------------------------------------------------------------------------
   // Queries
   // -------------------------------------------------------------------------

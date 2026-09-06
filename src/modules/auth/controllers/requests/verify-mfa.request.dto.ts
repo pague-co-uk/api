@@ -1,8 +1,7 @@
 import {
-  IsBoolean,
   IsNotEmpty,
   IsString,
-  Length,
+  Length
 } from "class-validator";
 
 export class VerifyMfaRequestDto {
@@ -13,7 +12,4 @@ export class VerifyMfaRequestDto {
   @IsString()
   @Length(6, 6)
   readonly code!: string;
-
-  @IsBoolean()
-  readonly rememberDevice!: boolean;
 }

@@ -5,6 +5,7 @@ import {
   ParseUUIDPipe,
   Query,
 } from "@nestjs/common";
+
 import {
   ApiNotFoundResponse,
   ApiOperation,
@@ -14,10 +15,13 @@ import {
 
 import { Authorize } from "../../../common/authorization/decorators/authorize.decorator.js";
 import { Permissions } from "../../../common/authorization/permissions/permissions.registry.js";
+import { PaginatedResponse } from "../../../common/interfaces/paginated.response.js";
+import { ApiPaginatedResponse } from "../../../decorators/api-paginated-response.decorator.js";
 import { ApiSuccessResponse } from "../../../decorators/api-success-response.decorator.js";
 
 import { AuditLogMapper } from "../audit-log.mapper.js";
 import { AuditLogResponseDto } from "../dto/audit-log.response.dto.js";
+import { FindAuditLogsDto } from "../dto/find-audit-logs.dto.js";
 import { AuditLogService } from "../services/audit-log.service.js";
 
 @ApiTags("Audit Logs")
@@ -45,20 +49,60 @@ export class AuditLogController {
     name: "entityId",
     description: "Entity identifier.",
   })
+  @ApiPaginatedResponse(
+    AuditLogResponseDto,
+  )
   async findByEntity(
     @Param("entityType")
     entityType: string,
 
     @Param("entityId", ParseUUIDPipe)
     entityId: string,
-  ): Promise<AuditLogResponseDto[]> {
-    return this.mapper.toResponses(
+
+    @Query()
+    dto: FindAuditLogsDto,
+  ): Promise<
+    PaginatedResponse<AuditLogResponseDto>
+  > {
+    const page =
       await this.auditLogs.findByEntity(
         entityType,
         entityId,
+        {
+          page: dto.page,
+          pageSize: dto.pageSize,
+        },
+      );
+
+    return new PaginatedResponse(
+      this.mapper.toResponses(
+        page.items,
       ),
+      page,
     );
   }
+
+  @Get()
+  @Authorize(Permissions.AUDIT_LOGS_READ)
+  @ApiPaginatedResponse(AuditLogResponseDto)
+  async findMany(
+    @Query() query: FindAuditLogsDto,
+  ) {
+    const page =
+      await this.auditLogs.findMany(
+        query,
+      );
+
+    return new PaginatedResponse(
+      this.mapper.toResponses(
+        page.items,
+      ),
+      page,
+    );
+  }
+  // -------------------------------------------------------------------------
+  // Find by client
+  // -------------------------------------------------------------------------
 
   @Get("client/:clientId")
   @Authorize(Permissions.AUDIT_LOGS_READ)
@@ -69,26 +113,38 @@ export class AuditLogController {
     name: "clientId",
     description: "Client identifier.",
   })
+  @ApiPaginatedResponse(
+    AuditLogResponseDto,
+  )
   async findByClient(
     @Param("clientId", ParseUUIDPipe)
     clientId: string,
 
-    @Query("limit")
-    limit?: number,
-
-    @Query("offset")
-    offset?: number,
-  ): Promise<AuditLogResponseDto[]> {
-    return this.mapper.toResponses(
+    @Query()
+    dto: FindAuditLogsDto,
+  ): Promise<
+    PaginatedResponse<AuditLogResponseDto>
+  > {
+    const page =
       await this.auditLogs.findByClient(
         clientId,
         {
-          limit,
-          offset,
+          page: dto.page,
+          pageSize: dto.pageSize,
         },
+      );
+
+    return new PaginatedResponse(
+      this.mapper.toResponses(
+        page.items,
       ),
+      page,
     );
   }
+
+  // -------------------------------------------------------------------------
+  // Find by user
+  // -------------------------------------------------------------------------
 
   @Get("user/:userId")
   @Authorize(Permissions.AUDIT_LOGS_READ)
@@ -99,26 +155,38 @@ export class AuditLogController {
     name: "userId",
     description: "User identifier.",
   })
+  @ApiPaginatedResponse(
+    AuditLogResponseDto,
+  )
   async findByUser(
     @Param("userId", ParseUUIDPipe)
     userId: string,
 
-    @Query("limit")
-    limit?: number,
-
-    @Query("offset")
-    offset?: number,
-  ): Promise<AuditLogResponseDto[]> {
-    return this.mapper.toResponses(
+    @Query()
+    dto: FindAuditLogsDto,
+  ): Promise<
+    PaginatedResponse<AuditLogResponseDto>
+  > {
+    const page =
       await this.auditLogs.findByUser(
         userId,
         {
-          limit,
-          offset,
+          page: dto.page,
+          pageSize: dto.pageSize,
         },
+      );
+
+    return new PaginatedResponse(
+      this.mapper.toResponses(
+        page.items,
       ),
+      page,
     );
   }
+
+  // -------------------------------------------------------------------------
+  // Find by action
+  // -------------------------------------------------------------------------
 
   @Get("action/:action")
   @Authorize(Permissions.AUDIT_LOGS_READ)
@@ -129,26 +197,38 @@ export class AuditLogController {
     name: "action",
     description: "Audit action.",
   })
+  @ApiPaginatedResponse(
+    AuditLogResponseDto,
+  )
   async findByAction(
     @Param("action")
     action: string,
 
-    @Query("limit")
-    limit?: number,
-
-    @Query("offset")
-    offset?: number,
-  ): Promise<AuditLogResponseDto[]> {
-    return this.mapper.toResponses(
+    @Query()
+    dto: FindAuditLogsDto,
+  ): Promise<
+    PaginatedResponse<AuditLogResponseDto>
+  > {
+    const page =
       await this.auditLogs.findByAction(
         action,
         {
-          limit,
-          offset,
+          page: dto.page,
+          pageSize: dto.pageSize,
         },
+      );
+
+    return new PaginatedResponse(
+      this.mapper.toResponses(
+        page.items,
       ),
+      page,
     );
   }
+
+  // -------------------------------------------------------------------------
+  // Find by ID
+  // -------------------------------------------------------------------------
 
   @Get(":id")
   @Authorize(Permissions.AUDIT_LOGS_READ)
@@ -168,11 +248,11 @@ export class AuditLogController {
   async findById(
     @Param("id", ParseUUIDPipe)
     id: string,
-  ): Promise<AuditLogResponseDto | null> {
+  ): Promise<
+    AuditLogResponseDto | null
+  > {
     const auditLog =
-      await this.auditLogs.findById(
-        id,
-      );
+      await this.auditLogs.findById(id);
 
     return auditLog
       ? this.mapper.toResponse(

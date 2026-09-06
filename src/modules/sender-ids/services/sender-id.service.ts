@@ -1,10 +1,12 @@
 import { Injectable } from "@nestjs/common";
+
 import {
   createCounterMetric,
   getComponentLogger,
   recordException,
   withSpan,
 } from "@pague-co-uk/sms-gateway-telemetry";
+
 import {
   Prisma,
   SenderId,
@@ -12,12 +14,26 @@ import {
 } from "@prisma/client";
 
 import { AuditService } from "../../../audit/index.js";
+
 import type { Page } from "../../../common/query/page.interface.js";
+
 import { ClientNotFoundException } from "../../../exceptions/entity/clients.exceptions.js";
-import { SenderIdAlreadyExistsException, SenderIdNotApprovedException, SenderIdNotFoundException } from "../../../exceptions/entity/sender-ids.exceptions.js";
+
+import {
+  SenderIdAlreadyExistsException,
+  SenderIdNotApprovedException,
+  SenderIdNotFoundException,
+} from "../../../exceptions/entity/sender-ids.exceptions.js";
+
 import { ClientRepository } from "../../../repositories/ClientRepository.js";
-import { SenderIdRepository } from "../../../repositories/SenderIdRepository.js";
+import {
+  SenderIdRepository,
+  SenderIdWithClient,
+} from "../../../repositories/SenderIdRepository.js";
+
+
 import type { SenderIdQueryOptions } from "../../../repositories/options/sender-id.options.js";
+
 import { CreateSenderIdDto } from "../dto/create-sender-id.dto.js";
 import { UpdateSenderIdDto } from "../dto/update-sender-id.dto.js";
 
@@ -80,7 +96,7 @@ export class SenderIdService {
 
   async findById(
     id: string,
-  ): Promise<SenderId> {
+  ): Promise<SenderIdWithClient> {
     return withSpan(
       "SenderIdService.findById",
       async (span) => {
@@ -113,9 +129,73 @@ export class SenderIdService {
     );
   }
 
+  async findByNamesForClient(
+    clientId: string,
+    names: readonly string[],
+  ): Promise<readonly SenderId[]> {
+    return withSpan(
+      "SenderIdService.findByNamesForClient",
+      async (span) => {
+        this.logger.debug(
+          {
+            clientId,
+            count: names.length,
+          },
+          "Retrieving Sender IDs for client.",
+        );
+
+        span.setAttribute(
+          "client.id",
+          clientId,
+        );
+
+        span.setAttribute(
+          "sender_ids.requested_count",
+          names.length,
+        );
+
+        try {
+          const senderIds =
+            await this.senderIds.findByNamesForClient(
+              clientId,
+              names,
+            );
+
+          span.setAttribute(
+            "sender_ids.found_count",
+            senderIds.length,
+          );
+
+          this.logger.debug(
+            {
+              clientId,
+              count: senderIds.length,
+            },
+            "Sender IDs retrieved successfully.",
+          );
+
+          return senderIds;
+        } catch (error) {
+          recordException(error);
+
+          this.logger.error(
+            {
+              err: error,
+              clientId,
+              count: names.length,
+            },
+            "Failed to retrieve Sender IDs for client.",
+          );
+
+          throw error;
+        }
+      },
+    );
+  }
+
   async findByPublicId(
     publicId: string,
-  ): Promise<SenderId> {
+  ) {
     return withSpan(
       "SenderIdService.findByPublicId",
       async (span) => {
@@ -136,7 +216,9 @@ export class SenderIdService {
             );
 
           if (!senderId) {
-            throw new SenderIdNotFoundException(publicId);
+            throw new SenderIdNotFoundException(
+              publicId,
+            );
           }
 
           return senderId;
@@ -159,7 +241,7 @@ export class SenderIdService {
 
   async findMany(
     query: SenderIdQueryOptions,
-  ): Promise<Page<SenderId>> {
+  ): Promise<Page<SenderIdWithClient>> {
     return withSpan(
       "SenderIdService.findMany",
       async (span) => {
@@ -216,7 +298,7 @@ export class SenderIdService {
 
   async create(
     dto: CreateSenderIdDto,
-  ): Promise<SenderId> {
+  ): Promise<SenderIdWithClient> {
     return withSpan(
       "SenderIdService.create",
       async (span) => {
@@ -266,7 +348,8 @@ export class SenderIdService {
 
           await this.audit.record({
             action: "sender_id.created",
-            clientId: senderId.clientId,
+            clientId:
+              senderId.clientId,
             resourceType: "SenderId",
             resourceId: senderId.id,
             metadata: {
@@ -288,7 +371,8 @@ export class SenderIdService {
 
           this.logger.info(
             {
-              senderId: senderId.id,
+              senderId:
+                senderId.id,
               clientId:
                 senderId.clientId,
               sender:
@@ -304,8 +388,10 @@ export class SenderIdService {
           this.logger.error(
             {
               err: error,
-              clientId: dto.clientId,
-              sender: dto.sender,
+              clientId:
+                dto.clientId,
+              sender:
+                dto.sender,
             },
             "Failed to create Sender ID.",
           );
@@ -319,7 +405,7 @@ export class SenderIdService {
   async update(
     id: string,
     dto: UpdateSenderIdDto,
-  ): Promise<SenderId> {
+  ): Promise<SenderIdWithClient> {
     return withSpan(
       "SenderIdService.update",
       async (span) => {
@@ -383,7 +469,8 @@ export class SenderIdService {
 
           this.logger.info(
             {
-              senderId: senderId.id,
+              senderId:
+                senderId.id,
             },
             "Sender ID updated successfully.",
           );
@@ -473,7 +560,7 @@ export class SenderIdService {
 
   async approve(
     id: string,
-  ): Promise<SenderId> {
+  ): Promise<SenderIdWithClient> {
     return this.updateStatus(
       id,
       SenderIdStatus.APPROVED,
@@ -482,7 +569,7 @@ export class SenderIdService {
 
   async reject(
     id: string,
-  ): Promise<SenderId> {
+  ): Promise<SenderIdWithClient> {
     return this.updateStatus(
       id,
       SenderIdStatus.REJECTED,
@@ -491,16 +578,25 @@ export class SenderIdService {
 
   async disable(
     id: string,
-  ): Promise<SenderId> {
+  ): Promise<SenderIdWithClient> {
     return this.updateStatus(
       id,
       SenderIdStatus.DISABLED,
     );
   }
 
+  async enable(
+    id: string,
+  ): Promise<SenderIdWithClient> {
+    return this.updateStatus(
+      id,
+      SenderIdStatus.APPROVED,
+    );
+  }
+
   async setDefault(
     id: string,
-  ): Promise<SenderId> {
+  ): Promise<SenderIdWithClient> {
     return withSpan(
       "SenderIdService.setDefault",
       async (span) => {
@@ -522,7 +618,9 @@ export class SenderIdService {
             existing.status !==
             SenderIdStatus.APPROVED
           ) {
-            throw new SenderIdNotApprovedException(id);
+            throw new SenderIdNotApprovedException(
+              id,
+            );
           }
 
           if (existing.isDefault) {
@@ -533,7 +631,9 @@ export class SenderIdService {
             await this.senderIds.withTransaction(
               async (tx) => {
                 const senderIds =
-                  this.senderIds.withDatabase(tx);
+                  this.senderIds.withDatabase(
+                    tx,
+                  );
 
                 await senderIds.clearDefaultByClient(
                   existing.clientId,
@@ -549,8 +649,10 @@ export class SenderIdService {
             );
 
           await this.audit.record({
-            action: "sender_id.default_changed",
-            clientId: senderId.clientId,
+            action:
+              "sender_id.default_changed",
+            clientId:
+              senderId.clientId,
             resourceType: "SenderId",
             resourceId: senderId.id,
             metadata: {
@@ -564,7 +666,8 @@ export class SenderIdService {
 
           this.logger.info(
             {
-              senderId: senderId.id,
+              senderId:
+                senderId.id,
               clientId:
                 senderId.clientId,
             },
@@ -588,6 +691,7 @@ export class SenderIdService {
       },
     );
   }
+
   // -------------------------------------------------------------------------
   // Helpers
   // -------------------------------------------------------------------------
@@ -595,7 +699,7 @@ export class SenderIdService {
   private async updateStatus(
     id: string,
     status: SenderIdStatus,
-  ): Promise<SenderId> {
+  ): Promise<SenderIdWithClient> {
     return withSpan(
       "SenderIdService.updateStatus",
       async (span) => {
@@ -625,7 +729,8 @@ export class SenderIdService {
             return existing;
           }
 
-          const update: Prisma.SenderIdUpdateInput = {
+          const update:
+            Prisma.SenderIdUpdateInput = {
             status,
           };
 
@@ -719,6 +824,7 @@ export class SenderIdService {
       },
     );
   }
+
   private async ensureClientExists(
     clientId: string,
   ): Promise<void> {
@@ -761,7 +867,7 @@ export class SenderIdService {
 
   private async findEntityOrThrow(
     id: string,
-  ): Promise<SenderId> {
+  ): Promise<SenderIdWithClient> {
     return withSpan(
       "SenderIdService.findEntityOrThrow",
       async (span) => {
@@ -779,7 +885,9 @@ export class SenderIdService {
           await this.senderIds.findById(id);
 
         if (!senderId) {
-          throw new SenderIdNotFoundException(id);
+          throw new SenderIdNotFoundException(
+            id,
+          );
         }
 
         return senderId;

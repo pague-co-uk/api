@@ -1,7 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
 
-import { UserSummaryResponseDto } from "../../../modules/users/dto/user-summary.dto.js";
 import { RoleResponseDto } from "../../auth/controllers/responses/role.response.dto.js";
+import { UserSummaryResponseDto } from "./user-summary.dto.js";
 
 export class UserResponseDto extends UserSummaryResponseDto {
   @ApiProperty({

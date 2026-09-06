@@ -27,6 +27,8 @@ import { PaginatedResponse } from '../../common/interfaces/paginated.response.js
 import { ApiPaginatedResponse } from '../../decorators/api-paginated-response.decorator.js';
 import { ApiSuccessResponse } from '../../decorators/api-success-response.decorator.js';
 
+import { CurrentUser } from '../../common/authorization/decorators/current-user.decorator.js';
+import type { AuthenticatedUser } from '../../common/authorization/interfaces/authenticated-user.interface.js';
 import { CreateUserDto } from './dto/create-user.dto.js';
 import { FindUsersDto } from './dto/find-users.dto.js';
 import { UpdateUserRolesDto } from './dto/update-user-roles.dto.js';
@@ -80,14 +82,22 @@ export class UsersController {
   @Post()
   @Authorize(Permissions.USERS_CREATE)
   @ApiOperation({
-    summary: 'Create a user.',
+    summary: "Create a user.",
   })
   @ApiBody({
     type: CreateUserDto,
   })
   @ApiSuccessResponse(UserResponseDto)
-  async create(@Body() dto: CreateUserDto): Promise<UserResponseDto> {
-    return this.mapper.toResponse(await this.users.create(dto));
+  async create(
+    @Body() dto: CreateUserDto,
+    @CurrentUser() authenticatedUser: AuthenticatedUser,
+  ): Promise<UserResponseDto> {
+    return this.mapper.toResponse(
+      await this.users.create(
+        dto,
+        authenticatedUser,
+      ),
+    );
   }
 
   @Patch(':id')
@@ -169,6 +179,31 @@ export class UsersController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<UserResponseDto> {
     return this.mapper.toResponse(await this.users.deactivate(id));
+  }
+
+  @Post(":id/lock")
+  @Authorize(Permissions.USERS_LOCK)
+  @ApiOperation({
+    summary: "Lock a user.",
+  })
+  @ApiParam({
+    name: "id",
+    description: "User identifier.",
+  })
+  @ApiSuccessResponse(UserResponseDto)
+  @ApiNotFoundResponse({
+    description: "User not found.",
+  })
+  async lock(
+    @Param(
+      "id",
+      ParseUUIDPipe,
+    )
+    id: string,
+  ): Promise<UserResponseDto> {
+    return this.mapper.toResponse(
+      await this.users.lock(id),
+    );
   }
 
   @Post(':id/unlock')

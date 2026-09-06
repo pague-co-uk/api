@@ -8,7 +8,9 @@ import { ClockService } from "../../common/services/clock.service.js";
 import { RandomGenerator } from "../../common/services/random.service.js";
 import { OutboxEventRepository } from "../../repositories/OutboxRepository.js";
 import { FloatLedgerModule } from "../float-ledger/float-ledger.module.js";
+import { SenderIdsModule } from "../sender-ids/sender-ids.module.js";
 import { MessagesController } from "./controllers/messages.controller.js";
+import { PlatformMessagesController } from "./controllers/platform-messages.controller.js";
 import { MessageMapper } from "./message.mapper.js";
 import { MessageService } from "./services/message.service.js";
 
@@ -16,10 +18,11 @@ import { MessageService } from "./services/message.service.js";
   imports: [
     DatabaseModule,
     FloatLedgerModule,
+    SenderIdsModule
   ],
 
   controllers: [
-    MessagesController,
+    MessagesController, PlatformMessagesController
   ],
 
   providers: [
@@ -29,7 +32,7 @@ import { MessageService } from "./services/message.service.js";
     MessageMapper,
     RandomGenerator,
     ClockService,
-    OutboxEventRepository
+    OutboxEventRepository,
   ],
 
   exports: [

@@ -13,12 +13,17 @@ import { GlobalExceptionFilter } from "./filters/global-exception.filter.js";
 import { AuditLogModule } from "./modules/audit/audit-log.module.js";
 import { AuthenticationModule } from "./modules/auth/auth.module.js";
 import { ClientsModule } from "./modules/clients/clients.module.js";
+import { ConnectorsModule } from "./modules/connectors/connectors.module.js";
 import { FloatLedgerModule } from "./modules/float-ledger/float-ledger.module.js";
 import { HealthModule } from "./modules/health/health.module.js";
 import { MessagesModule } from "./modules/messages/messages.module.js";
+import { MobileNetworksModule } from "./modules/mobile-networks/mobile-networks.module.js";
 import { RolesModule } from "./modules/roles/roles.module.js";
+import { RoutesModule } from "./modules/routes/routes.module.js";
 import { SenderIdsModule } from "./modules/sender-ids/sender-ids.module.js";
+import { SmppAccountsModule } from "./modules/smpp-account/smpp-accounts.module.js";
 import { UsersModule } from "./modules/users/users.module.js";
+import { WebhooksModule } from "./modules/webhooks/webhooks.module.js";
 
 @Module({
   imports: [
@@ -33,9 +38,15 @@ import { UsersModule } from "./modules/users/users.module.js";
     RolesModule,
     ClientsModule,
     SenderIdsModule,
+    MobileNetworksModule,
+    ConnectorsModule,
+    RoutesModule,
     FloatLedgerModule,
     AuditLogModule,
     MessagesModule,
+    WebhooksModule,
+    SmppAccountsModule,
+    AuditLogModule,
   ],
   providers: [
     {

@@ -11,8 +11,8 @@ import { ClockService } from "../../common/services/clock.service.js";
 import { RandomGenerator } from "../../common/services/random.service.js";
 import { SecretHasher } from "../../common/services/secretHasher.service.js";
 
-import { RoleMapper } from "../../modules/roles/mapper/role.mapper.js";
 import { PermissionMapper } from "../roles/mapper/permission.mapper.js";
+import { RoleMapper } from "../roles/mapper/role.mapper.js";
 
 import { ApiKeyCapabilityRepository } from "../../repositories/ApiKeyCapabilityRepository.js";
 import { ApiKeyRepository } from "../../repositories/ApiKeyRepository.js";
@@ -37,6 +37,10 @@ import {
 import { EmailVerificationProvider } from "./providers/verification/email-verification.provider.js";
 import { SmsVerificationProvider } from "./providers/verification/sms-verification.provider.js";
 
+import { AuthorizationService } from "../../common/authorization/services/index.js";
+import { ApiKeyMapper } from "./api-key.mapper.js";
+import { ApiKeysController } from "./controllers/api-keys.controller.js";
+import { PlatformApiKeysController } from "./controllers/platform-api-keys.controller.js";
 import { ApiKeyService } from "./services/apikey.service.js";
 import { AuthenticationCookieService } from "./services/authentication-cookie.service.js";
 import { AuthenticationEventService } from "./services/authentication-event.service.js";
@@ -56,6 +60,8 @@ import { SessionService } from "./services/session.service.js";
 
   controllers: [
     AuthenticationController,
+    ApiKeysController,
+    PlatformApiKeysController
   ],
 
   providers: [
@@ -75,6 +81,7 @@ import { SessionService } from "./services/session.service.js";
 
     ApiKeyRepository,
     ApiKeyCapabilityRepository,
+    ApiKeyMapper,
 
     AuthenticationEventRepository,
     VerificationChallengeRepository,
@@ -94,6 +101,7 @@ import { SessionService } from "./services/session.service.js";
     VerificationProviderRegistry,
     AuthenticationService,
     AuthenticationCookieService,
+    AuthorizationService,
 
     {
       provide: EMAIL_VERIFICATION_PROVIDER,

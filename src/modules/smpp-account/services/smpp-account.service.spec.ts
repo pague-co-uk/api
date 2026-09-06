@@ -14,8 +14,8 @@ import {
 } from "../../../common/authorization/constants/authorization.constants.js";
 import { Permissions } from "../../../common/authorization/permissions/permissions.registry.js";
 
-import { SmppAccountService } from "../services/smpp-account.service.js";
 import { SmppAccountMapper } from "../smpp-account.mapper.js";
+import { SmppAccountService } from "./smpp-account.service.js";
 
 import { SmppAccountController } from "../controller/smpp-account.controller.js";
 import { ChangeSmppPasswordDto } from "../dto/change-smpp-password.dto.js";

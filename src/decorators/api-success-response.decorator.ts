@@ -2,17 +2,21 @@ import {
   applyDecorators,
   Type,
 } from "@nestjs/common";
+
 import {
   ApiExtraModels,
   ApiOkResponse,
   getSchemaPath,
 } from "@nestjs/swagger";
 
-import { ApiSuccessResponseDto } from "../common/interfaces/api-success.response.interface.js";
+import {
+  ApiSuccessResponseDto,
+} from "../common/interfaces/api-success.response.interface.js";
 
 export function ApiSuccessResponse<TModel extends Type<unknown>>(
   model: TModel,
   description = "Request completed successfully.",
+  isArray = false,
 ) {
   return applyDecorators(
     ApiExtraModels(
@@ -30,9 +34,20 @@ export function ApiSuccessResponse<TModel extends Type<unknown>>(
           },
           {
             properties: {
-              data: {
-                $ref: getSchemaPath(model),
-              },
+              data: isArray
+                ? {
+                  type: "array",
+                  items: {
+                    $ref: getSchemaPath(
+                      model,
+                    ),
+                  },
+                }
+                : {
+                  $ref: getSchemaPath(
+                    model,
+                  ),
+                },
             },
           },
         ],

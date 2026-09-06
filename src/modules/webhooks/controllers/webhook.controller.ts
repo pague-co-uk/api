@@ -28,6 +28,14 @@ import {
 } from "../../../common/authorization/permissions/permissions.registry.js";
 
 import {
+  PaginatedResponse,
+} from "../../../common/interfaces/paginated.response.js";
+
+import {
+  ApiPaginatedResponse,
+} from "../../../decorators/api-paginated-response.decorator.js";
+
+import {
   ApiSuccessResponse,
 } from "../../../decorators/api-success-response.decorator.js";
 
@@ -55,8 +63,14 @@ import {
   WebhookResponseDto,
 } from "../dto/webhook-response.dto.js";
 
-import { FindWebhookDeliveriesDto } from "../dto/find-webhook-deliveries.dto.js";
-import { WebhookDeliveryResponseDto } from "../dto/webhook-delivery.response.dto.js";
+import {
+  FindWebhookDeliveriesDto,
+} from "../dto/find-webhook-deliveries.dto.js";
+
+import {
+  WebhookDeliveryResponseDto,
+} from "../dto/webhook-delivery.response.dto.js";
+
 import {
   WebhookService,
 } from "../services/webhook.service.js";
@@ -84,13 +98,16 @@ export class WebhooksController {
   )
   @ApiOperation({
     summary:
-      "Retrieve webhook endpoints for a client.",
+      "Retrieve paginated webhook endpoints for a client.",
   })
   @ApiParam({
     name: "clientId",
     description:
       "Client identifier.",
   })
+  @ApiPaginatedResponse(
+    WebhookResponseDto,
+  )
   async findMany(
     @Param(
       "clientId",
@@ -100,24 +117,29 @@ export class WebhooksController {
 
     @Query()
     dto: FindWebhooksDto,
-  ) {
-    const webhooks =
+  ): Promise<
+    PaginatedResponse<WebhookResponseDto>
+  > {
+    const page =
       await this.webhooks.findByClient(
         clientId,
         {
-          limit:
-            dto.limit,
+          page:
+            dto.page ?? 1,
 
-          offset:
-            dto.offset,
+          pageSize:
+            dto.pageSize ?? 20,
 
           enabled:
             dto.enabled,
         },
       );
 
-    return this.mapper.toResponses(
-      webhooks,
+    return new PaginatedResponse(
+      this.mapper.toResponses(
+        page.items,
+      ),
+      page,
     );
   }
 
@@ -534,16 +556,17 @@ export class WebhooksController {
     );
   }
 
-  //=========================================================================
+  // =========================================================================
   // Deliveries
   // =========================================================================
+
   @Get(":id/deliveries")
   @Authorize(
     Permissions.WEBHOOKS_DELIVERIES_READ,
   )
   @ApiOperation({
     summary:
-      "Retrieve webhook delivery history.",
+      "Retrieve paginated webhook delivery history.",
   })
   @ApiParam({
     name: "clientId",
@@ -555,9 +578,13 @@ export class WebhooksController {
     description:
       "Webhook endpoint identifier.",
   })
-  @ApiSuccessResponse(
+  @ApiPaginatedResponse(
     WebhookDeliveryResponseDto,
   )
+  @ApiNotFoundResponse({
+    description:
+      "Webhook endpoint not found.",
+  })
   async findDeliveries(
     @Param(
       "clientId",
@@ -573,22 +600,27 @@ export class WebhooksController {
 
     @Query()
     dto: FindWebhookDeliveriesDto,
-  ) {
-    const deliveries =
+  ): Promise<
+    PaginatedResponse<WebhookDeliveryResponseDto>
+  > {
+    const page =
       await this.webhooks.findDeliveries(
         clientId,
         id,
         {
-          limit:
-            dto.limit,
+          page:
+            dto.page ?? 1,
 
-          offset:
-            dto.offset,
+          pageSize:
+            dto.pageSize ?? 20,
         },
       );
 
-    return this.mapper.toDeliveryResponses(
-      deliveries,
+    return new PaginatedResponse(
+      this.mapper.toDeliveryResponses(
+        page.items,
+      ),
+      page,
     );
   }
 }

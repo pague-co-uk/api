@@ -103,6 +103,24 @@ export class SmppAccountService {
     );
   }
 
+  // -------------------------------------------------------------------------
+  // Platform queries
+  // -------------------------------------------------------------------------
+
+  async listPlatform(
+    options: {
+      readonly page: number;
+      readonly pageSize: number;
+      readonly clientId?: string;
+      readonly status?: SmppAccountStatus;
+      readonly search?: string;
+    },
+  ) {
+    return this.accounts.findManyPlatform(
+      options,
+    );
+  }
+
   async findByPublicId(
     clientId: string,
     publicId: string,

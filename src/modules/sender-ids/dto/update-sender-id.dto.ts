@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import {
   IsNotEmpty,
+  IsOptional,
   IsString,
   MaxLength,
 } from "class-validator";
@@ -14,5 +15,6 @@ export class UpdateSenderIdDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(20)
+  @IsOptional()
   readonly sender?: string;
 }

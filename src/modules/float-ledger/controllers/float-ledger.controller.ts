@@ -179,7 +179,6 @@ export class FloatLedgerController {
   // -------------------------------------------------------------------------
   // Ledger queries
   // -------------------------------------------------------------------------
-
   @Get("ledger")
   @Authorize(Permissions.FLOAT_READ)
   @ApiOperation({
@@ -194,18 +193,21 @@ export class FloatLedgerController {
     clientId: string,
     @Query() dto: FindFloatLedgerDto,
   ) {
-    const entries =
+    const result =
       await this.ledger.list(
         clientId,
         {
-          limit: dto.limit,
-          offset: dto.offset,
+          page: dto.page,
+          pageSize: dto.pageSize,
         },
       );
 
-    return this.mapper.toResponses(
-      entries,
-    );
+    return {
+      items: this.mapper.toResponses(
+        result.items,
+      ),
+      meta: result.meta,
+    };
   }
 
   @Get("ledger/:id")

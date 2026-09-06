@@ -1,22 +1,53 @@
 import { Injectable } from "@nestjs/common";
 
-import type { FloatLedgerEntry } from "@prisma/client";
+import type {
+  FloatLedgerEntry,
+} from "@prisma/client";
+
+export type FloatLedgerEntryWithOptionalClient =
+  FloatLedgerEntry & {
+    client?: {
+      id: string;
+      publicId: string;
+      companyName: string;
+      displayName: string;
+    };
+  };
 
 @Injectable()
 export class FloatLedgerMapper {
   toResponse(
-    entry: FloatLedgerEntry,
+    entry: FloatLedgerEntryWithOptionalClient,
   ) {
     return {
       id: entry.id,
       publicId: entry.publicId,
-      clientId: entry.clientId,
-      createdById: entry.createdById,
+
+      ...(entry.client
+        ? {
+          client: {
+            id: entry.client.id,
+            publicId:
+              entry.client.publicId,
+            companyName:
+              entry.client.companyName,
+            displayName:
+              entry.client.displayName,
+          },
+        }
+        : {
+          clientId:
+            entry.clientId,
+        }),
+
+      createdById:
+        entry.createdById,
 
       transactionType:
         entry.transactionType,
 
-      credits: entry.credits,
+      credits:
+        entry.credits,
 
       referenceType:
         entry.referenceType,
@@ -33,7 +64,7 @@ export class FloatLedgerMapper {
   }
 
   toResponses(
-    entries: readonly FloatLedgerEntry[],
+    entries: readonly FloatLedgerEntryWithOptionalClient[],
   ) {
     return entries.map(
       (entry) =>

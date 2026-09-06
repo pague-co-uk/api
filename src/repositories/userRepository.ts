@@ -98,6 +98,25 @@ export class UserRepository extends DatabaseRepository {
     );
   }
 
+  async findByEmailAlone(email: string) {
+    return this.execute(
+      "SELECT",
+      "users",
+      async () => {
+        const user = await this.db.user.findFirst({
+          where: {
+            email,
+          },
+        });
+
+        return {
+          result: user,
+          rowsAffected: user ? 1 : 0,
+        };
+      },
+    );
+  }
+
   async findByEmail(
     clientId: string,
     email: string,
