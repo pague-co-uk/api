@@ -144,7 +144,8 @@ export const Permissions = {
   WEBHOOKS_ROTATE_SECRET: "webhooks:rotate-secret",
   WEBHOOKS_DELIVERIES_READ: "webhooks:deliveries:read",
 
-  PLATFORM_SUPER_ADMIN: "PLATFORM_SUPER_ADMIN"
+  PLATFORM_SUPER_ADMIN: "PLATFORM_SUPER_ADMIN",
+  CHECK_HEALTH: "CHECK_HEALTH"
 } as const;
 
 export type PermissionName =

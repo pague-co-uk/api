@@ -417,5 +417,9 @@ export const PermissionDefinitions: {
   [Permissions.PLATFORM_SUPER_ADMIN]: {
     module: "all",
     description: "can access all clients"
+  },
+  [Permissions.CHECK_HEALTH]: {
+    module: "all",
+    description: "can check system health"
   }
 } as const;

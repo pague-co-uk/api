@@ -225,6 +225,49 @@ export class SmppAccountRepository
     );
   }
 
+  async findForAuthentication(
+    systemId: string,
+  ) {
+    return this.execute(
+      "SELECT",
+      "smpp_accounts",
+      async () => {
+        const result =
+          await this.db.smppAccount.findUnique({
+            where: {
+              systemId,
+            },
+
+            select: {
+              id: true,
+              clientId: true,
+              systemId: true,
+              passwordHash: true,
+              status: true,
+              maxConcurrentBinds: true,
+              enquireLinkInterval: true,
+
+              ipAllowlist: {
+                select: {
+                  ipAddress: true,
+                },
+
+                orderBy: {
+                  createdAt: "asc",
+                },
+              },
+            },
+          });
+
+        return {
+          result,
+          rowsAffected:
+            result ? 1 : 0,
+        };
+      },
+    );
+  }
+
   async findByClient(
     clientId: string,
   ) {

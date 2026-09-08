@@ -15,6 +15,7 @@ import { SmppAccountRepository } from "../../../repositories/smppAccountReposito
 
 import type { CreateSmppAccountDto } from "../dto/create-smpp-account.dto.js";
 import type { UpdateSmppAccountDto } from "../dto/update-smpp-account.dto.js";
+import { SmppIpAllowlistService } from "./smpp-ip-allowlist.service.js";
 
 @Injectable()
 export class SmppAccountService {
@@ -22,6 +23,7 @@ export class SmppAccountService {
     private readonly accounts: SmppAccountRepository,
     private readonly random: RandomGenerator,
     private readonly hasher: SecretHasher,
+    private readonly ipAllowlist: SmppIpAllowlistService,
   ) { }
 
   // -------------------------------------------------------------------------
@@ -255,6 +257,94 @@ export class SmppAccountService {
       account.id,
       SmppAccountStatus.DISABLED,
     );
+  }
+
+  // -------------------------------------------------------------------------
+  // SMPP Authentication
+  // -------------------------------------------------------------------------
+
+  async authenticate(
+    systemId: string,
+    password: string,
+    remoteAddress: string,
+  ) {
+    const account =
+      await this.accounts.findForAuthentication(
+        systemId,
+      );
+
+    if (!account) {
+      return {
+        authenticated: false,
+        reason: "INVALID_CREDENTIALS",
+      } as const;
+    }
+
+    if (
+      account.status ===
+      SmppAccountStatus.DISABLED
+    ) {
+      return {
+        authenticated: false,
+        reason: "ACCOUNT_DISABLED",
+      } as const;
+    }
+
+    if (
+      account.status ===
+      SmppAccountStatus.SUSPENDED
+    ) {
+      return {
+        authenticated: false,
+        reason: "ACCOUNT_SUSPENDED",
+      } as const;
+    }
+
+    /*
+     * The allowlist service owns IP validation
+     * and allowlist policy.
+     */
+    const allowed =
+      this.ipAllowlist.isAllowed(
+        remoteAddress,
+        account.ipAllowlist.map(
+          (entry) =>
+            entry.ipAddress,
+        ),
+      );
+
+    if (!allowed) {
+      return {
+        authenticated: false,
+        reason: "IP_NOT_ALLOWED",
+      } as const;
+    }
+
+    const passwordValid =
+      await this.hasher.verify(
+        password,
+        account.passwordHash,
+      );
+
+    if (!passwordValid) {
+      return {
+        authenticated: false,
+        reason: "INVALID_CREDENTIALS",
+      } as const;
+    }
+
+    return {
+      authenticated: true,
+      account: {
+        id: account.id,
+        clientId: account.clientId,
+        systemId: account.systemId,
+        maxConcurrentBinds:
+          account.maxConcurrentBinds,
+        enquireLinkInterval:
+          account.enquireLinkInterval,
+      },
+    } as const;
   }
 
   // -------------------------------------------------------------------------

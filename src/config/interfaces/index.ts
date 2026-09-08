@@ -1,4 +1,8 @@
 export * from "./app-config.interface.js";
+export type {
+  ApplicationHealthConfig,
+  ApplicationHealthTarget
+} from "./application-health-config.interface.js";
 export * from "./authentication-config.interface.js";
 export * from "./database-config.interface.js";
 export * from "./outbox-config.interface.js";

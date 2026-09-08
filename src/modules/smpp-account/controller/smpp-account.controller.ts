@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
 } from "@nestjs/common";
+
 import {
   ApiBody,
   ApiNotFoundResponse,
@@ -18,10 +19,12 @@ import {
 import { Authorize } from "../../../common/authorization/decorators/authorize.decorator.js";
 import { Permissions } from "../../../common/authorization/permissions/permissions.registry.js";
 import { ApiSuccessResponse } from "../../../decorators/api-success-response.decorator.js";
+
 import { ChangeSmppPasswordDto } from "../dto/change-smpp-password.dto.js";
 import { CreateSmppAccountDto } from "../dto/create-smpp-account.dto.js";
 import { SmppAccountResponseDto } from "../dto/smpp-response.dto.js";
 import { UpdateSmppAccountDto } from "../dto/update-smpp-account.dto.js";
+
 import { SmppAccountService } from "../services/smpp-account.service.js";
 import { SmppAccountMapper } from "../smpp-account.mapper.js";
 
@@ -58,37 +61,6 @@ export class SmppAccountController {
     );
   }
 
-  @Get(":id")
-  @Authorize(Permissions.SMPP_ACCOUNTS_READ)
-  @ApiOperation({
-    summary: "Retrieve an SMPP account.",
-  })
-  @ApiParam({
-    name: "clientId",
-    description: "Client identifier.",
-  })
-  @ApiParam({
-    name: "id",
-    description: "SMPP account identifier.",
-  })
-  @ApiSuccessResponse(SmppAccountResponseDto)
-  @ApiNotFoundResponse({
-    description: "SMPP account not found.",
-  })
-  async findById(
-    @Param("clientId", ParseUUIDPipe)
-    clientId: string,
-    @Param("id", ParseUUIDPipe)
-    id: string,
-  ): Promise<SmppAccountResponseDto> {
-    return this.mapper.toResponse(
-      await this.accounts.findById(
-        clientId,
-        id,
-      ),
-    );
-  }
-
   @Get("public/:publicId")
   @Authorize(Permissions.SMPP_ACCOUNTS_READ)
   @ApiOperation({
@@ -116,6 +88,37 @@ export class SmppAccountController {
       await this.accounts.findByPublicId(
         clientId,
         publicId,
+      ),
+    );
+  }
+
+  @Get(":id")
+  @Authorize(Permissions.SMPP_ACCOUNTS_READ)
+  @ApiOperation({
+    summary: "Retrieve an SMPP account.",
+  })
+  @ApiParam({
+    name: "clientId",
+    description: "Client identifier.",
+  })
+  @ApiParam({
+    name: "id",
+    description: "SMPP account identifier.",
+  })
+  @ApiSuccessResponse(SmppAccountResponseDto)
+  @ApiNotFoundResponse({
+    description: "SMPP account not found.",
+  })
+  async findById(
+    @Param("clientId", ParseUUIDPipe)
+    clientId: string,
+    @Param("id", ParseUUIDPipe)
+    id: string,
+  ): Promise<SmppAccountResponseDto> {
+    return this.mapper.toResponse(
+      await this.accounts.findById(
+        clientId,
+        id,
       ),
     );
   }

@@ -1,57 +1,43 @@
-export type HealthStatus = "healthy" | "degraded";
+// ============================================================================
+// Health response
+// ============================================================================
 
-export type HealthCheckStatus = "up" | "down";
+export type HealthStatus =
+  | "up"
+  | "down";
+
+export type OverallHealthStatus =
+  | "healthy"
+  | "degraded";
 
 export interface HealthCheck {
-  /**
-   * Status of the dependency.
-   */
-  status: HealthCheckStatus;
+  readonly status: HealthStatus;
 
-  /**
-   * Round-trip latency in milliseconds.
-   */
-  latency?: number;
+  readonly latency: number;
 
-  /**
-   * Error message if the dependency check failed.
-   */
-  error?: string;
+  readonly error?: string;
+
+  readonly details?: Record<
+    string,
+    HealthCheck
+  >;
 }
 
 export interface HealthResponse {
-  /**
-   * Overall application health.
-   */
-  status: HealthStatus;
+  readonly status: OverallHealthStatus;
 
-  /**
-   * Service name.
-   */
-  service: string;
+  readonly service: string;
 
-  /**
-   * Service version.
-   */
-  version: string;
+  readonly version: string;
 
-  /**
-   * Runtime environment.
-   */
-  environment: string;
+  readonly environment: string;
 
-  /**
-   * Application uptime in seconds.
-   */
-  uptime: number;
+  readonly uptime: number;
 
-  /**
-   * ISO-8601 timestamp.
-   */
-  timestamp: string;
+  readonly timestamp: string;
 
-  /**
-   * Dependency health checks.
-   */
-  checks: Record<string, HealthCheck>;
+  readonly checks: Record<
+    string,
+    HealthCheck
+  >;
 }

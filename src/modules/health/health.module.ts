@@ -4,6 +4,7 @@ import { DatabaseModule } from "../../database/database.module.js";
 
 import { QueueModule } from "../../queue/queue.module.js";
 import { HealthController } from "./controllers/health.controller.js";
+import { ApplicationsHealthIndicator } from "./indicators/applications-health.indicator.js";
 import { DatabaseHealthIndicator } from "./indicators/database-health.indicator.js";
 import { RabbitMqHealthIndicator } from "./indicators/rabbitmq-health.indicator.js";
 import { HealthService } from "./services/health.service.js";
@@ -22,6 +23,7 @@ import { HealthService } from "./services/health.service.js";
     HealthService,
     DatabaseHealthIndicator,
     RabbitMqHealthIndicator,
+    ApplicationsHealthIndicator
   ],
 
   exports: [
