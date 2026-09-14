@@ -22,6 +22,7 @@ import { SenderIdService } from "./services/sender-id.service.js";
   imports: [ClientsModule],
   exports: [
     SenderIdService,
+    SenderIdRepository
   ],
 })
 export class SenderIdsModule { }

@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 
 import type {
   SmppAccount,
+  SmppAccountIpAllowlist,
 } from "@prisma/client";
 
 import {
@@ -16,6 +17,11 @@ export type SmppAccountWithOptionalClient =
       companyName: string;
       displayName: string;
     };
+
+    ipAllowlist?: Pick<
+      SmppAccountIpAllowlist,
+      "ipAddress"
+    >[];
   };
 
 @Injectable()
@@ -56,6 +62,12 @@ export class SmppAccountMapper {
 
       enquireLinkInterval:
         account.enquireLinkInterval,
+
+      ipAllowlist:
+        account.ipAllowlist?.map(
+          (entry) =>
+            entry.ipAddress,
+        ) ?? [],
 
       createdAt:
         account.createdAt,

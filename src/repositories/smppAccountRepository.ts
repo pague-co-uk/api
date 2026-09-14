@@ -42,6 +42,18 @@ export class SmppAccountRepository
         const result =
           await this.db.smppAccount.create({
             data,
+
+            include: {
+              ipAllowlist: {
+                select: {
+                  ipAddress: true,
+                },
+
+                orderBy: {
+                  createdAt: "asc",
+                },
+              },
+            },
           });
 
         return {
@@ -63,6 +75,18 @@ export class SmppAccountRepository
           await this.db.smppAccount.findUnique({
             where: {
               id,
+            },
+
+            include: {
+              ipAllowlist: {
+                select: {
+                  ipAddress: true,
+                },
+
+                orderBy: {
+                  createdAt: "asc",
+                },
+              },
             },
           });
 
@@ -147,6 +171,16 @@ export class SmppAccountRepository
                   displayName: true,
                 },
               },
+
+              ipAllowlist: {
+                select: {
+                  ipAddress: true,
+                },
+
+                orderBy: {
+                  createdAt: "asc",
+                },
+              },
             },
 
             orderBy: {
@@ -192,6 +226,18 @@ export class SmppAccountRepository
           await this.db.smppAccount.findUnique({
             where: {
               publicId,
+            },
+
+            include: {
+              ipAllowlist: {
+                select: {
+                  ipAddress: true,
+                },
+
+                orderBy: {
+                  createdAt: "asc",
+                },
+              },
             },
           });
 
@@ -280,6 +326,19 @@ export class SmppAccountRepository
             where: {
               clientId,
             },
+
+            include: {
+              ipAllowlist: {
+                select: {
+                  ipAddress: true,
+                },
+
+                orderBy: {
+                  createdAt: "asc",
+                },
+              },
+            },
+
             orderBy: {
               createdAt: "desc",
             },
@@ -306,7 +365,20 @@ export class SmppAccountRepository
             where: {
               id,
             },
+
             data,
+
+            include: {
+              ipAllowlist: {
+                select: {
+                  ipAddress: true,
+                },
+
+                orderBy: {
+                  createdAt: "asc",
+                },
+              },
+            },
           });
 
         return {

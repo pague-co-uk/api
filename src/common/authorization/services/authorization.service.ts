@@ -4,15 +4,21 @@ import {
   Injectable,
 } from "@nestjs/common";
 
+import { AppConfigService } from "../../../config/config.service.js";
 import { AuthenticatedApiKey } from "../interfaces/authentication-contenxt.interface.js";
 import type {
   AuthenticatedUser,
 } from "../interfaces/index.js";
 
+
 @Injectable()
 export class AuthorizationService {
   private static readonly PAGUE_SUPER_USER_ROLE =
     "PLATFORM_SUPER_ADMIN";
+
+  constructor(
+    private readonly config: AppConfigService,
+  ) { }
 
   // ==========================================================================
   // Permissions
@@ -49,6 +55,30 @@ export class AuthorizationService {
   // API-key capabilities
   // ==========================================================================
 
+  /**
+   * Determines whether an API key belongs to the
+   * configured platform client.
+   *
+   * Platform API keys have cross-client access, but
+   * they must still possess the required capabilities.
+   */
+  isPlatformApiKey(
+    apiKey: AuthenticatedApiKey,
+  ): boolean {
+    return (
+      apiKey.clientId ===
+      this.config.app.platformClient
+    );
+  }
+
+  /**
+   * Determines whether an API key has all of the
+   * required capabilities.
+   *
+   * Platform API keys are not exempt from capability
+   * checks. They only receive special treatment when
+   * determining client access.
+   */
   hasCapabilities(
     apiKey: AuthenticatedApiKey,
     required: readonly string[],
@@ -57,10 +87,22 @@ export class AuthorizationService {
       return true;
     }
 
+    const platformClientId =
+      this.config.app.platformClient;
+
+    const isPlatform =
+      apiKey.clientId === platformClientId;
+
+    console.log({
+      apiKeyClientId: apiKey.clientId,
+      platformClientId,
+      isPlatform,
+      capabilities: apiKey.capabilities,
+      required,
+    });
+
     const granted =
-      new Set(
-        apiKey.capabilities,
-      );
+      new Set(apiKey.capabilities);
 
     return required.every(
       (capability) =>
@@ -83,7 +125,7 @@ export class AuthorizationService {
   }
 
   // ==========================================================================
-  // Client access
+  // Client access - users
   // ==========================================================================
 
   /**
@@ -104,6 +146,54 @@ export class AuthorizationService {
     }
 
     return user.clientId === clientId;
+  }
+
+  // ==========================================================================
+  // Client access - API keys
+  // ==========================================================================
+
+  /**
+   * Determines whether the authenticated API key can
+   * access the supplied client.
+   *
+   * Platform API keys have cross-client access.
+   * Client-scoped API keys are restricted to their
+   * own client.
+   *
+   * Capability authorization is intentionally handled
+   * separately by hasCapabilities().
+   */
+  canAccessClientWithApiKey(
+    apiKey: AuthenticatedApiKey,
+    clientId: string,
+  ): boolean {
+    if (
+      this.isPlatformApiKey(apiKey)
+    ) {
+      return true;
+    }
+
+    return apiKey.clientId === clientId;
+  }
+
+  /**
+   * Ensures that the authenticated API key can access
+   * the supplied client.
+   */
+  assertApiKeyClientAccess(
+    apiKey: AuthenticatedApiKey,
+    clientId: string,
+  ): void {
+    if (
+      !this.canAccessClientWithApiKey(
+        apiKey,
+        clientId,
+      )
+    ) {
+      throw new ForbiddenException(
+        "You are not authorized to access this client.",
+      );
+    }
   }
 
   /**

@@ -2,6 +2,7 @@ import {
   ApiProperty,
   ApiPropertyOptional,
 } from "@nestjs/swagger";
+
 import { SmppAccountStatus } from "@prisma/client";
 
 export class SmppAccountResponseDto {
@@ -42,6 +43,13 @@ export class SmppAccountResponseDto {
 
   @ApiProperty()
   enquireLinkInterval!: number;
+
+  @ApiProperty({
+    type: [String],
+    description:
+      "IP addresses allowed to bind to this SMPP account.",
+  })
+  ipAllowlist!: string[];
 
   @ApiProperty()
   createdAt!: Date;

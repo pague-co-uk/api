@@ -2,8 +2,7 @@ import {
   IsEnum,
   IsOptional,
   IsString,
-  IsUUID,
-  MinLength
+  MinLength,
 } from "class-validator";
 
 import {
@@ -12,8 +11,9 @@ import {
 
 export class CreateMessageDto {
   @IsOptional()
-  @IsUUID()
-  senderIdId?: string;
+  @IsString()
+  @MinLength(1)
+  sender?: string;
 
   @IsString()
   @MinLength(1)

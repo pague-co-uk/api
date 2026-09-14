@@ -20,4 +20,6 @@ export interface ApplicationHealthConfig {
   readonly smppClient: ApplicationHealthTarget;
 
   readonly smppServer: ApplicationHealthTarget;
+
+  readonly webhookConsumer: ApplicationHealthTarget;
 }

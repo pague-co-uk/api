@@ -186,6 +186,9 @@ export class AppConfigService {
       logoUrl: this.get(
         "app.logoUrl",
       ),
+      platformClient: this.get(
+        "app.platformClient",
+      )
     };
   }
 
@@ -265,6 +268,15 @@ export class AppConfigService {
 
         url: this.get(
           "applications.health.smppServer.url",
+        ),
+
+        timeoutMs,
+      },
+      webhookConsumer: {
+        name: "webhook-consumer",
+
+        url: this.get(
+          "applications.health.webhookConsumer.url",
         ),
 
         timeoutMs,

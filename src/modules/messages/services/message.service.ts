@@ -27,7 +27,7 @@ import { MessageRepository } from "../../../repositories/messageRepository.js";
 import { MessageStatusEventRepository } from "../../../repositories/messageStatusEventRepository.js";
 import { OutboxEventRepository } from "../../../repositories/OutboxRepository.js";
 
-import { SenderIdService } from "../../../modules/sender-ids/services/sender-id.service.js";
+import { SenderIdRepository } from "../../../repositories/SenderIdRepository.js";
 import type { CreateMessageDto } from "../dto/create-message.dto.js";
 import { MessageWithRelations } from "../message.mapper.js";
 
@@ -188,7 +188,7 @@ export class MessageService {
       ClockService,
 
     private readonly senderIds:
-      SenderIdService,
+      SenderIdRepository,
   ) { }
 
   // =========================================================================
@@ -209,233 +209,333 @@ export class MessageService {
    *   4. Outbox events
    *
    * RabbitMQ is deliberately not touched here.
+   *
+   * The CreateMessageDto.sender field contains the human-readable Sender ID
+   * name. Sender IDs are resolved to their internal UUID once here before
+   * messages are created.
    */
-async create(
-  clientId: string,
-  dtos: readonly CreateMessageDto[],
-): Promise<MessageWithRelations[]> {
-  return withSpan(
-    "MessageService.create",
-    async (span) => {
-      if (dtos.length === 0) {
-        throw new Error(
-          "At least one message is required.",
-        );
-      }
+  async create(
+    clientId: string,
+    dtos: readonly CreateMessageDto[],
+  ): Promise<MessageWithRelations[]> {
+    return withSpan(
+      "MessageService.create",
+      async (span) => {
+        if (dtos.length === 0) {
+          throw new Error(
+            "At least one message is required.",
+          );
+        }
 
-      span.setAttributes({
-        "client.id": clientId,
-        "message.count": dtos.length,
-      });
+        span.setAttributes({
+          "client.id": clientId,
+          "message.count": dtos.length,
+        });
 
-      try {
-        const result =
-          await this.messages.withTransaction(
-            async (tx) => {
-              const messages =
-                this.messages.withDatabase(
-                  tx,
-                );
+        try {
+          const result =
+            await this.messages.withTransaction(
+              async (tx) => {
+                const messages =
+                  this.messages.withDatabase(tx);
 
-              const statusEvents =
-                this.statusEvents.withDatabase(
-                  tx,
-                );
+                const statusEvents =
+                  this.statusEvents.withDatabase(tx);
 
-              const outbox =
-                this.outbox.withDatabase(
-                  tx,
-                );
+                const outbox =
+                  this.outbox.withDatabase(tx);
 
-              const float =
-                this.float.withDatabase(
-                  tx,
-                );
+                const float =
+                  this.float.withDatabase(tx);
 
-              // -----------------------------------------------------------
-              // Prepare messages
-              // -----------------------------------------------------------
+                const senderIds =
+                  this.senderIds.withDatabase(tx);
 
-              const prepared =
-                dtos.map((dto) => {
-                  const publicId =
-                    this.generatePublicId();
+                // -----------------------------------------------------------
+                // Resolve Sender IDs
+                // -----------------------------------------------------------
 
-                  const segmentCount =
-                    this.calculateSegmentCount(
-                      dto.body,
-                      dto.encoding,
+                const senderNames =
+                  [
+                    ...new Set(
+                      dtos
+                        .map(
+                          (dto) =>
+                            dto.sender?.trim(),
+                        )
+                        .filter(
+                          (
+                            sender,
+                          ): sender is string =>
+                            Boolean(
+                              sender,
+                            ),
+                        ),
+                    ),
+                  ];
+
+                const resolvedSenderIds =
+                  new Map<string, string>();
+
+                if (
+                  senderNames.length > 0
+                ) {
+                  const availableSenderIds =
+                    await senderIds.findByNamesForClient(
+                      clientId,
+                      senderNames,
                     );
 
-                  return {
-                    publicId,
-                    dto,
-                    segmentCount,
-                  };
-                });
+                  const senderIdsByName =
+                    new Map(
+                      availableSenderIds.map(
+                        (senderId) => [
+                          senderId.sender,
+                          senderId,
+                        ],
+                      ),
+                    );
 
-              // -----------------------------------------------------------
-              // Create messages
-              // -----------------------------------------------------------
+                  for (
+                    const senderName of senderNames
+                  ) {
+                    const sender =
+                      senderIdsByName.get(
+                        senderName,
+                      );
 
-              const created =
-                await messages.createManyAndReturn(
-                  prepared.map(
-                    ({
+                    if (!sender) {
+                      throw new NotFoundException(
+                        "Sender ID not found.",
+                      );
+                    }
+
+                    if (
+                      sender.status !==
+                      SenderIdStatus.APPROVED
+                    ) {
+                      throw new BadRequestException(
+                        "Sender ID is not approved.",
+                      );
+                    }
+
+                    resolvedSenderIds.set(
+                      senderName,
+                      sender.id,
+                    );
+                  }
+                }
+
+                // -----------------------------------------------------------
+                // Prepare messages
+                // -----------------------------------------------------------
+
+                const prepared =
+                  dtos.map((dto) => {
+                    const publicId =
+                      this.generatePublicId();
+
+                    const segmentCount =
+                      this.calculateSegmentCount(
+                        dto.body,
+                        dto.encoding,
+                      );
+
+                    const senderName =
+                      dto.sender?.trim();
+
+                    return {
                       publicId,
                       dto,
                       segmentCount,
-                    }) => ({
-                      publicId,
-                      clientId,
                       senderIdId:
-                        dto.senderIdId ?? null,
-                      destination:
-                        dto.destination,
-                      body: dto.body,
-                      encoding:
-                        dto.encoding,
-                      segmentCount,
-                      currentStatus:
-                        MessageStatus.QUEUED,
-                      submittedAt:
-                        this.clock.now(),
+                        senderName
+                          ? resolvedSenderIds.get(
+                            senderName,
+                          ) ?? null
+                          : null,
+                    };
+                  });
+
+                // -----------------------------------------------------------
+                // Create messages
+                // -----------------------------------------------------------
+
+                const created =
+                  await messages.createManyAndReturn(
+                    prepared.map(
+                      ({
+                        publicId,
+                        dto,
+                        segmentCount,
+                        senderIdId,
+                      }) => ({
+                        publicId,
+                        clientId,
+                        senderIdId,
+                        destination:
+                          dto.destination,
+                        body:
+                          dto.body,
+                        encoding:
+                          dto.encoding,
+                        segmentCount,
+                        currentStatus:
+                          MessageStatus.QUEUED,
+                        submittedAt:
+                          this.clock.now(),
+                      }),
+                    ),
+                    prepared.map(
+                      ({
+                        publicId,
+                      }) => publicId,
+                    ),
+                  );
+
+                // -----------------------------------------------------------
+                // Debit float
+                // -----------------------------------------------------------
+
+                await float.debitMessages(
+                  clientId,
+                  created.map(
+                    (message) => ({
+                      messageId:
+                        message.id,
+
+                      publicId:
+                        message.publicId,
+
+                      segmentCount:
+                        message.segmentCount,
                     }),
-                  ),
-                  prepared.map(
-                    ({
-                      publicId,
-                    }) => publicId,
                   ),
                 );
 
-              // -----------------------------------------------------------
-              // Debit float
-              // -----------------------------------------------------------
+                // -----------------------------------------------------------
+                // Status history
+                // -----------------------------------------------------------
 
-              await float.debitMessages(
-                clientId,
-                created.map(
-                  (message) => ({
-                    messageId:
-                      message.id,
-                    publicId:
-                      message.publicId,
-                    segmentCount:
-                      message.segmentCount,
-                  }),
-                ),
-              );
-
-              // -----------------------------------------------------------
-              // Status history
-              // -----------------------------------------------------------
-
-              await statusEvents.createMany(
-                created.map(
-                  (message) => ({
-                    messageId:
-                      message.id,
-                    status:
-                      MessageStatus.QUEUED,
-                    source:
-                      "CONTROL_PLANE",
-                    description:
-                      "Message accepted and queued.",
-                  }),
-                ),
-              );
-
-              // -----------------------------------------------------------
-              // Outbox
-              // -----------------------------------------------------------
-
-              await outbox.createMany(
-                created.map(
-                  (message) => ({
-                    eventType:
-                      "MESSAGE_STATUS",
-                    aggregateType:
-                      "MESSAGE",
-                    aggregateId:
-                      message.id,
-                    queueName:
-                      this.queueForStatus(
-                        MessageStatus.QUEUED,
-                      ),
-                    payload: {
-                      eventId:
-                        this.generateEventId(),
-                      occurredAt:
-                        this.clock
-                          .now()
-                          .toISOString(),
-                      version: 1,
+                await statusEvents.createMany(
+                  created.map(
+                    (message) => ({
                       messageId:
                         message.id,
-                      publicId:
-                        message.publicId,
-                      clientId:
-                        message.clientId,
-                      destination:
-                        message.destination,
-                      body:
-                        message.body,
-                      encoding:
-                        message.encoding,
-                      segmentCount:
-                        message.segmentCount,
+
                       status:
                         MessageStatus.QUEUED,
-                    },
-                    availableAt:
-                      this.clock.now(),
-                  }),
-                ),
-              );
 
-              return created;
+                      source:
+                        "CONTROL_PLANE",
+
+                      description:
+                        "Message accepted and queued.",
+                    }),
+                  ),
+                );
+
+                // -----------------------------------------------------------
+                // Outbox
+                // -----------------------------------------------------------
+
+                await outbox.createMany(
+                  created.map(
+                    (message) => ({
+                      eventType:
+                        "MESSAGE_STATUS",
+
+                      aggregateType:
+                        "MESSAGE",
+
+                      aggregateId:
+                        message.id,
+
+                      queueName:
+                        this.queueForStatus(
+                          MessageStatus.QUEUED,
+                        ),
+
+                      payload: {
+                        eventId:
+                          this.generateEventId(),
+
+                        occurredAt:
+                          this.clock
+                            .now()
+                            .toISOString(),
+
+                        version: 1,
+
+                        messageId:
+                          message.id,
+
+                        publicId:
+                          message.publicId,
+
+                        clientId:
+                          message.clientId,
+
+                        destination:
+                          message.destination,
+
+                        body:
+                          message.body,
+
+                        encoding:
+                          message.encoding,
+
+                        segmentCount:
+                          message.segmentCount,
+
+                        status:
+                          MessageStatus.QUEUED,
+                      },
+
+                      availableAt:
+                        this.clock.now(),
+                    }),
+                  ),
+                );
+
+                return created;
+              },
+            );
+
+          this.logger.info(
+            {
+              clientId,
+              count:
+                result.length,
+              status:
+                MessageStatus.QUEUED,
+              queue:
+                this.queueForStatus(
+                  MessageStatus.QUEUED,
+                ),
             },
+            "Messages accepted.",
           );
 
-        // ---------------------------------------------------------------
-        // Logging
-        // ---------------------------------------------------------------
+          return result;
+        } catch (error) {
+          recordException(error);
 
-        this.logger.info(
-          {
-            clientId,
-            count:
-              result.length,
-            status:
-              MessageStatus.QUEUED,
-            queue:
-              this.queueForStatus(
-                MessageStatus.QUEUED,
-              ),
-          },
-          "Messages accepted.",
-        );
+          this.logger.error(
+            {
+              err: error,
+              clientId,
+              count:
+                dtos.length,
+            },
+            "Failed to create messages.",
+          );
 
-        return result;
-      } catch (error) {
-        recordException(error);
-
-        this.logger.error(
-          {
-            err: error,
-            clientId,
-            count:
-              dtos.length,
-          },
-          "Failed to create messages.",
-        );
-
-        throw error;
-      }
-    },
-  );
-}
+          throw error;
+        }
+      },
+    );
+  }
 
   // =========================================================================
   // Bulk Create
@@ -446,10 +546,6 @@ async create(
    *
    * The spreadsheet is completely validated before create() is called.
    * Therefore, a validation failure results in zero persisted messages.
-   *
-   * Spreadsheet Sender IDs are human-readable Sender ID names. They are
-   * resolved to the internal Sender ID UUID after validating client ownership
-   * and approval status.
    */
   async createFromSpreadsheet(
     clientId: string,
@@ -473,8 +569,7 @@ async create(
             this.parseSpreadsheet(file);
 
           const messages =
-            await this.validateAndPrepareMessages(
-              clientId,
+            this.validateAndPrepareMessages(
               rows,
             );
 
@@ -483,11 +578,6 @@ async create(
             messages.length,
           );
 
-          /*
-           * All validated spreadsheet messages now
-           * use the exact same persistence path as
-           * normal message submission.
-           */
           return await this.create(
             clientId,
             messages,
@@ -540,6 +630,12 @@ async create(
     );
   }
 
+  /**
+   * Retrieves a lightweight message by internal ID.
+   *
+   * This method intentionally does not load routing attempts or status
+   * history because it is also used by status-update processing.
+   */
   async findById(
     clientId: string,
     id: string,
@@ -555,12 +651,55 @@ async create(
     );
   }
 
+  /**
+   * Retrieves a lightweight message by public ID.
+   */
   async findByPublicId(
     clientId: string,
     publicId: string,
   ) {
     const message =
       await this.messages.findByPublicId(
+        publicId,
+      );
+
+    return this.ensureClientOwnership(
+      message,
+      clientId,
+    );
+  }
+
+  /**
+   * Retrieves the complete message details by internal ID.
+   *
+   * Includes overall status history and routing attempts.
+   */
+  async findDetailsById(
+    clientId: string,
+    id: string,
+  ) {
+    const message =
+      await this.messages.findDetailsById(
+        id,
+      );
+
+    return this.ensureClientOwnership(
+      message,
+      clientId,
+    );
+  }
+
+  /**
+   * Retrieves the complete message details by public ID.
+   *
+   * Includes overall status history and routing attempts.
+   */
+  async findDetailsByPublicId(
+    clientId: string,
+    publicId: string,
+  ) {
+    const message =
+      await this.messages.findDetailsByPublicId(
         publicId,
       );
 
@@ -610,19 +749,11 @@ async create(
         });
 
         try {
-          /*
-           * First establish that the message exists
-           * and belongs to the client.
-           */
           const message =
             await this.findById(
               clientId,
               id,
             );
-
-          // ---------------------------------------------------------------
-          // Terminal state
-          // ---------------------------------------------------------------
 
           if (
             MessageService
@@ -634,10 +765,6 @@ async create(
             return message;
           }
 
-          // ---------------------------------------------------------------
-          // Same transient state
-          // ---------------------------------------------------------------
-
           if (
             message.currentStatus ===
             status
@@ -645,18 +772,11 @@ async create(
             return message;
           }
 
-          // ---------------------------------------------------------------
-          // Validate transition
-          // ---------------------------------------------------------------
-
           this.assertValidTransition(
             message.currentStatus,
             status,
           );
 
-          /*
-           * Re-read and mutate inside one transaction.
-           */
           return this.messages.withTransaction(
             async (tx) => {
               const messages =
@@ -679,10 +799,6 @@ async create(
                   tx,
                 );
 
-              // -----------------------------------------------------------
-              // Re-read
-              // -----------------------------------------------------------
-
               const current =
                 await messages.findById(
                   id,
@@ -694,10 +810,6 @@ async create(
                 );
               }
 
-              // -----------------------------------------------------------
-              // Terminal protection
-              // -----------------------------------------------------------
-
               if (
                 MessageService
                   .TERMINAL_STATUSES
@@ -708,10 +820,6 @@ async create(
                 return current;
               }
 
-              // -----------------------------------------------------------
-              // Duplicate transient state
-              // -----------------------------------------------------------
-
               if (
                 current.currentStatus ===
                 status
@@ -719,28 +827,16 @@ async create(
                 return current;
               }
 
-              // -----------------------------------------------------------
-              // Validate against current state
-              // -----------------------------------------------------------
-
               this.assertValidTransition(
                 current.currentStatus,
                 status,
               );
-
-              // -----------------------------------------------------------
-              // Update status
-              // -----------------------------------------------------------
 
               const updated =
                 await messages.updateStatus(
                   current.id,
                   status,
                 );
-
-              // -----------------------------------------------------------
-              // Status event
-              // -----------------------------------------------------------
 
               await statusEvents.create({
                 message: {
@@ -770,10 +866,6 @@ async create(
                   : {}),
               });
 
-              // -----------------------------------------------------------
-              // Refund failed / expired messages
-              // -----------------------------------------------------------
-
               if (
                 status ===
                 MessageStatus.FAILED ||
@@ -792,10 +884,6 @@ async create(
                   `Message ${status.toLowerCase()} refund: ${current.publicId}`,
                 );
               }
-
-              // -----------------------------------------------------------
-              // Outbox
-              // -----------------------------------------------------------
 
               const queueName =
                 this.queueForStatus(
@@ -910,30 +998,20 @@ async create(
   // Helpers
   // =========================================================================
 
-  private ensureClientOwnership(
-    message: Awaited<
-      ReturnType<
-        MessageRepository["findById"]
-      >
-    >,
+  private ensureClientOwnership<T extends { clientId: string }>(
+    message: T | null,
     clientId: string,
-  ) {
-    if (
-      !message ||
-      message.clientId !== clientId
-    ) {
-      throw new NotFoundException(
-        "Message not found.",
-      );
+  ): T {
+    if (!message) {
+      throw new NotFoundException("Message not found");
+    }
+
+    if (message.clientId !== clientId) {
+      throw new NotFoundException("Message not found");
     }
 
     return message;
   }
-
-  /**
-   * Returns the queue responsible for
-   * processing a particular message state.
-   */
   private queueForStatus(
     status: MessageStatus,
   ): string {
@@ -1197,10 +1275,9 @@ async create(
   // Spreadsheet validation
   // =========================================================================
 
-  private async validateAndPrepareMessages(
-    clientId: string,
+  private validateAndPrepareMessages(
     rows: readonly BulkMessageRow[],
-  ): Promise<readonly CreateMessageDto[]> {
+  ): readonly CreateMessageDto[] {
     const errors:
       SpreadsheetValidationError[] =
       [];
@@ -1208,56 +1285,6 @@ async create(
     const messages:
       CreateMessageDto[] =
       [];
-
-    // -----------------------------------------------------------------------
-    // Collect unique Sender ID names.
-    //
-    // The spreadsheet contains the human-readable Sender ID name rather than
-    // the internal database UUID.
-    // -----------------------------------------------------------------------
-
-    const senderNames =
-      new Set<string>();
-
-    for (const row of rows) {
-      const senderName =
-        this.toStringValue(
-          row.senderId,
-        );
-
-      if (senderName) {
-        senderNames.add(
-          senderName,
-        );
-      }
-    }
-
-    // -----------------------------------------------------------------------
-    // Resolve all Sender IDs in one database query.
-    //
-    // The lookup is scoped to the client, so a Sender ID belonging to another
-    // client will not be returned.
-    // -----------------------------------------------------------------------
-
-    const senderIds =
-      await this.senderIds.findByNamesForClient(
-        clientId,
-        [...senderNames],
-      );
-
-    const senderIdsByName =
-      new Map(
-        senderIds.map(
-          (senderId) => [
-            senderId.sender,
-            senderId,
-          ],
-        ),
-      );
-
-    // -----------------------------------------------------------------------
-    // Validate spreadsheet rows.
-    // -----------------------------------------------------------------------
 
     for (const row of rows) {
       const destination =
@@ -1279,10 +1306,6 @@ async create(
         this.toStringValue(
           row.encoding,
         );
-
-      // ---------------------------------------------------------------
-      // Required fields
-      // ---------------------------------------------------------------
 
       if (!destination) {
         errors.push({
@@ -1320,10 +1343,6 @@ async create(
         });
       }
 
-      // ---------------------------------------------------------------
-      // Destination
-      // ---------------------------------------------------------------
-
       if (
         destination &&
         destination.length > 20
@@ -1335,46 +1354,6 @@ async create(
             "Destination must not exceed 20 characters.",
         });
       }
-
-      // ---------------------------------------------------------------
-      // Sender ID
-      // ---------------------------------------------------------------
-
-      let resolvedSenderId:
-        string | undefined;
-
-      if (senderName) {
-        const senderId =
-          senderIdsByName.get(
-            senderName,
-          );
-
-        if (!senderId) {
-          errors.push({
-            row: row.rowNumber,
-            field: "senderId",
-            message:
-              "Sender ID does not exist or does not belong to this client.",
-          });
-        } else if (
-          senderId.status !==
-          SenderIdStatus.APPROVED
-        ) {
-          errors.push({
-            row: row.rowNumber,
-            field: "senderId",
-            message:
-              "Sender ID is not approved.",
-          });
-        } else {
-          resolvedSenderId =
-            senderId.id;
-        }
-      }
-
-      // ---------------------------------------------------------------
-      // Encoding
-      // ---------------------------------------------------------------
 
       let parsedEncoding:
         | MessageEncoding
@@ -1396,19 +1375,15 @@ async create(
         }
       }
 
-      // ---------------------------------------------------------------
-      // Prepare DTO
-      // ---------------------------------------------------------------
-
       if (
         destination &&
         body &&
-        resolvedSenderId &&
+        senderName &&
         parsedEncoding
       ) {
         messages.push({
-          senderIdId:
-            resolvedSenderId,
+          sender:
+            senderName,
 
           destination,
 
@@ -1419,10 +1394,6 @@ async create(
         });
       }
     }
-
-    // -----------------------------------------------------------------------
-    // Reject the entire spreadsheet if any row failed validation.
-    // -----------------------------------------------------------------------
 
     if (errors.length > 0) {
       throw new BadRequestException({

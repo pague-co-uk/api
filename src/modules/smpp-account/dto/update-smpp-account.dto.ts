@@ -1,4 +1,6 @@
 import {
+  IsArray,
+  IsIP,
   IsInt,
   IsOptional,
   Max,
@@ -16,4 +18,11 @@ export class UpdateSmppAccountDto {
   @Min(5)
   @Max(3600)
   enquireLinkInterval?: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsIP(undefined, {
+    each: true,
+  })
+  ipAllowlist?: string[];
 }

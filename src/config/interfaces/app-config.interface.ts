@@ -12,4 +12,5 @@ export interface AppConfig {
   readonly isTest: boolean;
   readonly webUrl: string;
   readonly logoUrl: string;
+  readonly platformClient: string;
 }

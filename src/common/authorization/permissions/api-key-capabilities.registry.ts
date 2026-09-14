@@ -1,5 +1,5 @@
 export const ApiKeyCapabilities = {
-  MESSAGES_SEND: "messages.send",
+  MESSAGES_SEND: "messages.create",
   MESSAGES_READ: "messages.read",
   MESSAGES_STATUS_READ: "messages.status.read",
 } as const;

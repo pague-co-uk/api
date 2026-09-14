@@ -27,6 +27,8 @@ export default () => ({
 
     logoUrl:
       process.env.PAGUE_LOGO_URL,
+    platformClient:
+      process.env.PLATFORM_ADMIN_CLIENT_ID
   },
 
   // ==========================================================================
@@ -334,6 +336,11 @@ export default () => ({
         url:
           process.env.APPLICATION_HEALTH_SMPP_SERVER_URL ??
           "http://localhost:9005/health",
+      },
+      webhookConsumer: {
+        url:
+          process.env.APPLICATION_HEALTH_WEBHOOK_CONSUMER_URL ??
+          "http://localhost:9006/health",
       },
     },
   },

@@ -1,4 +1,6 @@
 import {
+  IsArray,
+  IsIP,
   IsInt,
   IsString,
   Max,
@@ -26,4 +28,10 @@ export class CreateSmppAccountDto {
   @Min(5)
   @Max(3600)
   enquireLinkInterval?: number;
+
+  @IsArray()
+  @IsIP(undefined, {
+    each: true,
+  })
+  ipAllowlist!: string[];
 }

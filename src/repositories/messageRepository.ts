@@ -83,6 +83,7 @@ export class MessageRepository
       },
     );
   }
+
   /**
    * Creates multiple messages in a single database operation.
    *
@@ -161,6 +162,12 @@ export class MessageRepository
   // Queries
   // -------------------------------------------------------------------------
 
+  /**
+   * Retrieves a lightweight message by internal ID.
+   *
+   * Routing attempts and status history are intentionally excluded because
+   * this method is also used by message status processing.
+   */
   async findById(
     id: string,
   ) {
@@ -203,6 +210,11 @@ export class MessageRepository
     );
   }
 
+  /**
+   * Retrieves a lightweight message by public ID.
+   *
+   * Routing attempts and status history are intentionally excluded.
+   */
   async findByPublicId(
     publicId: string,
   ) {
@@ -231,6 +243,172 @@ export class MessageRepository
                   id: true,
                   publicId: true,
                   sender: true,
+                },
+              },
+            },
+          });
+
+        return {
+          result,
+          rowsAffected:
+            result ? 1 : 0,
+        };
+      },
+    );
+  }
+
+  /**
+   * Retrieves the complete message details by internal ID.
+   *
+   * Includes:
+   *
+   *   - client
+   *   - sender ID
+   *   - overall message status events
+   *   - routing attempts
+   *   - route
+   *   - connector
+   *   - attempt-specific status events
+   */
+  async findDetailsById(
+    id: string,
+  ) {
+    return this.execute(
+      "SELECT",
+      "messages",
+      async () => {
+        const result =
+          await this.db.message.findUnique({
+            where: {
+              id,
+            },
+
+            include: {
+              client: {
+                select: {
+                  id: true,
+                  publicId: true,
+                  companyName: true,
+                  displayName: true,
+                },
+              },
+
+              senderId: {
+                select: {
+                  id: true,
+                  publicId: true,
+                  sender: true,
+                },
+              },
+
+              statusEvents: {
+                orderBy: {
+                  createdAt: "asc",
+                },
+              },
+
+              routeAttempts: {
+                orderBy: {
+                  attemptNumber: "asc",
+                },
+
+                include: {
+                  route: {
+                    include: {
+                      mobileNetwork: {
+                        select: {
+                          id: true,
+                          name: true,
+                        },
+                      },
+                    },
+                  },
+
+                  connector: true,
+
+                  messageStatusEvents: {
+                    orderBy: {
+                      createdAt: "asc",
+                    },
+                  },
+                },
+              },
+            },
+          });
+
+        return {
+          result,
+          rowsAffected:
+            result ? 1 : 0,
+        };
+      },
+    );
+  }
+
+  /**
+   * Retrieves the complete message details by public ID.
+   */
+  async findDetailsByPublicId(
+    publicId: string,
+  ) {
+    return this.execute(
+      "SELECT",
+      "messages",
+      async () => {
+        const result =
+          await this.db.message.findUnique({
+            where: {
+              publicId,
+            },
+
+            include: {
+              client: {
+                select: {
+                  id: true,
+                  publicId: true,
+                  companyName: true,
+                  displayName: true,
+                },
+              },
+
+              senderId: {
+                select: {
+                  id: true,
+                  publicId: true,
+                  sender: true,
+                },
+              },
+
+              statusEvents: {
+                orderBy: {
+                  createdAt: "asc",
+                },
+              },
+
+              routeAttempts: {
+                orderBy: {
+                  attemptNumber: "asc",
+                },
+
+                include: {
+                  route: {
+                    include: {
+                      mobileNetwork: {
+                        select: {
+                          id: true,
+                          name: true,
+                        },
+                      },
+                    },
+                  },
+
+                  connector: true,
+
+                  messageStatusEvents: {
+                    orderBy: {
+                      createdAt: "asc",
+                    },
+                  },
                 },
               },
             },
@@ -573,6 +751,7 @@ export class MessageRepository
       },
     );
   }
+
   // -------------------------------------------------------------------------
   // Status
   // -------------------------------------------------------------------------

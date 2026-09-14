@@ -45,6 +45,11 @@ export class SmppAccountService {
       );
     }
 
+    const ipAllowlist =
+      this.normalizeIpAllowlist(
+        dto.ipAllowlist,
+      );
+
     const publicId =
       this.generatePublicId();
 
@@ -53,29 +58,52 @@ export class SmppAccountService {
         dto.password,
       );
 
-    return this.accounts.create({
-      publicId,
+    try {
+      return await this.accounts.create({
+        publicId,
 
-      client: {
-        connect: {
-          id: clientId,
+        client: {
+          connect: {
+            id: clientId,
+          },
         },
-      },
 
-      systemId:
-        dto.systemId,
+        systemId:
+          dto.systemId,
 
-      passwordHash,
+        passwordHash,
 
-      status:
-        SmppAccountStatus.ACTIVE,
+        status:
+          SmppAccountStatus.ACTIVE,
 
-      maxConcurrentBinds:
-        dto.maxConcurrentBinds ?? 1,
+        maxConcurrentBinds:
+          dto.maxConcurrentBinds ?? 1,
 
-      enquireLinkInterval:
-        dto.enquireLinkInterval ?? 30,
-    });
+        enquireLinkInterval:
+          dto.enquireLinkInterval ?? 30,
+
+        ipAllowlist: {
+          create:
+            ipAllowlist.map(
+              (ipAddress) => ({
+                ipAddress,
+              }),
+            ),
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof
+        Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        throw new ConflictException(
+          "An SMPP account with this system ID or IP configuration already exists.",
+        );
+      }
+
+      throw error;
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -172,15 +200,50 @@ export class SmppAccountService {
     }
 
     if (
+      dto.ipAllowlist !==
+      undefined
+    ) {
+      const ipAllowlist =
+        this.normalizeIpAllowlist(
+          dto.ipAllowlist,
+        );
+
+      data.ipAllowlist = {
+        deleteMany: {},
+
+        create:
+          ipAllowlist.map(
+            (ipAddress) => ({
+              ipAddress,
+            }),
+          ),
+      };
+    }
+
+    if (
       Object.keys(data).length === 0
     ) {
       return account;
     }
 
-    return this.accounts.update(
-      account.id,
-      data,
-    );
+    try {
+      return await this.accounts.update(
+        account.id,
+        data,
+      );
+    } catch (error) {
+      if (
+        error instanceof
+        Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        throw new ConflictException(
+          "An SMPP account with this IP configuration already exists.",
+        );
+      }
+
+      throw error;
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -369,6 +432,35 @@ export class SmppAccountService {
     }
 
     return account;
+  }
+
+  private normalizeIpAllowlist(
+    ipAddresses: readonly string[],
+  ): string[] {
+    const normalized =
+      ipAddresses.map(
+        (ipAddress) =>
+          ipAddress
+            .trim()
+            .replace(
+              /^::ffff:/i,
+              "",
+            ),
+      );
+
+    const unique =
+      new Set(normalized);
+
+    if (
+      unique.size !==
+      normalized.length
+    ) {
+      throw new ConflictException(
+        "An SMPP account cannot contain duplicate IP addresses.",
+      );
+    }
+
+    return normalized;
   }
 
   private generatePublicId(): string {

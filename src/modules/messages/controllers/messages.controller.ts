@@ -14,7 +14,7 @@ import {
   FileInterceptor,
 } from "@nestjs/platform-express";
 
-import 'multer';
+import "multer";
 
 import {
   ApiBody,
@@ -154,8 +154,8 @@ export class MessagesController {
     @Param("publicId")
     publicId: string,
   ) {
-    return this.mapper.toResponse(
-      await this.messages.findByPublicId(
+    return this.mapper.toDetailsResponse(
+      await this.messages.findDetailsByPublicId(
         clientId,
         publicId,
       ),
@@ -198,8 +198,8 @@ export class MessagesController {
     )
     id: string,
   ) {
-    return this.mapper.toResponse(
-      await this.messages.findById(
+    return this.mapper.toDetailsResponse(
+      await this.messages.findDetailsById(
         clientId,
         id,
       ),
