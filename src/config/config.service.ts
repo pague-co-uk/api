@@ -20,8 +20,6 @@ export class AppConfigService {
 
   private readonly databaseConfig: DatabaseConfig;
 
-  private readonly rabbitMqConfig: RabbitMqConfig;
-
   private readonly telemetryConfig: TelemetryConfig;
 
   private readonly authenticationConfig: AuthenticationConfig;
@@ -43,11 +41,6 @@ export class AppConfigService {
     this.databaseConfig =
       Object.freeze(
         this.buildDatabaseConfig(),
-      );
-
-    this.rabbitMqConfig =
-      Object.freeze(
-        this.buildRabbitMqConfig(),
       );
 
     this.telemetryConfig =
@@ -86,10 +79,6 @@ export class AppConfigService {
 
   get database(): DatabaseConfig {
     return this.databaseConfig;
-  }
-
-  get rabbitmq(): RabbitMqConfig {
-    return this.rabbitMqConfig;
   }
 
   get telemetry(): TelemetryConfig {

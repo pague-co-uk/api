@@ -453,10 +453,6 @@ export default () => ({
     healthChecks:
       process.env.ENABLE_HEALTH_CHECKS !==
       "false",
-
-    queueRecovery:
-      process.env.ENABLE_QUEUE_RECOVERY !==
-      "false",
   },
 
   // ==========================================================================

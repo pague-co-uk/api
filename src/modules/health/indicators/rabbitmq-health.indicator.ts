@@ -1,10 +1,7 @@
-import { Inject, Injectable } from "@nestjs/common";
-import { QueueClient } from "@pague-co-uk/sms-gateway-queue-client";
+import { Injectable } from "@nestjs/common";
 import {
   Loggers,
 } from "@pague-co-uk/sms-gateway-telemetry";
-
-import { QUEUE_CLIENT } from "../../../queue/constants/queue.constants.js";
 
 import type { HealthCheck } from "../responses/health.response.js";
 import type { HealthIndicator } from "./health-indicator.interface.js";
@@ -18,8 +15,6 @@ export class RabbitMqHealthIndicator
     Loggers.rabbitmq;
 
   constructor(
-    @Inject(QUEUE_CLIENT)
-    private readonly client: QueueClient,
   ) { }
 
   public async check(): Promise<HealthCheck> {
@@ -33,19 +28,6 @@ export class RabbitMqHealthIndicator
       const latency = Math.round(
         performance.now() - start,
       );
-
-      if (!this.client.connected) {
-        this.logger.warn(
-          { latency },
-          "RabbitMQ client is disconnected.",
-        );
-
-        return {
-          status: "down",
-          latency,
-          error: "RabbitMQ client is disconnected.",
-        };
-      }
 
       this.logger.debug(
         { latency },
