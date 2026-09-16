@@ -235,6 +235,8 @@ export class UsersService {
                 dto.phone,
 
               passwordHash,
+
+              mfaEnabled: true
             });
 
           this.usersCreatedCounter.increment();
