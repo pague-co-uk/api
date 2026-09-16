@@ -297,6 +297,7 @@ export class SenderIdService {
   // -------------------------------------------------------------------------
 
   async create(
+    clientId: string,
     dto: CreateSenderIdDto,
   ): Promise<SenderIdWithClient> {
     return withSpan(
@@ -304,7 +305,7 @@ export class SenderIdService {
       async (span) => {
         this.logger.info(
           {
-            clientId: dto.clientId,
+            clientId,
             sender: dto.sender,
           },
           "Creating Sender ID.",
@@ -312,7 +313,7 @@ export class SenderIdService {
 
         span.setAttribute(
           "client.id",
-          dto.clientId,
+          clientId,
         );
 
         span.setAttribute(
@@ -322,11 +323,11 @@ export class SenderIdService {
 
         try {
           await this.ensureClientExists(
-            dto.clientId,
+            clientId,
           );
 
           await this.ensureSenderAvailable(
-            dto.clientId,
+            clientId,
             dto.sender,
           );
 
@@ -335,7 +336,7 @@ export class SenderIdService {
               publicId: dto.publicId,
               client: {
                 connect: {
-                  id: dto.clientId,
+                  id: clientId,
                 },
               },
               sender: dto.sender,
@@ -388,10 +389,8 @@ export class SenderIdService {
           this.logger.error(
             {
               err: error,
-              clientId:
-                dto.clientId,
-              sender:
-                dto.sender,
+              clientId,
+              sender: dto.sender,
             },
             "Failed to create Sender ID.",
           );
@@ -401,7 +400,6 @@ export class SenderIdService {
       },
     );
   }
-
   async update(
     id: string,
     dto: UpdateSenderIdDto,

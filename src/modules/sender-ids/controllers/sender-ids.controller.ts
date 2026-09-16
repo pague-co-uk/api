@@ -22,7 +22,6 @@ import { PaginatedResponse } from "../../../common/interfaces/paginated.response
 import { ApiPaginatedResponse } from "../../../decorators/api-paginated-response.decorator.js";
 import { ApiSuccessResponse } from "../../../decorators/api-success-response.decorator.js";
 
-import { CreateSenderIdDto } from "../dto/create-sender-id.dto.js";
 import { FindSenderIdsDto } from "../dto/find-sender-ids.dto.js";
 import { SenderIdResponseDto } from "../dto/sender-id.response.dto.js";
 import { UpdateSenderIdDto } from "../dto/update-sender-id.dto.js";
@@ -86,24 +85,6 @@ export class SenderIdsController {
   ): Promise<SenderIdResponseDto> {
     return this.mapper.toResponse(
       await this.senderIds.findById(id),
-    );
-  }
-
-  // -------------------------------------------------------------------------
-  // Lifecycle
-  // -------------------------------------------------------------------------
-
-  @Post()
-  @Authorize(Permissions.SENDER_IDS_CREATE)
-  @ApiOperation({
-    summary: "Create a Sender ID.",
-  })
-  @ApiSuccessResponse(SenderIdResponseDto)
-  async create(
-    @Body() dto: CreateSenderIdDto,
-  ): Promise<SenderIdResponseDto> {
-    return this.mapper.toResponse(
-      await this.senderIds.create(dto),
     );
   }
 

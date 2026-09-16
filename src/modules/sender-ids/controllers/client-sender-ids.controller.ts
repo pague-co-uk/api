@@ -93,9 +93,10 @@ export class ClientSenderIdsController {
     @Param("clientId", ParseUUIDPipe) clientId: string,
     @Body() dto: CreateSenderIdDto,
   ): Promise<SenderIdResponseDto> {
-    const toCreate = { ...dto, clientId } as CreateSenderIdDto;
-
-    const created = await this.senderIds.create(toCreate);
+    const created = await this.senderIds.create(
+      clientId,
+      dto,
+    );
 
     return this.mapper.toResponse(created);
   }
