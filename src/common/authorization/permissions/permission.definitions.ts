@@ -421,5 +421,9 @@ export const PermissionDefinitions: {
   [Permissions.CHECK_HEALTH]: {
     module: "all",
     description: "can check system health"
+  },
+  [Permissions.DASHBOARD_READ]: {
+    module: "dashboard",
+    description: "can view  dashboard"
   }
 } as const;

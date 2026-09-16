@@ -145,7 +145,8 @@ export const Permissions = {
   WEBHOOKS_DELIVERIES_READ: "webhooks:deliveries:read",
 
   PLATFORM_SUPER_ADMIN: "PLATFORM_SUPER_ADMIN",
-  CHECK_HEALTH: "CHECK_HEALTH"
+  CHECK_HEALTH: "CHECK_HEALTH",
+  DASHBOARD_READ: "dashboard.read"
 } as const;
 
 export type PermissionName =
