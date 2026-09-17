@@ -35,11 +35,16 @@ export interface DashboardStatusBreakdown {
 }
 
 export interface DashboardRoutePerformance {
-  routeId: string;
-  connectorId: string;
+  publicId: string;
+
+  connectorName: string;
+
   attempts: number;
+
   submitted: number;
+
   failed: number;
+
   submissionRate: number;
 }
 

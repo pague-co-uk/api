@@ -185,9 +185,132 @@ export class DashboardRepository extends DatabaseRepository {
             },
           });
 
+        if (rows.length === 0) {
+          return {
+            result: [],
+            rowsAffected: 0,
+          };
+        }
+
+        const routeIds =
+          [
+            ...new Set(
+              rows.map(
+                (row) =>
+                  row.routeId,
+              ),
+            ),
+          ];
+
+        const connectorIds =
+          [
+            ...new Set(
+              rows.map(
+                (row) =>
+                  row.connectorId,
+              ),
+            ),
+          ];
+
+        const [
+          routes,
+          connectors,
+        ] = await Promise.all([
+          this.db.route.findMany({
+            where: {
+              id: {
+                in: routeIds,
+              },
+            },
+
+            select: {
+              id: true,
+              publicId: true,
+            },
+          }),
+
+          this.db.connector.findMany({
+            where: {
+              id: {
+                in: connectorIds,
+              },
+            },
+
+            select: {
+              id: true,
+              name: true,
+            },
+          }),
+        ]);
+
+        const routeById =
+          new Map(
+            routes.map(
+              (route) => [
+                route.id,
+                route,
+              ],
+            ),
+          );
+
+        const connectorById =
+          new Map(
+            connectors.map(
+              (connector) => [
+                connector.id,
+                connector,
+              ],
+            ),
+          );
+
+        const result =
+          rows.map(
+            (row) => {
+              const route =
+                routeById.get(
+                  row.routeId,
+                );
+
+              const connector =
+                connectorById.get(
+                  row.connectorId,
+                );
+
+              if (
+                !route ||
+                !connector
+              ) {
+                throw new Error(
+                  "Route performance references a missing route or connector.",
+                );
+              }
+
+              return {
+                routeId:
+                  row.routeId,
+
+                publicId:
+                  route.publicId,
+
+                connectorId:
+                  row.connectorId,
+
+                connectorName:
+                  connector.name,
+
+                status:
+                  row.status,
+
+                _count:
+                  row._count,
+              };
+            },
+          );
+
         return {
-          result: rows,
-          rowsAffected: rows.length,
+          result,
+          rowsAffected:
+            result.length,
         };
       },
     );

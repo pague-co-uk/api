@@ -486,7 +486,11 @@ export class DashboardService {
     rows: Array<{
       routeId: string;
 
+      publicId: string;
+
       connectorId: string;
+
+      connectorName: string;
 
       status:
       MessageRouteAttemptStatus;
@@ -500,9 +504,9 @@ export class DashboardService {
       new Map<
         string,
         {
-          routeId: string;
+          publicId: string;
 
-          connectorId: string;
+          connectorName: string;
 
           attempts: number;
 
@@ -513,16 +517,21 @@ export class DashboardService {
       >();
 
     for (const row of rows) {
+      /*
+       * Use the internal IDs only as the aggregation key.
+       *
+       * They are deliberately not exposed in the dashboard response.
+       */
       const key =
         `${row.routeId}:${row.connectorId}`;
 
       const current =
         routes.get(key) ?? {
-          routeId:
-            row.routeId,
+          publicId:
+            row.publicId,
 
-          connectorId:
-            row.connectorId,
+          connectorName:
+            row.connectorName,
 
           attempts: 0,
 
@@ -568,11 +577,11 @@ export class DashboardService {
           a.attempts,
       )
       .map((route) => ({
-        routeId:
-          route.routeId,
+        publicId:
+          route.publicId,
 
-        connectorId:
-          route.connectorId,
+        connectorName:
+          route.connectorName,
 
         attempts:
           route.attempts,
