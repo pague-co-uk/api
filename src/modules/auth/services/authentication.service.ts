@@ -593,115 +593,161 @@ export class AuthenticationService {
 
   async refresh(
     refreshTokenValue: string,
+    sessionId: string,
     userId: string,
     clientId: string,
     ipAddress: string,
     userAgent: string,
-  ): Promise<{ refreshToken: string; refreshTokenExpiresAt: Date }> {
-    return withSpan('AuthenticationService.refresh', async (span) => {
-      this.logger.info(
-        {
-          clientId,
-        },
-        'Refreshing authenticated session.',
-      );
-
-      span.setAttribute('auth.client.id', clientId);
-
-      try {
-        // =====================================================
-        // Validate refresh token
-        // =====================================================
-
-        const refreshToken =
-          await this.refreshTokens.validate(refreshTokenValue);
-
-        // =====================================================
-        // Compute new refresh token expiry
-        // =====================================================
-
-        const refreshTokenExpiresAt = new Date(this.clock.now());
-
-        refreshTokenExpiresAt.setDate(
-          refreshTokenExpiresAt.getDate() +
-          Number(this.config.auth.refreshTokenTtl),
-        );
-
-        // =====================================================
-        // Rotate refresh token
-        // =====================================================
-
-        const rotated = await this.refreshTokens.rotate(
-          refreshTokenValue,
-          refreshToken.sessionId,
-          userId,
-          clientId,
-          refreshTokenExpiresAt,
-          AuthenticationMethod.REFRESH_TOKEN,
-          ipAddress,
-          userAgent,
-        );
-
-        // =====================================================
-        // Touch session
-        // =====================================================
-
-        await this.sessions.touchSession(refreshToken.sessionId);
-
-        await this.audit.record({
-          action: 'auth.refresh',
-          actorId: userId,
-          actorType: 'User',
-          clientId,
-          resourceType: 'RefreshToken',
-          resourceId: rotated.refreshTokenId,
-        });
-
-        // =====================================================
-        // Observability
-        // =====================================================
-
-        this.refreshCounter.add(1);
-
-        span.setAttribute('auth.session.id', refreshToken.sessionId);
-
-        span.setAttribute('auth.refresh.id', rotated.refreshTokenId);
-
-        span.addEvent('auth.refresh.completed');
-
+  ): Promise<{
+    refreshToken: string;
+    refreshTokenExpiresAt: Date;
+  }> {
+    return withSpan(
+      'AuthenticationService.refresh',
+      async (span) => {
         this.logger.info(
           {
-            sessionId: refreshToken.sessionId,
-            refreshTokenId: rotated.refreshTokenId,
             clientId,
+            sessionId,
           },
-          'Authentication refreshed successfully.',
+          'Refreshing authenticated session.',
         );
 
-        // =====================================================
-        // Response
-        // =====================================================
-
-        return {
-          refreshToken: rotated.refreshToken,
-          refreshTokenExpiresAt: rotated.expiresAt,
-        };
-      } catch (error) {
-        recordException(error);
-
-        this.refreshFailedCounter.add(1);
-
-        this.logger.warn(
-          {
-            error,
-            clientId,
-          },
-          'Failed to refresh authentication.',
+        span.setAttribute(
+          'auth.client.id',
+          clientId,
         );
 
-        throw error;
-      }
-    });
+        span.setAttribute(
+          'auth.session.id',
+          sessionId,
+        );
+
+        try {
+          // =====================================================
+          // Validate refresh token
+          // =====================================================
+
+          const refreshToken =
+            await this.refreshTokens.validate(
+              refreshTokenValue,
+            );
+
+          // =====================================================
+          // Verify refresh token belongs to this session
+          // =====================================================
+
+          if (
+            refreshToken.sessionId !==
+            sessionId
+          ) {
+            throw new Error(
+              'Refresh token does not belong to the authenticated session.',
+            );
+          }
+
+          span.setAttribute(
+            'auth.refresh.id',
+            refreshToken.id,
+          );
+
+          // =====================================================
+          // Refresh the SAME session
+          // =====================================================
+
+          await this.sessions.refreshSession(
+            sessionId,
+          );
+
+          // =====================================================
+          // Preserve the refresh-token absolute expiry
+          // =====================================================
+
+          const refreshTokenExpiresAt =
+            refreshToken.expiresAt;
+
+          // =====================================================
+          // Rotate refresh token
+          // =====================================================
+
+          const rotated =
+            await this.refreshTokens.rotate(
+              refreshTokenValue,
+              sessionId,
+              userId,
+              clientId,
+              refreshTokenExpiresAt,
+              AuthenticationMethod.REFRESH_TOKEN,
+              ipAddress,
+              userAgent,
+            );
+
+          // =====================================================
+          // Audit
+          // =====================================================
+
+          await this.audit.record({
+            action: 'auth.refresh',
+            actorId: userId,
+            actorType: 'User',
+            clientId,
+            resourceType: 'RefreshToken',
+            resourceId: rotated.refreshTokenId,
+          });
+
+          // =====================================================
+          // Observability
+          // =====================================================
+
+          this.refreshCounter.add(1);
+
+          span.setAttribute(
+            'auth.refresh.id',
+            rotated.refreshTokenId,
+          );
+
+          span.addEvent(
+            'auth.refresh.completed',
+          );
+
+          this.logger.info(
+            {
+              sessionId,
+              refreshTokenId:
+                rotated.refreshTokenId,
+              clientId,
+            },
+            'Authentication refreshed successfully.',
+          );
+
+          // =====================================================
+          // Response
+          // =====================================================
+
+          return {
+            refreshToken:
+              rotated.refreshToken,
+            refreshTokenExpiresAt:
+              rotated.expiresAt,
+          };
+        } catch (error) {
+          recordException(error);
+
+          this.refreshFailedCounter.add(1);
+
+          this.logger.warn(
+            {
+              error,
+              clientId,
+              sessionId,
+            },
+            'Failed to refresh authentication.',
+          );
+
+          throw error;
+        }
+      },
+    );
   }
 
   async logout(

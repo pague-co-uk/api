@@ -6,9 +6,12 @@ import {
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { AuthenticationMethod } from "@prisma/client";
+import type { Response } from "express";
 
+import { SessionValidationFailureReason } from "../../../modules/auth/enums/session-validation-failure-reason.enum.js";
 import { ApiKeyService } from "../../../modules/auth/services/apikey.service.js";
 import { AuthenticationCookieService } from "../../../modules/auth/services/authentication-cookie.service.js";
+import { AuthenticationService } from "../../../modules/auth/services/authentication.service.js";
 import { SessionService } from "../../../modules/auth/services/session.service.js";
 import { PUBLIC_METADATA } from "../constants/index.js";
 import type {
@@ -22,6 +25,7 @@ export class AuthenticationGuard
 
   constructor(
     private readonly reflector: Reflector,
+    private readonly authentication: AuthenticationService,
     private readonly sessions: SessionService,
     private readonly principals: PrincipalService,
     private readonly cookies: AuthenticationCookieService,
@@ -44,10 +48,14 @@ export class AuthenticationGuard
       return true;
     }
 
+    const http =
+      context.switchToHttp();
+
     const request =
-      context
-        .switchToHttp()
-        .getRequest<AuthenticatedRequest>();
+      http.getRequest<AuthenticatedRequest>();
+
+    const response =
+      http.getResponse<Response>();
 
     const sessionToken =
       this.cookies.get(
@@ -58,6 +66,7 @@ export class AuthenticationGuard
     if (sessionToken) {
       return this.authenticateSession(
         request,
+        response,
         sessionToken,
       );
     }
@@ -81,6 +90,7 @@ export class AuthenticationGuard
 
   private async authenticateSession(
     request: AuthenticatedRequest,
+    response: Response,
     sessionToken: string,
   ): Promise<boolean> {
     const validation =
@@ -88,16 +98,151 @@ export class AuthenticationGuard
         sessionToken,
       );
 
-    if (!validation.valid) {
+    // =====================================================
+    // Valid session
+    // =====================================================
+
+    if (validation.valid) {
+      return this.completeSessionAuthentication(
+        request,
+        validation.session.id,
+        validation.session.userId,
+      );
+    }
+
+    // =====================================================
+    // Session cannot be revived
+    // =====================================================
+
+    if (
+      validation.reason !==
+      SessionValidationFailureReason.EXPIRED &&
+      validation.reason !==
+      SessionValidationFailureReason.IDLE_TIMEOUT
+    ) {
+      this.cookies.clearAuthenticationCookies(
+        response,
+      );
+
       throw new UnauthorizedException(
         "Invalid session.",
       );
     }
 
+    // =====================================================
+    // Refreshable session
+    // =====================================================
+
+    const session =
+      validation.session;
+
+    if (!session) {
+      this.cookies.clearAuthenticationCookies(
+        response,
+      );
+
+      throw new UnauthorizedException(
+        "Invalid session.",
+      );
+    }
+
+    const refreshToken =
+      this.cookies.get(
+        request,
+        "refreshToken",
+      );
+
+    if (!refreshToken) {
+      this.cookies.clearAuthenticationCookies(
+        response,
+      );
+
+      throw new UnauthorizedException(
+        "Authentication session expired.",
+      );
+    }
+
+    // =====================================================
+    // Load principal
+    //
+    // AuthenticationService.refresh() requires the
+    // authenticated user's identity and client ID.
+    // =====================================================
+
+    const principal =
+      await this.principals.load(
+        session.userId,
+        session.id,
+      );
+
+    // =====================================================
+    // Refresh SAME session + rotate refresh token
+    // =====================================================
+
+    try {
+      const refreshed =
+        await this.authentication.refresh(
+          refreshToken,
+          session.id,
+          principal.userId,
+          principal.clientId,
+          request.ip!,
+          request.get("user-agent") ?? "",
+        );
+
+      // ===================================================
+      // Send rotated refresh token to browser
+      // ===================================================
+
+      this.cookies.setRefreshTokenCookie(
+        response,
+        refreshed.refreshToken,
+        refreshed.refreshTokenExpiresAt,
+      );
+
+      // ===================================================
+      // Authenticate original request
+      // ===================================================
+
+      request.user =
+        principal;
+
+      request.auth = {
+        method:
+          AuthenticationMethod.SESSION,
+
+        ipAddress:
+          request.ip!,
+
+        userAgent:
+          request.get("user-agent") ?? "",
+      };
+
+      return true;
+    } catch {
+      // AuthenticationService.refresh() already records
+      // the failure. The guard converts it into an
+      // authentication failure and removes stale cookies.
+
+      this.cookies.clearAuthenticationCookies(
+        response,
+      );
+
+      throw new UnauthorizedException(
+        "Authentication session expired.",
+      );
+    }
+  }
+
+  private async completeSessionAuthentication(
+    request: AuthenticatedRequest,
+    sessionId: string,
+    userId: string,
+  ): Promise<boolean> {
     request.user =
       await this.principals.load(
-        validation.session.userId,
-        validation.session.id,
+        userId,
+        sessionId,
       );
 
     request.auth = {

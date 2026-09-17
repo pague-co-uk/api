@@ -118,6 +118,30 @@ export class SessionRepository extends DatabaseRepository {
     );
   }
 
+  refresh(
+    id: string,
+    lastActivityAt: Date,
+    expiresAt: Date,
+  ) {
+    return this.execute(
+      "UPDATE",
+      "portal_sessions",
+      async () => ({
+        result:
+          await this.db.portalSession.update({
+            where: {
+              id,
+            },
+            data: {
+              lastActivityAt,
+              expiresAt,
+            },
+          }),
+        rowsAffected: 1,
+      }),
+    );
+  }
+
   revoke(
     id: string,
     revokedAt: Date,

@@ -10,13 +10,10 @@ import {
   Param,
   Post,
   Query,
-  Req,
-  Res,
-  UnauthorizedException,
+  Res
 } from "@nestjs/common";
 import type {
-  Request,
-  Response,
+  Response
 } from "express";
 
 import { CurrentUser } from "../../../common/authorization/decorators/current-user.decorator.js";
@@ -118,51 +115,6 @@ export class AuthenticationController {
     );
     this.authenticationCookieService.setAuthenticationCookies(response, result);
     return { sessionId: result.sessionId };
-  }
-
-  @Post("refresh")
-  @HttpCode(HttpStatus.OK)
-  async refresh(
-    @CurrentUser()
-    user: AuthenticatedUser,
-
-    @Req()
-    request: Request,
-
-    @Res({ passthrough: true })
-    response: Response,
-
-    @ClientIp()
-    ipAddress: string,
-
-    @UserAgent()
-    userAgent: string,
-  ): Promise<void> {
-    const refreshToken = this.authenticationCookieService.get(
-      request,
-      "refreshToken",
-    );
-
-    if (!refreshToken) {
-      throw new UnauthorizedException(
-        "Refresh token is required.",
-      );
-    }
-
-    const result =
-      await this.authentication.refresh(
-        refreshToken,
-        user.userId,
-        user.clientId,
-        ipAddress,
-        userAgent,
-      );
-
-    this.authenticationCookieService.setRefreshTokenCookie(
-      response,
-      result.refreshToken,
-      result.refreshTokenExpiresAt,
-    );
   }
 
   @Post("logout")

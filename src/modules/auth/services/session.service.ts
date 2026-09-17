@@ -27,6 +27,7 @@ type SessionValidationResult =
   | {
     valid: false;
     reason: SessionValidationFailureReason;
+    session?: PortalSession;
   };
 
 @Injectable()
@@ -44,6 +45,12 @@ export class SessionService {
     name: 'auth.sessions.created',
     description: 'Number of authenticated sessions created.',
   });
+
+  private readonly sessionsRefreshedCounter =
+    createCounterMetric({
+      name: 'auth.sessions.refreshed',
+      description: 'Number of authenticated sessions refreshed.',
+    });
 
   private readonly sessionsValidatedCounter = createCounterMetric({
     name: 'auth.sessions.validated',
@@ -191,6 +198,7 @@ export class SessionService {
 
       const invalid = (
         reason: SessionValidationFailureReason,
+        session?: PortalSession,
       ): SessionValidationResult => {
         span.setAttribute('auth.validation.reason', reason);
 
@@ -212,6 +220,7 @@ export class SessionService {
         return {
           valid: false,
           reason,
+          ...(session ? { session } : {}),
         };
       };
 
@@ -241,9 +250,21 @@ export class SessionService {
         }
 
         const now = this.clock.now();
+        this.logger.debug(
+          {
+            sessionExpiresAt: session.expiresAt.toISOString(),
+            now: now.toISOString(),
+            sessionExpiresAtMs: session.expiresAt.getTime(),
+            nowMs: now.getTime(),
+          },
+          'Checking session absolute expiry.',
+        );
 
         if (session.expiresAt <= now) {
-          return invalid(SessionValidationFailureReason.EXPIRED);
+          return invalid(
+            SessionValidationFailureReason.EXPIRED,
+            session,
+          );
         }
 
         const idleExpiry = new Date(session.lastActivityAt.getTime());
@@ -254,7 +275,10 @@ export class SessionService {
         );
 
         if (idleExpiry <= now) {
-          return invalid(SessionValidationFailureReason.IDLE_TIMEOUT);
+          return invalid(
+            SessionValidationFailureReason.IDLE_TIMEOUT,
+            session,
+          );
         }
 
         // =====================================================
@@ -364,7 +388,7 @@ export class SessionService {
           'auth.session.id': session.id,
         });
 
-        this.sessionsTouchedCounter.add(1);
+        this.sessionsRefreshedCounter.add(1);
 
         this.logger.debug(
           {
@@ -387,6 +411,117 @@ export class SessionService {
         throw error;
       }
     });
+  }
+
+  /**
+ * Refreshes an expired or idle session.
+ *
+ * Unlike touchSession(), this method is explicitly allowed
+ * to extend the session expiry. Authorization to perform the
+ * refresh is established by the refresh-token authentication
+ * flow.
+ */
+  async refreshSession(
+    sessionId: string,
+  ): Promise<PortalSession> {
+    return withSpan(
+      'SessionService.refreshSession',
+      async (span) => {
+        span.setAttribute(
+          'auth.session.id',
+          sessionId,
+        );
+
+        this.logger.debug(
+          {
+            sessionId,
+          },
+          'Refreshing authenticated session.',
+        );
+
+        try {
+          // =====================================================
+          // Business logic
+          // =====================================================
+
+          const session =
+            await this.repository.findById(sessionId);
+
+          if (!session) {
+            throw new Error(
+              'Authenticated session not found.',
+            );
+          }
+
+          if (session.revokedAt) {
+            throw new Error(
+              'Cannot refresh a revoked session.',
+            );
+          }
+
+          const now = this.clock.now();
+
+          const expiresAt = new Date(now);
+
+          expiresAt.setDate(
+            expiresAt.getDate() +
+            this.config.auth.security.session.absoluteTimeoutDays,
+          );
+
+          const refreshedSession =
+            await this.repository.refresh(
+              session.id,
+              now,
+              expiresAt,
+            );
+
+          // =====================================================
+          // Observability
+          // =====================================================
+
+          span.setAttribute(
+            'auth.user.id',
+            refreshedSession.userId,
+          );
+
+          span.setAttribute(
+            'auth.session.expires_at',
+            expiresAt.toISOString(),
+          );
+
+          span.addEvent('auth.session.refreshed', {
+            'auth.session.id': refreshedSession.id,
+          });
+
+          this.sessionsTouchedCounter.add(1, {
+            reason: 'REFRESH',
+          });
+
+          this.logger.info(
+            {
+              sessionId: refreshedSession.id,
+              userId: refreshedSession.userId,
+              expiresAt,
+            },
+            'Authenticated session refreshed.',
+          );
+
+          return refreshedSession;
+        } catch (error) {
+          recordException(error);
+
+          this.logger.error(
+            {
+              error,
+              sessionId,
+            },
+            'Failed to refresh authenticated session.',
+          );
+
+          throw error;
+        }
+      },
+    );
   }
 
   /**
