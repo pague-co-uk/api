@@ -596,6 +596,19 @@ export class DashboardService {
       }));
   }
 
+  // ==========================================================================
+  // Float summary
+  //
+  // FloatLedgerEntry.credits is a SIGNED value:
+  //
+  // TOPUP      -> positive
+  // DEBIT      -> negative
+  // REFUND     -> positive
+  // ADJUSTMENT -> signed
+  //
+  // Therefore the available balance is the sum of all ledger values.
+  // ==========================================================================
+
   private buildFloatSummary(
     rows: Array<{
       transactionType:
@@ -635,15 +648,29 @@ export class DashboardService {
       }
     }
 
-    return {
-      balance:
-        topUps +
-        refunds +
-        adjustments -
-        debits,
+    /*
+     * credits is already signed in the ledger.
+     *
+     * Do NOT subtract debits here because DEBIT entries are already
+     * stored as negative values.
+     */
+    const balance =
+      topUps +
+      debits +
+      refunds +
+      adjustments;
 
+    return {
+      balance,
+
+      /*
+       * The float represents SMS credits, not monetary currency.
+       *
+       * The frontend should present this as "SMS credits" rather than
+       * formatting it as GBP/USD/etc.
+       */
       currency:
-        "GBP",
+        "SMS_CREDITS",
 
       topUps,
 
@@ -654,6 +681,13 @@ export class DashboardService {
       adjustments,
     };
   }
+
+  // ==========================================================================
+  // Float trend
+  //
+  // Ledger amounts are already signed, so net movement is simply the sum
+  // of the transaction amounts.
+  // ==========================================================================
 
   private buildFloatTrend(
     rows: Array<{
@@ -709,10 +743,13 @@ export class DashboardService {
           break;
 
         case LedgerTransactionType.DEBIT:
+          /*
+           * DEBIT credits are already negative.
+           */
           point.debits +=
             row.credits;
 
-          point.net -=
+          point.net +=
             row.credits;
 
           break;
