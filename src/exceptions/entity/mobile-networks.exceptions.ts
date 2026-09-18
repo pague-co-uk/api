@@ -25,27 +25,3 @@ export class MobileNetworkAlreadyExistsException extends DomainException {
     ]);
   }
 }
-
-export class MobileNetworkPrefixNotFoundException extends DomainException {
-  readonly code = "MOBILE_NETWORK_PREFIX_NOT_FOUND";
-
-  readonly status = HttpStatus.NOT_FOUND;
-
-  constructor(prefixId: string) {
-    super(`Mobile network prefix '${prefixId}' not found.`, [
-      { prefixId },
-    ]);
-  }
-}
-
-export class MobileNetworkPrefixAlreadyExistsException extends DomainException {
-  readonly code = "MOBILE_NETWORK_PREFIX_ALREADY_EXISTS";
-
-  readonly status = HttpStatus.CONFLICT;
-
-  constructor(countryCode: string, prefix: string) {
-    super(`Mobile network prefix '${prefix}' for country '${countryCode}' already exists.`, [
-      { countryCode, prefix },
-    ]);
-  }
-}

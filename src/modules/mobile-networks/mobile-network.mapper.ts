@@ -1,51 +1,72 @@
 import { Injectable } from "@nestjs/common";
 
-import type { MobileNetworkPrefix } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 
-import type { MobileNetworkWithPrefixes } from "../../repositories/MobileNetworkRepository.js";
-import { MobileNetworkPrefixResponseDto, MobileNetworkResponseDto } from "./dto/mobile-network.response.dto.js";
+import type { MobileNetworkResponseDto } from "./dto/mobile-network.response.dto.js";
+
+type MobileNetworkWithCountry =
+  Prisma.MobileNetworkGetPayload<{
+    include: {
+      country: true;
+    };
+  }>;
 
 @Injectable()
 export class MobileNetworkMapper {
-  toResponse(network: MobileNetworkWithPrefixes): MobileNetworkResponseDto {
+
+  toResponse(
+    network: MobileNetworkWithCountry,
+  ): MobileNetworkResponseDto {
+
     return {
+
       id: network.id,
+
       publicId: network.publicId,
+
       name: network.name,
+
       code: network.code,
-      countryCode: network.countryCode,
-      status: network.status,
-      prefixes: network.prefixes.map((prefix) => ({
-        id: prefix.id,
-        mobileNetworkId: prefix.mobileNetworkId,
-        prefix: prefix.prefix,
-        countryCode: prefix.countryCode,
-        enabled: prefix.enabled,
-        createdAt: prefix.createdAt,
-        updatedAt: prefix.updatedAt,
-      })),
-      createdAt: network.createdAt,
-      updatedAt: network.updatedAt,
+
+      countryCode:
+        network.country.code,
+
+      country: {
+
+        code:
+          network.country.code,
+
+        name:
+          network.country.name,
+
+      },
+
+      routingRegex:
+        network.routingRegex,
+
+      status:
+        network.status,
+
+      createdAt:
+        network.createdAt,
+
+      updatedAt:
+        network.updatedAt,
+
     };
+
   }
 
-  toResponses(networks: readonly MobileNetworkWithPrefixes[]): MobileNetworkResponseDto[] {
-    return networks.map((network) => this.toResponse(network));
+  toResponses(
+    networks:
+      readonly MobileNetworkWithCountry[],
+  ): MobileNetworkResponseDto[] {
+
+    return networks.map(
+      (network) =>
+        this.toResponse(network),
+    );
+
   }
 
-  toPrefixResponse(prefix: MobileNetworkPrefix): MobileNetworkPrefixResponseDto {
-    return {
-      id: prefix.id,
-      mobileNetworkId: prefix.mobileNetworkId,
-      prefix: prefix.prefix,
-      countryCode: prefix.countryCode,
-      enabled: prefix.enabled,
-      createdAt: prefix.createdAt,
-      updatedAt: prefix.updatedAt,
-    };
-  }
-
-  toPrefixResponses(prefixes: readonly MobileNetworkPrefix[]): MobileNetworkPrefixResponseDto[] {
-    return prefixes.map((prefix) => this.toPrefixResponse(prefix));
-  }
 }

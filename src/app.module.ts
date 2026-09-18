@@ -14,6 +14,7 @@ import { AuditLogModule } from "./modules/audit/audit-log.module.js";
 import { AuthenticationModule } from "./modules/auth/auth.module.js";
 import { ClientsModule } from "./modules/clients/clients.module.js";
 import { ConnectorsModule } from "./modules/connectors/connectors.module.js";
+import { CountriesModule } from "./modules/countries/countries.module.js";
 import { DashboardModule } from "./modules/dashboard/dashboard.module.js";
 import { FloatLedgerModule } from "./modules/float-ledger/float-ledger.module.js";
 import { HealthModule } from "./modules/health/health.module.js";
@@ -50,7 +51,8 @@ import { WebhooksModule } from "./modules/webhooks/webhooks.module.js";
     SmppAccountsModule,
     AuditLogModule,
     DashboardModule,
-    ReportsModule
+    ReportsModule,
+    CountriesModule
   ],
   providers: [
     {
