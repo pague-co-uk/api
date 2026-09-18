@@ -425,5 +425,13 @@ export const PermissionDefinitions: {
   [Permissions.DASHBOARD_READ]: {
     module: "dashboard",
     description: "can view  dashboard"
+  },
+  [Permissions.REPORTS_READ]: {
+    module: "reports",
+    description: "can read  reports"
+  },
+  [Permissions.REPORTS_EXPORT]: {
+    module: "reports",
+    description: "can exports  reports"
   }
 } as const;

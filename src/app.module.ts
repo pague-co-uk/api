@@ -19,6 +19,7 @@ import { FloatLedgerModule } from "./modules/float-ledger/float-ledger.module.js
 import { HealthModule } from "./modules/health/health.module.js";
 import { MessagesModule } from "./modules/messages/messages.module.js";
 import { MobileNetworksModule } from "./modules/mobile-networks/mobile-networks.module.js";
+import { ReportsModule } from "./modules/reports/reports.module.js";
 import { RolesModule } from "./modules/roles/roles.module.js";
 import { RoutesModule } from "./modules/routes/routes.module.js";
 import { SenderIdsModule } from "./modules/sender-ids/sender-ids.module.js";
@@ -48,7 +49,8 @@ import { WebhooksModule } from "./modules/webhooks/webhooks.module.js";
     WebhooksModule,
     SmppAccountsModule,
     AuditLogModule,
-    DashboardModule
+    DashboardModule,
+    ReportsModule
   ],
   providers: [
     {

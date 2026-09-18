@@ -146,7 +146,9 @@ export const Permissions = {
 
   PLATFORM_SUPER_ADMIN: "PLATFORM_SUPER_ADMIN",
   CHECK_HEALTH: "CHECK_HEALTH",
-  DASHBOARD_READ: "dashboard.read"
+  DASHBOARD_READ: "dashboard.read",
+  REPORTS_READ: "reports.read",
+  REPORTS_EXPORT: "reports.export"
 } as const;
 
 export type PermissionName =
