@@ -34,6 +34,7 @@ import {
 
 import type { SenderIdQueryOptions } from "../../../repositories/options/sender-id.options.js";
 
+import { AppConfigService } from "../../../config/config.service.js";
 import { CreateSenderIdDto } from "../dto/create-sender-id.dto.js";
 import { UpdateSenderIdDto } from "../dto/update-sender-id.dto.js";
 
@@ -46,6 +47,7 @@ export class SenderIdService {
     private readonly senderIds: SenderIdRepository,
     private readonly clients: ClientRepository,
     private readonly audit: AuditService,
+    private readonly configs: AppConfigService
   ) { }
 
   private readonly senderIdsCreatedCounter =
@@ -158,6 +160,7 @@ export class SenderIdService {
           const senderIds =
             await this.senderIds.findByNamesForClient(
               clientId,
+              this.configs.app.platformClient,
               names,
             );
 
