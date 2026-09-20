@@ -405,14 +405,6 @@ export class AppConfigService {
 
   private buildAuthenticationConfig(): AuthenticationConfig {
     return {
-      jwtSecret: this.get(
-        "auth.jwtSecret",
-      ),
-
-      accessTokenTtl: this.get(
-        "auth.accessTokenTtl",
-      ),
-
       refreshTokenTtl: this.get(
         "auth.refreshTokenTtl",
       ),
