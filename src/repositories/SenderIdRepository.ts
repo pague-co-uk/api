@@ -362,17 +362,23 @@ export class SenderIdRepository
   // =========================================================================
 
   /**
-   * Resolves human-readable Sender ID names for a client.
+   * Resolves human-readable Sender ID names that are available to a client.
+   *
+   * A Sender ID is available when it belongs either to the requesting client
+   * or to the configured platform client. Platform-owned Sender IDs can
+   * therefore be used by all clients.
    *
    * The spreadsheet contains Sender ID names, not internal Sender ID UUIDs.
    *
-   * The clientId is always part of the lookup so a Sender ID belonging to
-   * another client can never be resolved for this client.
-   *
    * All requested names are resolved in a single database query.
+   *
+   * If the same Sender ID name exists for both the requesting client and the
+   * platform client, the returned records are allowed to contain both entries.
+   * The caller may retain the last matching record when resolving names.
    */
   findByNamesForClient(
     clientId: string,
+    platformClientId: string,
     names: readonly string[],
   ): Promise<readonly SenderId[]> {
     return this.execute(
@@ -389,10 +395,15 @@ export class SenderIdRepository
         const senderIds =
           await this.db.senderId.findMany({
             where: {
-              clientId,
-
               sender: {
                 in: [...names],
+              },
+
+              clientId: {
+                in: [
+                  clientId,
+                  platformClientId,
+                ],
               },
             },
           });

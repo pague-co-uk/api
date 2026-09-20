@@ -27,6 +27,7 @@ import { MessageRepository } from "../../../repositories/messageRepository.js";
 import { MessageStatusEventRepository } from "../../../repositories/messageStatusEventRepository.js";
 import { OutboxEventRepository } from "../../../repositories/OutboxRepository.js";
 
+import { AppConfigService } from "src/config/config.service.js";
 import { SenderIdRepository } from "../../../repositories/SenderIdRepository.js";
 import type { CreateMessageDto } from "../dto/create-message.dto.js";
 import { MessageWithRelations } from "../message.mapper.js";
@@ -189,6 +190,8 @@ export class MessageService {
 
     private readonly senderIds:
       SenderIdRepository,
+    private readonly configs:
+      AppConfigService
   ) { }
 
   // =========================================================================
@@ -283,6 +286,7 @@ export class MessageService {
                   const availableSenderIds =
                     await senderIds.findByNamesForClient(
                       clientId,
+                      this.configs.app.platformClient,
                       senderNames,
                     );
 
