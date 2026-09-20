@@ -261,18 +261,6 @@ export default () => ({
   },
 
   // ==========================================================================
-  // Health
-  // ==========================================================================
-
-  health: {
-    timeout: Number.parseInt(
-      process.env.HEALTH_CHECK_TIMEOUT ??
-      "5000",
-      10,
-    ),
-  },
-
-  // ==========================================================================
   // Application health targets
   //
   // These are the health endpoints of the independently deployed
@@ -339,30 +327,6 @@ export default () => ({
   },
 
   // ==========================================================================
-  // SMS
-  // ==========================================================================
-
-  sms: {
-    defaultSenderId:
-      process.env.DEFAULT_SENDER_ID ??
-      "PAGUE",
-
-    maxSmsLength:
-      Number.parseInt(
-        process.env.MAX_SMS_LENGTH ??
-        "160",
-        10,
-      ),
-
-    maxBulkRecipients:
-      Number.parseInt(
-        process.env.MAX_BULK_RECIPIENTS ??
-        "1000",
-        10,
-      ),
-  },
-
-  // ==========================================================================
   // Email
   // ==========================================================================
 
@@ -395,26 +359,6 @@ export default () => ({
     fromName:
       process.env.SMTP_FROM_NAME ??
       "Pague",
-  },
-
-  // ==========================================================================
-  // Rate limiting
-  // ==========================================================================
-
-  rateLimit: {
-    ttl:
-      Number.parseInt(
-        process.env.RATE_LIMIT_TTL ??
-        "60",
-        10,
-      ),
-
-    limit:
-      Number.parseInt(
-        process.env.RATE_LIMIT_LIMIT ??
-        "100",
-        10,
-      ),
   },
 
   // ==========================================================================
