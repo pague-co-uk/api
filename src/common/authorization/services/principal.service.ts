@@ -50,7 +50,7 @@ export class PrincipalService {
           id: role.id,
           name: role.name,
           description: role.description,
-
+          priority: role.priority,
           permissions: role.permissions.map(
             ({ permission }) => ({
               id: permission.id,

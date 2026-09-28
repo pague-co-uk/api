@@ -9,6 +9,7 @@ import {
 
 import { Prisma, Role } from "@prisma/client";
 
+import { AuthenticatedUser } from "src/common/authorization/interfaces/authenticated-user.interface.js";
 import { AuditService } from "../../../audit/index.js";
 import type { Page } from "../../../common/query/page.interface.js";
 import { PermissionsNotFoundException } from "../../../exceptions/entity/permissions.exceptions.js";
@@ -33,9 +34,6 @@ interface ActingRole {
   readonly priority: number;
 }
 
-interface ActingUser {
-  readonly roles: readonly ActingRole[];
-}
 
 @Injectable()
 export class RoleService {
@@ -80,7 +78,7 @@ export class RoleService {
 
   async findById(
     id: string,
-    actor: ActingUser,
+    actor: AuthenticatedUser,
   ): Promise<RoleWithPermissions> {
     return withSpan(
       "RoleService.findById",
@@ -134,8 +132,8 @@ export class RoleService {
 
   async findMany(
     query: RoleQueryOptions,
-    actor: ActingUser,
-  ): Promise<Page<Role>> {
+    actor: AuthenticatedUser,
+  ): Promise<Page<RoleWithPermissions>> {
     return withSpan(
       "RoleService.findMany",
       async (span) => {
@@ -199,6 +197,7 @@ export class RoleService {
 
   async create(
     dto: CreateRoleDto,
+    actor: AuthenticatedUser,
   ): Promise<RoleWithPermissions> {
     return withSpan(
       "RoleService.create",
@@ -206,11 +205,21 @@ export class RoleService {
         this.logger.info(
           {
             name: dto.name,
+            priority: dto.priority,
           },
           "Creating role.",
         );
 
         try {
+          const actorPriority =
+            this.getActorRolePriority(actor);
+
+          if (dto.priority > actorPriority) {
+            throw new Error(
+              "You are not authorized to create a role with a higher priority than your own.",
+            );
+          }
+
           await this.ensureNameAvailable(
             dto.name,
           );
@@ -220,7 +229,7 @@ export class RoleService {
               name: dto.name,
               description:
                 dto.description ?? null,
-              priority: dto.priority
+              priority: dto.priority,
             });
 
           this.rolesCreatedCounter.add(1);
@@ -231,6 +240,7 @@ export class RoleService {
             resourceId: role.id,
             metadata: {
               name: role.name,
+              priority: role.priority,
             },
           });
 
@@ -239,24 +249,23 @@ export class RoleService {
             role.id,
           );
 
+          span.setAttribute(
+            "role.priority",
+            role.priority,
+          );
+
           this.logger.info(
             {
               roleId: role.id,
               name: role.name,
+              priority: role.priority,
             },
             "Role created successfully.",
           );
 
           return this.findById(
             role.id,
-            {
-              roles: [
-                {
-                  name: PLATFORM_SUPER_ADMIN,
-                  priority: Number.MAX_SAFE_INTEGER,
-                },
-              ],
-            },
+            actor,
           );
         } catch (error) {
           recordException(error);
@@ -265,6 +274,7 @@ export class RoleService {
             {
               err: error,
               name: dto.name,
+              priority: dto.priority,
             },
             "Failed to create role.",
           );
@@ -278,7 +288,7 @@ export class RoleService {
   async update(
     id: string,
     dto: UpdateRoleDto,
-    actor: ActingUser,
+    actor: AuthenticatedUser,
   ): Promise<RoleWithPermissions> {
     return withSpan(
       "RoleService.update",
@@ -375,7 +385,7 @@ export class RoleService {
 
   async delete(
     id: string,
-    actor: ActingUser,
+    actor: AuthenticatedUser,
   ): Promise<void> {
     return withSpan(
       "RoleService.delete",
@@ -460,7 +470,7 @@ export class RoleService {
   async updatePermissions(
     roleId: string,
     permissionIds: readonly string[],
-    actor: ActingUser,
+    actor: AuthenticatedUser,
   ): Promise<RoleWithPermissions> {
     return withSpan(
       "RoleService.updatePermissions",
@@ -598,7 +608,7 @@ export class RoleService {
   // -------------------------------------------------------------------------
 
   private getActorRolePriority(
-    actor: ActingUser,
+    actor: AuthenticatedUser,
   ): number {
     if (actor.roles.length === 0) {
       return -1;
@@ -612,7 +622,7 @@ export class RoleService {
   }
 
   private isPlatformSuperAdmin(
-    actor: ActingUser,
+    actor: AuthenticatedUser,
   ): boolean {
     return actor.roles.some(
       (role) =>
@@ -622,7 +632,7 @@ export class RoleService {
   }
 
   private assertPlatformSuperAdmin(
-    actor: ActingUser,
+    actor: AuthenticatedUser,
   ): void {
     if (!this.isPlatformSuperAdmin(actor)) {
       throw new Error(
@@ -633,7 +643,7 @@ export class RoleService {
 
   private assertRoleVisibleToActor(
     role: Role,
-    actor: ActingUser,
+    actor: AuthenticatedUser,
   ): void {
     const actorPriority =
       this.getActorRolePriority(actor);

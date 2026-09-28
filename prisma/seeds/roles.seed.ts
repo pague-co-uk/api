@@ -20,6 +20,7 @@ export async function seed(prisma: PrismaClient) {
       create: {
         name: r.name,
         description: r.description ?? null,
+        priority: 0,
         createdAt: now,
       },
     })

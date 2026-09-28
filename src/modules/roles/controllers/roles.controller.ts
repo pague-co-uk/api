@@ -22,11 +22,13 @@ import {
 } from "@nestjs/swagger";
 
 import { Authorize } from "../../../common/authorization/decorators/authorize.decorator.js";
+import { CurrentUser } from "../../../common/authorization/decorators/current-user.decorator.js";
+import type { AuthenticatedUser } from "../../../common/authorization/interfaces/authenticated-user.interface.js";
+import { Permissions } from "../../../common/authorization/permissions/permissions.registry.js";
 import { PaginatedResponse } from "../../../common/interfaces/paginated.response.js";
 import { ApiPaginatedResponse } from "../../../decorators/api-paginated-response.decorator.js";
 import { ApiSuccessResponse } from "../../../decorators/api-success-response.decorator.js";
 
-import { Permissions } from "../../../common/authorization/permissions/permissions.registry.js";
 import { CreateRoleDto } from "../dto/create-role.dto.js";
 import { FindRolesDto } from "../dto/find-roles.dto.js";
 import { RoleResponseDto } from "../dto/role.response.dto.js";
@@ -52,17 +54,26 @@ export class RolesController {
     RoleResponseDto,
   )
   async findMany(
-    @Query() dto: FindRolesDto,
+    @Query()
+    dto: FindRolesDto,
+
+    @CurrentUser()
+    user: AuthenticatedUser,
   ): Promise<PaginatedResponse<RoleResponseDto>> {
     const page =
-      await this.roles.findMany({
-        page: dto.page,
-        pageSize: dto.pageSize,
-        search: dto.search,
-      });
+      await this.roles.findMany(
+        {
+          page: dto.page,
+          pageSize: dto.pageSize,
+          search: dto.search,
+        },
+        user,
+      );
 
     return new PaginatedResponse(
-      this.mapper.toResponses(page.items),
+      this.mapper.toResponses(
+        page.items,
+      ),
       page,
     );
   }
@@ -83,11 +94,20 @@ export class RolesController {
     description: "Role not found.",
   })
   async findById(
-    @Param("id", ParseUUIDPipe)
+    @Param(
+      "id",
+      ParseUUIDPipe,
+    )
     id: string,
+
+    @CurrentUser()
+    user: AuthenticatedUser,
   ): Promise<RoleResponseDto> {
     return this.mapper.toResponse(
-      await this.roles.findById(id),
+      await this.roles.findById(
+        id,
+        user,
+      ),
     );
   }
 
@@ -103,10 +123,17 @@ export class RolesController {
     RoleResponseDto,
   )
   async create(
-    @Body() dto: CreateRoleDto,
+    @Body()
+    dto: CreateRoleDto,
+
+    @CurrentUser()
+    user: AuthenticatedUser,
   ): Promise<RoleResponseDto> {
     return this.mapper.toResponse(
-      await this.roles.create(dto),
+      await this.roles.create(
+        dto,
+        user,
+      ),
     );
   }
 
@@ -129,14 +156,24 @@ export class RolesController {
     description: "Role not found.",
   })
   async update(
-    @Param("id", ParseUUIDPipe)
+    @Param(
+      "id",
+      ParseUUIDPipe,
+    )
     id: string,
 
     @Body()
     dto: UpdateRoleDto,
+
+    @CurrentUser()
+    user: AuthenticatedUser,
   ): Promise<RoleResponseDto> {
     return this.mapper.toResponse(
-      await this.roles.update(id, dto),
+      await this.roles.update(
+        id,
+        dto,
+        user,
+      ),
     );
   }
 
@@ -157,10 +194,19 @@ export class RolesController {
     description: "Role not found.",
   })
   async delete(
-    @Param("id", ParseUUIDPipe)
+    @Param(
+      "id",
+      ParseUUIDPipe,
+    )
     id: string,
+
+    @CurrentUser()
+    user: AuthenticatedUser,
   ): Promise<void> {
-    await this.roles.delete(id);
+    await this.roles.delete(
+      id,
+      user,
+    );
   }
 
   @Put(":id/permissions")
@@ -183,16 +229,23 @@ export class RolesController {
       "Role or permission not found.",
   })
   async updatePermissions(
-    @Param("id", ParseUUIDPipe)
+    @Param(
+      "id",
+      ParseUUIDPipe,
+    )
     id: string,
 
     @Body()
     dto: UpdateRolePermissionsDto,
+
+    @CurrentUser()
+    user: AuthenticatedUser,
   ): Promise<RoleResponseDto> {
     return this.mapper.toResponse(
       await this.roles.updatePermissions(
         id,
         dto.permissionIds,
+        user,
       ),
     );
   }
