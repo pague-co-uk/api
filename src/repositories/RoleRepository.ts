@@ -249,7 +249,7 @@ export class RoleRepository
   count(
     query: Pick<
       RoleQueryOptions,
-      "search"
+      "search" | "maxPriority"
     > = {},
   ): Promise<number> {
     return this.execute(
@@ -313,7 +313,7 @@ export class RoleRepository
   private buildWhereClause(
     query: Pick<
       RoleQueryOptions,
-      "search"
+      "search" | "maxPriority"
     >,
   ): Prisma.RoleWhereInput {
     const where: Prisma.RoleWhereInput = {};
@@ -331,6 +331,12 @@ export class RoleRepository
           },
         },
       ];
+    }
+
+    if (query.maxPriority !== undefined) {
+      where.priority = {
+        lte: query.maxPriority,
+      };
     }
 
     return where;

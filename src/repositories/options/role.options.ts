@@ -1,5 +1,6 @@
 export interface RoleQueryOptions {
-  readonly page: number;
-  readonly pageSize: number;
-  readonly search?: string;
+  page: number;
+  pageSize: number;
+  search?: string;
+  maxPriority?: number;
 }

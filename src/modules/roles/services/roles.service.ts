@@ -1,22 +1,41 @@
 import { Injectable } from "@nestjs/common";
+
 import {
   createCounterMetric,
   getComponentLogger,
   recordException,
   withSpan,
 } from "@pague-co-uk/sms-gateway-telemetry";
-import { Prisma } from "@prisma/client";
+
+import { Prisma, Role } from "@prisma/client";
 
 import { AuditService } from "../../../audit/index.js";
 import type { Page } from "../../../common/query/page.interface.js";
 import { PermissionsNotFoundException } from "../../../exceptions/entity/permissions.exceptions.js";
-import { RoleAlreadyExistsException, RoleNotFoundException } from "../../../exceptions/entity/roles.exception.js";
+import {
+  RoleAlreadyExistsException,
+  RoleNotFoundException,
+} from "../../../exceptions/entity/roles.exception.js";
 import { PermissionRepository } from "../../../repositories/PermissionRepository.js";
 import { RolePermissionRepository } from "../../../repositories/RolePermissionRepository.js";
-import { RoleRepository, RoleWithPermissions } from "../../../repositories/RoleRepository.js";
+import {
+  RoleRepository,
+  RoleWithPermissions,
+} from "../../../repositories/RoleRepository.js";
 import type { RoleQueryOptions } from "../../../repositories/options/role.options.js";
 import { CreateRoleDto } from "../dto/create-role.dto.js";
 import { UpdateRoleDto } from "../dto/update-role.dto.js";
+
+const PLATFORM_SUPER_ADMIN = "PLATFORM_SUPER_ADMIN";
+
+interface ActingRole {
+  readonly name: string;
+  readonly priority: number;
+}
+
+interface ActingUser {
+  readonly roles: readonly ActingRole[];
+}
 
 @Injectable()
 export class RoleService {
@@ -61,6 +80,7 @@ export class RoleService {
 
   async findById(
     id: string,
+    actor: ActingUser,
   ): Promise<RoleWithPermissions> {
     return withSpan(
       "RoleService.findById",
@@ -68,7 +88,9 @@ export class RoleService {
         span.setAttribute("role.id", id);
 
         this.logger.debug(
-          { roleId: id },
+          {
+            roleId: id,
+          },
           "Retrieving role.",
         );
 
@@ -80,8 +102,15 @@ export class RoleService {
             throw new RoleNotFoundException(id);
           }
 
+          this.assertRoleVisibleToActor(
+            role,
+            actor,
+          );
+
           this.logger.debug(
-            { roleId: role.id },
+            {
+              roleId: role.id,
+            },
             "Role retrieved successfully.",
           );
 
@@ -105,18 +134,27 @@ export class RoleService {
 
   async findMany(
     query: RoleQueryOptions,
-  ): Promise<Page<RoleWithPermissions>> {
+    actor: ActingUser,
+  ): Promise<Page<Role>> {
     return withSpan(
       "RoleService.findMany",
       async (span) => {
         this.logger.debug(
-          { query },
+          {
+            query,
+          },
           "Retrieving roles.",
         );
 
         try {
+          const maximumPriority =
+            this.getActorRolePriority(actor);
+
           const page =
-            await this.roles.findMany(query);
+            await this.roles.findMany({
+              ...query,
+              maxPriority: maximumPriority,
+            });
 
           span.setAttribute(
             "roles.count",
@@ -132,6 +170,7 @@ export class RoleService {
             {
               count: page.items.length,
               total: page.totalItems,
+              maxPriority: maximumPriority,
             },
             "Roles retrieved successfully.",
           );
@@ -181,6 +220,7 @@ export class RoleService {
               name: dto.name,
               description:
                 dto.description ?? null,
+              priority: dto.priority
             });
 
           this.rolesCreatedCounter.add(1);
@@ -207,7 +247,17 @@ export class RoleService {
             "Role created successfully.",
           );
 
-          return this.findById(role.id);
+          return this.findById(
+            role.id,
+            {
+              roles: [
+                {
+                  name: PLATFORM_SUPER_ADMIN,
+                  priority: Number.MAX_SAFE_INTEGER,
+                },
+              ],
+            },
+          );
         } catch (error) {
           recordException(error);
 
@@ -228,6 +278,7 @@ export class RoleService {
   async update(
     id: string,
     dto: UpdateRoleDto,
+    actor: ActingUser,
   ): Promise<RoleWithPermissions> {
     return withSpan(
       "RoleService.update",
@@ -247,6 +298,11 @@ export class RoleService {
         try {
           const existing =
             await this.findEntityOrThrow(id);
+
+          this.assertRoleVisibleToActor(
+            existing,
+            actor,
+          );
 
           if (
             dto.name !== undefined &&
@@ -296,7 +352,10 @@ export class RoleService {
             "Role updated successfully.",
           );
 
-          return this.findById(id);
+          return this.findById(
+            id,
+            actor,
+          );
         } catch (error) {
           recordException(error);
 
@@ -316,6 +375,7 @@ export class RoleService {
 
   async delete(
     id: string,
+    actor: ActingUser,
   ): Promise<void> {
     return withSpan(
       "RoleService.delete",
@@ -335,6 +395,11 @@ export class RoleService {
         try {
           const role =
             await this.findEntityOrThrow(id);
+
+          this.assertRoleVisibleToActor(
+            role,
+            actor,
+          );
 
           await this.roles.withTransaction(
             async (tx) => {
@@ -395,6 +460,7 @@ export class RoleService {
   async updatePermissions(
     roleId: string,
     permissionIds: readonly string[],
+    actor: ActingUser,
   ): Promise<RoleWithPermissions> {
     return withSpan(
       "RoleService.updatePermissions",
@@ -414,6 +480,10 @@ export class RoleService {
         );
 
         try {
+          this.assertPlatformSuperAdmin(
+            actor,
+          );
+
           await this.findEntityOrThrow(
             roleId,
           );
@@ -502,7 +572,10 @@ export class RoleService {
             "Role permissions updated successfully.",
           );
 
-          return this.findById(roleId);
+          return this.findById(
+            roleId,
+            actor,
+          );
         } catch (error) {
           recordException(error);
 
@@ -518,6 +591,58 @@ export class RoleService {
         }
       },
     );
+  }
+
+  // -------------------------------------------------------------------------
+  // Authorization
+  // -------------------------------------------------------------------------
+
+  private getActorRolePriority(
+    actor: ActingUser,
+  ): number {
+    if (actor.roles.length === 0) {
+      return -1;
+    }
+
+    return Math.max(
+      ...actor.roles.map(
+        (role) => role.priority,
+      ),
+    );
+  }
+
+  private isPlatformSuperAdmin(
+    actor: ActingUser,
+  ): boolean {
+    return actor.roles.some(
+      (role) =>
+        role.name ===
+        PLATFORM_SUPER_ADMIN,
+    );
+  }
+
+  private assertPlatformSuperAdmin(
+    actor: ActingUser,
+  ): void {
+    if (!this.isPlatformSuperAdmin(actor)) {
+      throw new Error(
+        "Only PLATFORM_SUPER_ADMIN may modify role permissions.",
+      );
+    }
+  }
+
+  private assertRoleVisibleToActor(
+    role: Role,
+    actor: ActingUser,
+  ): void {
+    const actorPriority =
+      this.getActorRolePriority(actor);
+
+    if (role.priority > actorPriority) {
+      throw new Error(
+        "You are not authorized to access this role.",
+      );
+    }
   }
 
   // -------------------------------------------------------------------------
