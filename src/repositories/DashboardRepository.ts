@@ -313,48 +313,62 @@ export class DashboardRepository extends DatabaseRepository {
             a.connectorId,
             r.publicId,
             c.name AS connectorName,
+
             COUNT(*) AS attempts,
+
             SUM(
               CASE
-                WHEN a.status = 'SUBMITTED' THEN 1
+                WHEN a.status = 'SUBMITTED'
+                THEN 1
                 ELSE 0
               END
             ) AS submitted,
+
             SUM(
               CASE
-                WHEN deliveredAttempts.attemptId IS NOT NULL THEN 1
+                WHEN EXISTS (
+                  SELECT 1
+                  FROM message_status_events mse
+                  WHERE mse.attemptId = a.id
+                    AND mse.status = 'DELIVERED'
+                )
+                THEN 1
                 ELSE 0
               END
             ) AS delivered,
+
             SUM(
               CASE
-                WHEN a.status = 'FAILED' THEN 1
+                WHEN a.status = 'FAILED'
+                THEN 1
                 ELSE 0
               END
             ) AS failed
+
           FROM message_route_attempts a
+
           INNER JOIN messages m
             ON m.id = a.messageId
+
           INNER JOIN routes r
             ON r.id = a.routeId
+
           INNER JOIN connectors c
             ON c.id = a.connectorId
-          LEFT JOIN (
-            SELECT DISTINCT attemptId
-            FROM message_status_events
-            WHERE status = 'DELIVERED'
-              AND attemptId IS NOT NULL
-          ) deliveredAttempts
-            ON deliveredAttempts.attemptId = a.id
+
           WHERE a.createdAt >= ${period.start}
             AND a.createdAt <= ${period.end}
+
             ${clientFilter}
+
           GROUP BY
             a.routeId,
             a.connectorId,
             r.publicId,
             c.name
-          ORDER BY attempts DESC
+
+          ORDER BY
+            attempts DESC
         `);
 
         const result =
