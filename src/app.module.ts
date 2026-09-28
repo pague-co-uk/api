@@ -6,6 +6,7 @@ import { AuditModule } from "./audit/audit.module.js";
 import { AuthorizationModule } from "./common/authorization/authorization.module.js";
 import { AuthenticationGuard } from "./common/authorization/guards/authentication.guard.js";
 import { AuthorizationGuard } from "./common/authorization/guards/authorization.guard.js";
+import { BigIntSerializationInterceptor } from "./common/interceptors/bigint.interceptor.js";
 import { ResponseInterceptor } from "./common/interceptors/response.interceptor.js";
 import { ConfigModule } from "./config/config.module.js";
 import { DatabaseModule } from "./database/index.js";
@@ -74,6 +75,10 @@ import { WebhooksModule } from "./modules/webhooks/webhooks.module.js";
     {
       provide: APP_INTERCEPTOR,
       useClass: ResponseInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: BigIntSerializationInterceptor,
     },
   ]
 })
