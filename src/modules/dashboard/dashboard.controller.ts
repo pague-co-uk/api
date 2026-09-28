@@ -13,6 +13,13 @@ import {
   Authorize,
 } from "../../common/authorization/decorators/authorize.decorator.js";
 
+import {
+  CurrentUser,
+} from "../../common/authorization/decorators/current-user.decorator.js";
+
+import type {
+  AuthenticatedUser,
+} from "../../common/authorization/interfaces/authenticated-user.interface.js";
 
 import {
   Permissions,
@@ -22,15 +29,18 @@ import {
   ApiSuccessResponse,
 } from "../../decorators/api-success-response.decorator.js";
 
+import {
+  DashboardMapper,
+} from "./dashboard.mapper.js";
+
+import {
+  DashboardService,
+} from "./dashboard.service.js";
 
 import {
   DashboardQueryDto,
 } from "./dto/dashboard-query.dto.js";
 
-import { CurrentUser } from "../../common/authorization/decorators/current-user.decorator.js";
-import type { AuthenticatedUser } from "../../common/authorization/interfaces/authenticated-user.interface.js";
-import { DashboardMapper } from "./dashboard.mapper.js";
-import { DashboardService } from "./dashboard.service.js";
 import type {
   DashboardData,
 } from "./types/dashboard.types.js";
@@ -66,7 +76,7 @@ export class DashboardController {
   ): Promise<DashboardData> {
     const dashboard =
       await this.dashboard.getDashboard(
-        [user.clientId],
+        user,
         {
           period:
             dto.period ?? "30d",

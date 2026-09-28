@@ -3,6 +3,17 @@ import type {
   MessageStatus,
 } from "@prisma/client";
 
+export type DashboardScope =
+  | "PLATFORM"
+  | "CLIENT";
+
+export interface DashboardViewer {
+  userId: string;
+  scope: DashboardScope;
+  clientId: string | null;
+  clientName: string | null;
+}
+
 export interface DashboardPeriod {
   start: Date;
   end: Date;
@@ -36,16 +47,25 @@ export interface DashboardStatusBreakdown {
 
 export interface DashboardRoutePerformance {
   publicId: string;
-
   connectorName: string;
-
   attempts: number;
-
   submitted: number;
-
+  delivered: number;
   failed: number;
-
   submissionRate: number;
+  deliveryRate: number;
+}
+
+export interface DashboardKpiSummary {
+  readonly totalMessages: number;
+  readonly delivered: number;
+  readonly failed: number;
+  readonly deliveryRate: number;
+  readonly fifthMetric: {
+    readonly label: string;
+    readonly value: number;
+    readonly formattedValue: string;
+  };
 }
 
 export interface DashboardFloatSummary {
@@ -67,6 +87,8 @@ export interface DashboardFloatTrendPoint {
 }
 
 export interface DashboardOperationalSummary {
+  scope: DashboardScope;
+
   clients: {
     active: number;
     suspended: number;
@@ -116,17 +138,25 @@ export interface DashboardActivityItem {
 }
 
 export interface DashboardData {
+  viewer: DashboardViewer;
+
   period: {
     start: string;
     end: string;
     days: number;
   };
 
+  readonly kpis: DashboardKpiSummary;
+
   messages: DashboardMessageSummary;
 
   messageTrend: DashboardTrendPoint[];
 
+  hourlyVolume: DashboardHourlyVolume[];
+
   statusBreakdown: DashboardStatusBreakdown[];
+
+  statusCodeBreakdown: DashboardStatusCodeBreakdown[];
 
   routePerformance: DashboardRoutePerformance[];
 
@@ -139,4 +169,17 @@ export interface DashboardData {
   clients: DashboardClientSummary[];
 
   recentActivity: DashboardActivityItem[];
+}
+
+export interface DashboardHourlyVolume {
+  day: number;
+  hour: number;
+  count: number;
+}
+
+export interface DashboardStatusCodeBreakdown {
+  code: string;
+  label: string;
+  count: number;
+  percentage: number;
 }

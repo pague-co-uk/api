@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+
 import {
   Prisma,
   PrismaClient,
@@ -40,7 +41,7 @@ export class DashboardRepository extends DatabaseRepository {
       "messages",
       async () => {
         const where: Prisma.MessageWhereInput = {
-          submittedAt: {
+          createdAt: {
             gte: period.start,
             lte: period.end,
           },
@@ -147,6 +148,136 @@ export class DashboardRepository extends DatabaseRepository {
     );
   }
 
+  async getHourlyMessageVolume(
+    clientIds: string[] | undefined,
+    period: DashboardDateRange,
+  ) {
+    return this.execute(
+      "SELECT",
+      "messages",
+      async () => {
+        const clientFilter =
+          clientIds?.length
+            ? Prisma.sql`
+                AND clientId IN (
+                  ${Prisma.join(clientIds)}
+                )
+              `
+            : Prisma.empty;
+
+        const rows =
+          await this.db.$queryRaw<
+            Array<{
+              day: number;
+              hour: number;
+              count: bigint;
+            }>
+          >(Prisma.sql`
+            SELECT
+              DAYOFWEEK(submittedAt) AS day,
+              HOUR(submittedAt) AS hour,
+              COUNT(*) AS count
+
+            FROM messages
+
+            WHERE submittedAt >= ${period.start}
+              AND submittedAt <= ${period.end}
+
+              ${clientFilter}
+
+            GROUP BY
+              DAYOFWEEK(submittedAt),
+              HOUR(submittedAt)
+
+            ORDER BY
+              DAYOFWEEK(submittedAt) ASC,
+              HOUR(submittedAt) ASC
+          `);
+
+        return {
+          result: rows,
+          rowsAffected: rows.length,
+        };
+      },
+    );
+  }
+
+  async getStatusCodeBreakdown(
+    clientIds: string[] | undefined,
+    period: DashboardDateRange,
+  ) {
+    return this.execute(
+      "SELECT",
+      "message_route_attempts",
+      async () => {
+        const clientFilter =
+          clientIds?.length
+            ? Prisma.sql`
+                AND m.clientId IN (
+                  ${Prisma.join(clientIds)}
+                )
+              `
+            : Prisma.empty;
+
+        const rows =
+          await this.db.$queryRaw<
+            Array<{
+              code: string;
+              count: bigint;
+            }>
+          >(Prisma.sql`
+            SELECT
+              a.errorCode AS code,
+              COUNT(*) AS count
+
+            FROM message_route_attempts a
+
+            INNER JOIN messages m
+              ON m.id = a.messageId
+
+            WHERE a.createdAt >= ${period.start}
+              AND a.createdAt <= ${period.end}
+
+              AND a.errorCode IS NOT NULL
+              AND a.errorCode <> ''
+
+              ${clientFilter}
+
+            GROUP BY
+              a.errorCode
+
+            ORDER BY
+              COUNT(*) DESC,
+              a.errorCode ASC
+          `);
+
+        return {
+          result: rows,
+          rowsAffected: rows.length,
+        };
+      },
+    );
+  }
+
+  async countActiveClients(): Promise<number> {
+    return this.execute(
+      "SELECT",
+      "clients",
+      async () => {
+        const count = await this.db.client.count({
+          where: {
+            status: "ACTIVE",
+          },
+        });
+
+        return {
+          result: count,
+          rowsAffected: count,
+        };
+      },
+    );
+  }
+
   async getRoutePerformance(
     clientIds: string[] | undefined,
     period: DashboardDateRange,
@@ -155,156 +286,104 @@ export class DashboardRepository extends DatabaseRepository {
       "SELECT",
       "message_route_attempts",
       async () => {
+        const clientFilter =
+          clientIds?.length
+            ? Prisma.sql`
+              AND m.clientId IN (
+                ${Prisma.join(clientIds)}
+              )
+            `
+            : Prisma.empty;
+
         const rows =
-          await this.db.messageRouteAttempt.groupBy({
-            by: [
-              "routeId",
-              "connectorId",
-              "status",
-            ],
-
-            where: {
-              createdAt: {
-                gte: period.start,
-                lte: period.end,
-              },
-
-              ...(clientIds
-                ? {
-                  message: {
-                    clientId: {
-                      in: clientIds,
-                    },
-                  },
-                }
-                : {}),
-            },
-
-            _count: {
-              _all: true,
-            },
-          });
-
-        if (rows.length === 0) {
-          return {
-            result: [],
-            rowsAffected: 0,
-          };
-        }
-
-        const routeIds =
-          [
-            ...new Set(
-              rows.map(
-                (row) =>
-                  row.routeId,
-              ),
-            ),
-          ];
-
-        const connectorIds =
-          [
-            ...new Set(
-              rows.map(
-                (row) =>
-                  row.connectorId,
-              ),
-            ),
-          ];
-
-        const [
-          routes,
-          connectors,
-        ] = await Promise.all([
-          this.db.route.findMany({
-            where: {
-              id: {
-                in: routeIds,
-              },
-            },
-
-            select: {
-              id: true,
-              publicId: true,
-            },
-          }),
-
-          this.db.connector.findMany({
-            where: {
-              id: {
-                in: connectorIds,
-              },
-            },
-
-            select: {
-              id: true,
-              name: true,
-            },
-          }),
-        ]);
-
-        const routeById =
-          new Map(
-            routes.map(
-              (route) => [
-                route.id,
-                route,
-              ],
-            ),
-          );
-
-        const connectorById =
-          new Map(
-            connectors.map(
-              (connector) => [
-                connector.id,
-                connector,
-              ],
-            ),
-          );
+          await this.db.$queryRaw<
+            Array<{
+              routeId: string;
+              connectorId: string;
+              publicId: string;
+              connectorName: string;
+              attempts: bigint;
+              submitted: bigint;
+              delivered: bigint;
+              failed: bigint;
+            }>
+          >(Prisma.sql`
+          SELECT
+            a.routeId,
+            a.connectorId,
+            r.publicId,
+            c.name AS connectorName,
+            COUNT(*) AS attempts,
+            SUM(
+              CASE
+                WHEN a.status = 'SUBMITTED' THEN 1
+                ELSE 0
+              END
+            ) AS submitted,
+            SUM(
+              CASE
+                WHEN deliveredAttempts.attemptId IS NOT NULL THEN 1
+                ELSE 0
+              END
+            ) AS delivered,
+            SUM(
+              CASE
+                WHEN a.status = 'FAILED' THEN 1
+                ELSE 0
+              END
+            ) AS failed
+          FROM message_route_attempts a
+          INNER JOIN messages m
+            ON m.id = a.messageId
+          INNER JOIN routes r
+            ON r.id = a.routeId
+          INNER JOIN connectors c
+            ON c.id = a.connectorId
+          LEFT JOIN (
+            SELECT DISTINCT attemptId
+            FROM message_status_events
+            WHERE status = 'DELIVERED'
+              AND attemptId IS NOT NULL
+          ) deliveredAttempts
+            ON deliveredAttempts.attemptId = a.id
+          WHERE a.createdAt >= ${period.start}
+            AND a.createdAt <= ${period.end}
+            ${clientFilter}
+          GROUP BY
+            a.routeId,
+            a.connectorId,
+            r.publicId,
+            c.name
+          ORDER BY attempts DESC
+        `);
 
         const result =
           rows.map(
-            (row) => {
-              const route =
-                routeById.get(
-                  row.routeId,
-                );
+            (row) => ({
+              routeId:
+                row.routeId,
 
-              const connector =
-                connectorById.get(
-                  row.connectorId,
-                );
+              publicId:
+                row.publicId,
 
-              if (
-                !route ||
-                !connector
-              ) {
-                throw new Error(
-                  "Route performance references a missing route or connector.",
-                );
-              }
+              connectorId:
+                row.connectorId,
 
-              return {
-                routeId:
-                  row.routeId,
+              connectorName:
+                row.connectorName,
 
-                publicId:
-                  route.publicId,
+              attempts:
+                Number(row.attempts),
 
-                connectorId:
-                  row.connectorId,
+              submitted:
+                Number(row.submitted),
 
-                connectorName:
-                  connector.name,
+              delivered:
+                Number(row.delivered),
 
-                status:
-                  row.status,
-
-                _count:
-                  row._count,
-              };
-            },
+              failed:
+                Number(row.failed),
+            }),
           );
 
         return {
@@ -367,8 +446,8 @@ export class DashboardRepository extends DatabaseRepository {
       "SELECT",
       "float_ledger_entries",
       async () => {
-        const rows =
-          await this.db.floatLedgerEntry.findMany({
+        const result =
+          await this.db.floatLedgerEntry.aggregate({
             where: clientIds
               ? {
                 clientId: {
@@ -377,15 +456,47 @@ export class DashboardRepository extends DatabaseRepository {
               }
               : {},
 
-            select: {
-              transactionType: true,
+            _sum: {
               credits: true,
             },
           });
 
         return {
-          result: rows,
-          rowsAffected: rows.length,
+          result: {
+            balance:
+              result._sum.credits ?? 0,
+          },
+
+          rowsAffected: 1,
+        };
+      },
+    );
+  }
+
+  async getDashboardClient(
+    clientId: string,
+  ) {
+    return this.execute(
+      "SELECT",
+      "clients",
+      async () => {
+        const client =
+          await this.db.client.findUnique({
+            where: {
+              id: clientId,
+            },
+
+            select: {
+              id: true,
+              displayName: true,
+              companyName: true,
+            },
+          });
+
+        return {
+          result: client,
+          rowsAffected:
+            client ? 1 : 0,
         };
       },
     );
@@ -566,7 +677,8 @@ export class DashboardRepository extends DatabaseRepository {
 
         return {
           result: rows,
-          rowsAffected: rows.length,
+          rowsAffected:
+            rows.length,
         };
       },
     );
@@ -622,7 +734,8 @@ export class DashboardRepository extends DatabaseRepository {
 
         return {
           result: rows,
-          rowsAffected: rows.length,
+          rowsAffected:
+            rows.length,
         };
       },
     );

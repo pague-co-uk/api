@@ -12,11 +12,14 @@ import {
 import {
   ClientStatus,
   LedgerTransactionType,
-  MessageRouteAttemptStatus,
   MessageStatus,
   SenderIdStatus,
-  SmppAccountStatus,
+  SmppAccountStatus
 } from "@prisma/client";
+
+import type {
+  AuthenticatedUser,
+} from "../../common/authorization/interfaces/authenticated-user.interface.js";
 
 import {
   DashboardRepository,
@@ -31,11 +34,16 @@ import type {
   DashboardData,
   DashboardFloatSummary,
   DashboardFloatTrendPoint,
+  DashboardHourlyVolume,
+  DashboardKpiSummary,
   DashboardMessageSummary,
   DashboardOperationalSummary,
   DashboardRoutePerformance,
+  DashboardScope,
   DashboardStatusBreakdown,
+  DashboardStatusCodeBreakdown,
   DashboardTrendPoint,
+  DashboardViewer,
 } from "./types/dashboard.types.js";
 
 @Injectable()
@@ -56,16 +64,30 @@ export class DashboardService {
   ) { }
 
   async getDashboard(
-    clientIds: string[] | undefined,
+    user: AuthenticatedUser,
     query: DashboardQueryOptions,
   ): Promise<DashboardData> {
     return withSpan(
       "DashboardService.getDashboard",
       async (span) => {
+        const clientIds =
+          this.resolveClientIds(
+            user,
+          );
+
+        const scope =
+          clientIds
+            ? "CLIENT"
+            : "PLATFORM";
+
         this.logger.debug(
           {
-            clientIds,
-            period: query.period,
+            userId: user.username,
+            clientId:
+              user.clientId,
+            scope,
+            period:
+              query.period,
           },
           "Retrieving dashboard.",
         );
@@ -74,6 +96,23 @@ export class DashboardService {
           "dashboard.period",
           query.period,
         );
+
+        span.setAttribute(
+          "dashboard.scope",
+          scope,
+        );
+
+        span.setAttribute(
+          "dashboard.user_id",
+          user.username,
+        );
+
+        if (user.clientId) {
+          span.setAttribute(
+            "dashboard.client_id",
+            user.clientId,
+          );
+        }
 
         try {
           const period =
@@ -89,13 +128,17 @@ export class DashboardService {
           const [
             messageStatusCounts,
             messageTrendRows,
+            hourlyVolumeRows,
+            statusCodeRows,
             routeRows,
             floatEntries,
-            floatBalanceRows,
+            floatBalance,
             operationalRows,
             clientMessageRows,
             clients,
             recentActivity,
+            viewerClient,
+            activeClients,
           ] = await Promise.all([
             this.dashboard.getMessageStatusCounts(
               clientIds,
@@ -107,37 +150,74 @@ export class DashboardService {
               period,
             ),
 
+            this.dashboard.getHourlyMessageVolume(
+              clientIds,
+              period,
+            ),
+
+            this.dashboard.getStatusCodeBreakdown(
+              clientIds,
+              period,
+            ),
+
             this.dashboard.getRoutePerformance(
               clientIds,
               period,
             ),
 
-            this.dashboard.getFloatEntries(
-              clientIds,
-              period,
-            ),
+            scope === "CLIENT"
+              ? this.dashboard.getFloatEntries(
+                clientIds,
+                period,
+              )
+              : Promise.resolve([]),
 
-            this.dashboard.getFloatBalance(
-              clientIds,
-            ),
+            scope === "CLIENT"
+              ? this.dashboard.getFloatBalance(
+                clientIds,
+              )
+              : Promise.resolve({
+                balance: 0,
+              }),
 
             this.dashboard.getOperationalSummary(
               clientIds,
             ),
 
-            this.dashboard.getClientMessageSummary(
-              clientIds,
-              period,
-            ),
+            scope === "PLATFORM"
+              ? this.dashboard.getClientMessageSummary(
+                clientIds,
+                period,
+              )
+              : Promise.resolve([]),
 
-            this.dashboard.getClients(
-              clientIds,
-            ),
+            scope === "PLATFORM"
+              ? this.dashboard.getClients(
+                clientIds,
+              )
+              : Promise.resolve([]),
 
             this.dashboard.getRecentActivity(
               clientIds,
             ),
+
+            user.clientId
+              ? this.dashboard.getDashboardClient(
+                user.clientId,
+              )
+              : Promise.resolve(null),
+
+            scope === "PLATFORM"
+              ? this.dashboard.countActiveClients()
+              : Promise.resolve(0),
           ]);
+
+          const viewer =
+            this.buildViewer(
+              user,
+              scope,
+              viewerClient,
+            );
 
           const messages =
             this.buildMessageSummary(
@@ -150,9 +230,19 @@ export class DashboardService {
               period,
             );
 
+          const hourlyVolume =
+            this.buildHourlyVolume(
+              hourlyVolumeRows,
+            );
+
           const statusBreakdown =
             this.buildStatusBreakdown(
               messageStatusCounts,
+            );
+
+          const statusCodeBreakdown =
+            this.buildStatusCodeBreakdown(
+              statusCodeRows,
             );
 
           const routePerformance =
@@ -162,7 +252,8 @@ export class DashboardService {
 
           const float =
             this.buildFloatSummary(
-              floatBalanceRows,
+              floatBalance.balance,
+              floatEntries,
             );
 
           const floatTrend =
@@ -174,6 +265,7 @@ export class DashboardService {
           const operational =
             this.buildOperationalSummary(
               operationalRows,
+              scope,
             );
 
           const clientSummaries =
@@ -182,18 +274,51 @@ export class DashboardService {
               clients,
             );
 
-          this.dashboardViewedCounter.add(1);
+          const kpis =
+            this.buildKpis(
+              messages,
+              scope,
+              floatBalance.balance,
+              activeClients,
+            );
+
+          this.dashboardViewedCounter.add(
+            1,
+            {
+              scope,
+            },
+          );
 
           this.logger.debug(
             {
-              messages: messages.total,
+              userId:
+                user.username,
+
+              scope,
+
+              clientId:
+                user.clientId,
+
+              messages:
+                messages.total,
+
               clients:
                 clientSummaries.length,
+
+              activeClients,
+
+              hourlyVolumePoints:
+                hourlyVolume.length,
+
+              statusCodeCount:
+                statusCodeBreakdown.length,
             },
             "Dashboard retrieved successfully.",
           );
 
           return {
+            viewer,
+
             period: {
               start:
                 period.start.toISOString(),
@@ -205,11 +330,17 @@ export class DashboardService {
                 period.days,
             },
 
+            kpis,
+
             messages,
 
             messageTrend,
 
+            hourlyVolume,
+
             statusBreakdown,
+
+            statusCodeBreakdown,
 
             routePerformance,
 
@@ -267,8 +398,13 @@ export class DashboardService {
           this.logger.error(
             {
               err: error,
-              clientIds,
-              period: query.period,
+              userId:
+                user.username,
+              clientId:
+                user.clientId,
+              scope,
+              period:
+                query.period,
             },
             "Failed to retrieve dashboard.",
           );
@@ -277,6 +413,46 @@ export class DashboardService {
         }
       },
     );
+  }
+
+  private resolveClientIds(
+    user: AuthenticatedUser,
+  ): string[] | undefined {
+    if (!user.clientId) {
+      return undefined;
+    }
+
+    return [
+      user.clientId,
+    ];
+  }
+
+  private buildViewer(
+    user: AuthenticatedUser,
+    scope:
+      | "PLATFORM"
+      | "CLIENT",
+    client: {
+      id: string;
+      displayName: string;
+      companyName: string;
+    } | null,
+  ): DashboardViewer {
+    return {
+      userId:
+        user.userId,
+
+      scope,
+
+      clientId:
+        user.clientId ?? null,
+
+      clientName:
+        client
+          ? client.displayName ||
+          client.companyName
+          : null,
+    };
   }
 
   private resolvePeriod(
@@ -440,6 +616,27 @@ export class DashboardService {
     );
   }
 
+  private buildHourlyVolume(
+    rows: Array<{
+      day: number;
+      hour: number;
+      count: bigint;
+    }>,
+  ): DashboardHourlyVolume[] {
+    return rows.map(
+      (row) => ({
+        day:
+          row.day,
+
+        hour:
+          row.hour,
+
+        count:
+          Number(row.count),
+      }),
+    );
+  }
+
   private buildStatusBreakdown(
     rows: Array<{
       currentStatus: MessageStatus;
@@ -482,6 +679,81 @@ export class DashboardService {
       }));
   }
 
+  private buildStatusCodeBreakdown(
+    rows: Array<{
+      code: string;
+      count: bigint;
+    }>,
+  ): DashboardStatusCodeBreakdown[] {
+    const total =
+      rows.reduce(
+        (sum, row) =>
+          sum + Number(row.count),
+        0,
+      );
+
+    return rows.map(
+      (row) => {
+        const count =
+          Number(row.count);
+
+        return {
+          code:
+            row.code,
+
+          label:
+            row.code,
+
+          count,
+
+          percentage:
+            total > 0
+              ? Number(
+                (
+                  (count /
+                    total) *
+                  100
+                ).toFixed(2),
+              )
+              : 0,
+        };
+      },
+    );
+  }
+
+  private buildKpis(
+    messages: DashboardMessageSummary,
+    scope: DashboardScope,
+    floatBalance: number,
+    activeClients: number,
+  ): DashboardKpiSummary {
+    if (scope === "PLATFORM") {
+      return {
+        totalMessages: messages.total,
+        delivered: messages.delivered,
+        failed: messages.failed,
+        deliveryRate: messages.deliveryRate,
+        fifthMetric: {
+          label: "Active Clients",
+          value: activeClients,
+          formattedValue: activeClients.toLocaleString(),
+        },
+      };
+    }
+
+    return {
+      totalMessages: messages.total,
+      delivered: messages.delivered,
+      failed: messages.failed,
+      deliveryRate: messages.deliveryRate,
+      fifthMetric: {
+        label: "Float Balance",
+        value: floatBalance,
+        formattedValue: floatBalance.toLocaleString(),
+      },
+    };
+  }
+
   private buildRoutePerformance(
     rows: Array<{
       routeId: string;
@@ -492,90 +764,16 @@ export class DashboardService {
 
       connectorName: string;
 
-      status:
-      MessageRouteAttemptStatus;
+      attempts: number;
 
-      _count: {
-        _all: number;
-      };
+      submitted: number;
+
+      delivered: number;
+
+      failed: number;
     }>,
   ): DashboardRoutePerformance[] {
-    const routes =
-      new Map<
-        string,
-        {
-          publicId: string;
-
-          connectorName: string;
-
-          attempts: number;
-
-          submitted: number;
-
-          failed: number;
-        }
-      >();
-
-    for (const row of rows) {
-      /*
-       * Use the internal IDs only as the aggregation key.
-       *
-       * They are deliberately not exposed in the dashboard response.
-       */
-      const key =
-        `${row.routeId}:${row.connectorId}`;
-
-      const current =
-        routes.get(key) ?? {
-          publicId:
-            row.publicId,
-
-          connectorName:
-            row.connectorName,
-
-          attempts: 0,
-
-          submitted: 0,
-
-          failed: 0,
-        };
-
-      const count =
-        row._count._all;
-
-      current.attempts +=
-        count;
-
-      if (
-        row.status ===
-        MessageRouteAttemptStatus.SUBMITTED
-      ) {
-        current.submitted +=
-          count;
-      }
-
-      if (
-        row.status ===
-        MessageRouteAttemptStatus.FAILED
-      ) {
-        current.failed +=
-          count;
-      }
-
-      routes.set(
-        key,
-        current,
-      );
-    }
-
-    return Array.from(
-      routes.values(),
-    )
-      .sort(
-        (a, b) =>
-          b.attempts -
-          a.attempts,
-      )
+    return rows
       .map((route) => ({
         publicId:
           route.publicId,
@@ -588,6 +786,9 @@ export class DashboardService {
 
         submitted:
           route.submitted,
+
+        delivered:
+          route.delivered,
 
         failed:
           route.failed,
@@ -602,28 +803,29 @@ export class DashboardService {
               ).toFixed(2),
             )
             : 0,
+
+        deliveryRate:
+          route.submitted > 0
+            ? Number(
+              (
+                (route.delivered /
+                  route.submitted) *
+                100
+              ).toFixed(2),
+            )
+            : 0,
       }));
   }
 
-  // ==========================================================================
-  // Float summary
-  //
-  // FloatLedgerEntry.credits is a SIGNED value:
-  //
-  // TOPUP      -> positive
-  // DEBIT      -> negative
-  // REFUND     -> positive
-  // ADJUSTMENT -> signed
-  //
-  // Therefore the available balance is the sum of all ledger values.
-  // ==========================================================================
-
   private buildFloatSummary(
+    balance: number,
     rows: Array<{
       transactionType:
       LedgerTransactionType;
 
       credits: number;
+
+      createdAt: Date;
     }>,
   ): DashboardFloatSummary {
     let topUps = 0;
@@ -657,27 +859,9 @@ export class DashboardService {
       }
     }
 
-    /*
-     * credits is already signed in the ledger.
-     *
-     * Do NOT subtract debits here because DEBIT entries are already
-     * stored as negative values.
-     */
-    const balance =
-      topUps +
-      debits +
-      refunds +
-      adjustments;
-
     return {
       balance,
 
-      /*
-       * The float represents SMS credits, not monetary currency.
-       *
-       * The frontend should present this as "SMS credits" rather than
-       * formatting it as GBP/USD/etc.
-       */
       currency:
         "SMS_CREDITS",
 
@@ -690,13 +874,6 @@ export class DashboardService {
       adjustments,
     };
   }
-
-  // ==========================================================================
-  // Float trend
-  //
-  // Ledger amounts are already signed, so net movement is simply the sum
-  // of the transaction amounts.
-  // ==========================================================================
 
   private buildFloatTrend(
     rows: Array<{
@@ -752,9 +929,6 @@ export class DashboardService {
           break;
 
         case LedgerTransactionType.DEBIT:
-          /*
-           * DEBIT credits are already negative.
-           */
           point.debits +=
             row.credits;
 
@@ -807,25 +981,20 @@ export class DashboardService {
     data: {
       clients: Array<{
         status: ClientStatus;
-
         _count: {
           _all: number;
         };
       }>;
 
       smppAccounts: Array<{
-        status:
-        SmppAccountStatus;
-
+        status: SmppAccountStatus;
         _count: {
           _all: number;
         };
       }>;
 
       senderIds: Array<{
-        status:
-        SenderIdStatus;
-
+        status: SenderIdStatus;
         _count: {
           _all: number;
         };
@@ -833,12 +1002,12 @@ export class DashboardService {
 
       webhooks: Array<{
         enabled: boolean;
-
         _count: {
           _all: number;
         };
       }>;
     },
+    scope: DashboardScope,
   ): DashboardOperationalSummary {
     const clients = {
       active: 0,
@@ -972,6 +1141,7 @@ export class DashboardService {
     }
 
     return {
+      scope,
       clients,
       smppAccounts,
       senderIds,
@@ -1130,9 +1300,7 @@ export class DashboardService {
 
   private fillDates<T>(
     start: Date,
-
     end: Date,
-
     factory: (
       date: string,
     ) => T,
