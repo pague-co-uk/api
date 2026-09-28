@@ -149,7 +149,35 @@ export class GlobalExceptionFilter
           body.response.error
             .code,
 
-        exception,
+        exceptionType:
+          error.constructor.name,
+
+        exceptionName:
+          error.name,
+
+        exceptionMessage:
+          error.message,
+
+        exceptionStack:
+          error.stack,
+
+        exceptionCause:
+          error.cause,
+
+        exceptionDetails:
+          exception instanceof
+            Prisma.PrismaClientKnownRequestError
+            ? {
+              code:
+                exception.code,
+
+              meta:
+                exception.meta,
+
+              clientVersion:
+                exception.clientVersion,
+            }
+            : undefined,
       },
       "HTTP request failed.",
     );
