@@ -8,6 +8,7 @@ import {
   LedgerReferenceType,
   MessageEncoding,
   MessageStatus,
+  SenderId,
   SenderIdStatus,
 } from "@prisma/client";
 
@@ -255,7 +256,7 @@ export class MessageService {
                   this.senderIds.withDatabase(tx);
 
                 // -----------------------------------------------------------
-                // Resolve Sender IDs
+                // Resolve explicitly supplied Sender IDs
                 // -----------------------------------------------------------
 
                 const senderNames =
@@ -270,9 +271,7 @@ export class MessageService {
                           (
                             sender,
                           ): sender is string =>
-                            Boolean(
-                              sender,
-                            ),
+                            Boolean(sender),
                         ),
                     ),
                   ];
@@ -310,7 +309,7 @@ export class MessageService {
 
                     if (!sender) {
                       throw new NotFoundException(
-                        "Sender ID not found.",
+                        `Sender ID "${senderName}" is not available to the client.`,
                       );
                     }
 
@@ -319,13 +318,50 @@ export class MessageService {
                       SenderIdStatus.APPROVED
                     ) {
                       throw new BadRequestException(
-                        "Sender ID is not approved.",
+                        `Sender ID "${senderName}" is not approved.`,
                       );
                     }
 
                     resolvedSenderIds.set(
                       senderName,
                       sender.id,
+                    );
+                  }
+                }
+
+                // -----------------------------------------------------------
+                // Resolve client's default Sender ID
+                // -----------------------------------------------------------
+
+                const hasMessagesWithoutSender =
+                  dtos.some(
+                    (dto) =>
+                      !dto.sender?.trim(),
+                  );
+
+                let defaultSenderId:
+                  SenderId | null = null;
+
+                if (
+                  hasMessagesWithoutSender
+                ) {
+                  defaultSenderId =
+                    await senderIds.findDefaultForClient(
+                      clientId,
+                    );
+
+                  if (!defaultSenderId) {
+                    throw new BadRequestException(
+                      "No default Sender ID is configured for the client.",
+                    );
+                  }
+
+                  if (
+                    defaultSenderId.status !==
+                    SenderIdStatus.APPROVED
+                  ) {
+                    throw new BadRequestException(
+                      "The client's default Sender ID is not approved.",
                     );
                   }
                 }
@@ -339,25 +375,39 @@ export class MessageService {
                     const publicId =
                       this.generatePublicId();
 
+                    const encoding =
+                      dto.encoding ??
+                      MessageEncoding.GSM7;
+
                     const segmentCount =
                       this.calculateSegmentCount(
                         dto.body,
-                        dto.encoding,
+                        encoding,
                       );
 
                     const senderName =
                       dto.sender?.trim();
 
+                    const senderIdId =
+                      senderName
+                        ? resolvedSenderIds.get(
+                          senderName,
+                        ) ?? null
+                        : defaultSenderId?.id ??
+                        null;
+
+                    if (!senderIdId) {
+                      throw new BadRequestException(
+                        "No Sender ID is available for the message.",
+                      );
+                    }
+
                     return {
                       publicId,
                       dto,
+                      encoding,
                       segmentCount,
-                      senderIdId:
-                        senderName
-                          ? resolvedSenderIds.get(
-                            senderName,
-                          ) ?? null
-                          : null,
+                      senderIdId,
                     };
                   });
 
@@ -371,6 +421,7 @@ export class MessageService {
                       ({
                         publicId,
                         dto,
+                        encoding,
                         segmentCount,
                         senderIdId,
                       }) => ({
@@ -381,8 +432,7 @@ export class MessageService {
                           dto.destination,
                         body:
                           dto.body,
-                        encoding:
-                          dto.encoding,
+                        encoding,
                         segmentCount,
                         currentStatus:
                           MessageStatus.QUEUED,

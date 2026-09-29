@@ -1,3 +1,4 @@
+
 export const Permissions = {
   // -------------------------------------------------------------------------
   // Users
@@ -129,6 +130,7 @@ export const Permissions = {
 
   MESSAGES_READ: "messages.read",
   MESSAGES_CREATE: "messages.create",
+  MESSAGES_STATUS_READ: "messages.status.read",
 
   // -------------------------------------------------------------------------
   // Webhooks

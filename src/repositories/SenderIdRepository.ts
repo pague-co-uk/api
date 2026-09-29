@@ -93,6 +93,29 @@ export class SenderIdRepository
     );
   }
 
+  async findDefaultForClient(
+    clientId: string,
+  ): Promise<SenderId | null> {
+    return this.execute(
+      "SELECT",
+      "sender_ids",
+      async () => {
+        const senderId =
+          await this.db.senderId.findFirst({
+            where: {
+              clientId,
+              isDefault: true,
+            },
+          });
+
+        return {
+          result: senderId,
+          rowsAffected: senderId ? 1 : 0,
+        };
+      },
+    );
+  }
+
   clearDefaultByClient(
     clientId: string,
   ): Promise<number> {

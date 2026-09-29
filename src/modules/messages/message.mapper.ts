@@ -9,6 +9,7 @@ import {
   MessageStatusEventResponseDto,
 } from "./dto/message-status-event.response.dto.js";
 
+import { MessageStatusResponseDto } from "./dto/message-status.dto.js";
 import {
   MessageResponseDto,
 } from "./dto/message.response.dto.js";
@@ -327,5 +328,21 @@ export class MessageMapper {
           event,
         ),
     );
+  }
+
+  // =========================================================================
+  // API Message Status
+  // =========================================================================
+
+  toMessageStatusResponse(
+    message: MessageDetailsWithRelations,
+  ): MessageStatusResponseDto {
+    return {
+      publicId:
+        message.publicId,
+
+      status:
+        message.currentStatus,
+    };
   }
 }

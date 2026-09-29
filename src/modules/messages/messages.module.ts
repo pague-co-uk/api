@@ -9,6 +9,7 @@ import { RandomGenerator } from "../../common/services/random.service.js";
 import { OutboxEventRepository } from "../../repositories/OutboxRepository.js";
 import { FloatLedgerModule } from "../float-ledger/float-ledger.module.js";
 import { SenderIdsModule } from "../sender-ids/sender-ids.module.js";
+import { MessagesApiController } from "./controllers/message-api.controller.js";
 import { MessagesController } from "./controllers/messages.controller.js";
 import { PlatformMessagesController } from "./controllers/platform-messages.controller.js";
 import { MessageMapper } from "./message.mapper.js";
@@ -22,7 +23,7 @@ import { MessageService } from "./services/message.service.js";
   ],
 
   controllers: [
-    MessagesController, PlatformMessagesController
+    MessagesController, PlatformMessagesController, MessagesApiController
   ],
 
   providers: [

@@ -383,6 +383,10 @@ export const PermissionDefinitions: {
     module: "messages",
     description: "Submit messages.",
   },
+  [Permissions.MESSAGES_STATUS_READ]: {
+    module: "messages",
+    description: "read message status.",
+  },
   // -------------------------------------------------------------------------
   // Webhooks
   // -------------------------------------------------------------------------
