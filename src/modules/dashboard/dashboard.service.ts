@@ -14,7 +14,7 @@ import {
   LedgerTransactionType,
   MessageStatus,
   SenderIdStatus,
-  SmppAccountStatus
+  SmppAccountStatus,
 } from "@prisma/client";
 
 import type {
@@ -28,6 +28,10 @@ import {
 import type {
   DashboardQueryOptions,
 } from "../../repositories/options/dashboard.options.js";
+
+import {
+  AppConfigService,
+} from "../../config/config.service.js";
 
 import type {
   DashboardClientSummary,
@@ -61,6 +65,9 @@ export class DashboardService {
   constructor(
     private readonly dashboard:
       DashboardRepository,
+
+    private readonly config:
+      AppConfigService,
   ) { }
 
   async getDashboard(
@@ -70,22 +77,30 @@ export class DashboardService {
     return withSpan(
       "DashboardService.getDashboard",
       async (span) => {
-        const clientIds =
-          this.resolveClientIds(
+        const scope =
+          this.resolveScope(
             user,
           );
 
-        const scope =
-          clientIds
-            ? "CLIENT"
-            : "PLATFORM";
+        const clientIds =
+          this.resolveClientIds(
+            user,
+            scope,
+          );
 
         this.logger.debug(
           {
-            userId: user.username,
+            userId:
+              user.username,
+
             clientId:
               user.clientId,
+
+            platformClient:
+              this.config.app.platformClient,
+
             scope,
+
             period:
               query.period,
           },
@@ -299,6 +314,9 @@ export class DashboardService {
               clientId:
                 user.clientId,
 
+              platformClient:
+                this.config.app.platformClient,
+
               messages:
                 messages.total,
 
@@ -418,6 +436,9 @@ export class DashboardService {
               clientId:
                 user.clientId,
 
+              platformClient:
+                this.config.app.platformClient,
+
               scope,
 
               period:
@@ -432,11 +453,25 @@ export class DashboardService {
     );
   }
 
+  private resolveScope(
+    user: AuthenticatedUser,
+  ): DashboardScope {
+    return user.clientId ===
+      this.config.app.platformClient
+      ? "PLATFORM"
+      : "CLIENT";
+  }
+
   private resolveClientIds(
     user: AuthenticatedUser,
+    scope: DashboardScope,
   ): string[] | undefined {
-    if (!user.clientId) {
+    if (scope === "PLATFORM") {
       return undefined;
+    }
+
+    if (!user.clientId) {
+      return [];
     }
 
     return [
@@ -753,7 +788,8 @@ export class DashboardService {
         fifthMetric: {
           label: "Active Clients",
           value: activeClients,
-          formattedValue: activeClients.toLocaleString(),
+          formattedValue:
+            activeClients.toLocaleString(),
         },
       };
     }
@@ -766,7 +802,8 @@ export class DashboardService {
       fifthMetric: {
         label: "Float Balance",
         value: floatBalance,
-        formattedValue: floatBalance.toLocaleString(),
+        formattedValue:
+          floatBalance.toLocaleString(),
       },
     };
   }
