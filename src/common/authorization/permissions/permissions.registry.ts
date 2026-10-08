@@ -150,8 +150,88 @@ export const Permissions = {
   CHECK_HEALTH: "CHECK_HEALTH",
   DASHBOARD_READ: "dashboard.read",
   REPORTS_READ: "reports.read",
-  REPORTS_EXPORT: "reports.export"
+  REPORTS_EXPORT: "reports.export",
+
+  // -------------------------------------------------------------------------
+  // Services
+  // -------------------------------------------------------------------------
+
+  SERVICES_READ: "services.read",
+
+  SERVICES_CREATE: "services.create",
+
+  SERVICES_UPDATE: "services.update",
+
+  SERVICES_ENABLE: "services.enable",
+
+  SERVICES_DISABLE: "services.disable",
+
+  // -------------------------------------------------------------------------
+  // Client Services
+  // -------------------------------------------------------------------------
+
+  CLIENT_SERVICES_READ: "client_services.read",
+
+  CLIENT_SERVICES_CREATE: "client_services.create",
+
+  CLIENT_SERVICES_UPDATE: "client_services.update",
+
+  CLIENT_SERVICES_ENABLE: "client_services.enable",
+
+  CLIENT_SERVICES_DISABLE: "client_services.disable",
+
+  // -------------------------------------------------------------------------
+  // Payment Providers
+  // -------------------------------------------------------------------------
+
+  PAYMENT_PROVIDERS_READ: "payment_providers.read",
+  PAYMENT_PROVIDERS_CREATE: "payment_providers.create",
+  PAYMENT_PROVIDERS_UPDATE: "payment_providers.update",
+  PAYMENT_PROVIDERS_ENABLE: "payment_providers.enable",
+  PAYMENT_PROVIDERS_DISABLE: "payment_providers.disable",
+
+  // -------------------------------------------------------------------------
+  // Provider Services
+  // -------------------------------------------------------------------------
+  PROVIDER_SERVICES_READ: "provider_services.read",
+  PROVIDER_SERVICES_CREATE: "provider_services.create",
+  PROVIDER_SERVICES_UPDATE: "provider_services.update",
+  PROVIDER_SERVICES_ENABLE: "provider_services.enable",
+  PROVIDER_SERVICES_DISABLE: "provider_services.disable",
+
+  // -------------------------------------------------------------------------
+  // Transaction Types
+  // -------------------------------------------------------------------------
+  TRANSACTION_TYPES_READ: "transaction_types.read",
+  TRANSACTION_TYPES_CREATE: "transaction_types.create",
+  TRANSACTION_TYPES_UPDATE: "transaction_types.update",
+  TRANSACTION_TYPES_ENABLE: "transaction_types.enable",
+  TRANSACTION_TYPES_DISABLE: "transaction_types.disable",
+
+  // -------------------------------------------------------------------------
+  // Currencies
+  // -------------------------------------------------------------------------
+  CURRENCIES_READ: "currencies.read",
+  CURRENCIES_CREATE: "currencies.create",
+  CURRENCIES_UPDATE: "currencies.update",
+  CURRENCIES_ENABLE: "currencies.enable",
+  CURRENCIES_DISABLE: "currencies.disable",
+
+  // -------------------------------------------------------------------------
+  // Country Currencies
+  // -------------------------------------------------------------------------
+  COUNTRY_CURRENCIES_READ: "country-currencies:read",
+  COUNTRY_CURRENCIES_CREATE: "country-currencies:create",
+  COUNTRY_CURRENCIES_UPDATE: "country-currencies:update",
+  COUNTRY_CURRENCIES_DELETE: "country-currencies:delete",
+
+  // -------------------------------------------------------------------------
+  // Payments
+  // -------------------------------------------------------------------------
+  PAYMENTS_CREATE: "payments.create",
+  PAYMENTS_READ: "payments.read",
 } as const;
 
 export type PermissionName =
   (typeof Permissions)[keyof typeof Permissions];
+

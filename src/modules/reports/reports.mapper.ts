@@ -4,12 +4,14 @@ import {
   FloatLedgerReportResponseDto,
   MessageReportResponseDto,
   RoutePerformanceReportResponseDto,
+  TransactionReportResponseDto,
 } from "./dto/report-response.dto.js";
 
 import {
   FloatLedgerReportRow as FloatLedgerReportEntity,
   MessageReportRow as MessageReportEntity,
   RoutePerformanceReportRow as RoutePerformanceReportEntity,
+  TransactionReportRow as TransactionReportEntity,
 } from "./types/report.types.js";
 
 @Injectable()
@@ -78,6 +80,49 @@ export class ReportsMapper {
   ): FloatLedgerReportResponseDto[] {
     return entries.map((entry) =>
       this.toFloatLedgerResponse(entry),
+    );
+  }
+
+  toTransactionResponse(
+    transaction: TransactionReportEntity,
+  ): TransactionReportResponseDto {
+    return {
+      publicId: transaction.publicId,
+      clientName: transaction.clientName,
+      serviceCode: transaction.serviceCode,
+      serviceName: transaction.serviceName,
+      providerCode: transaction.providerCode,
+      providerName: transaction.providerName,
+      providerServiceCode:
+        transaction.providerServiceCode,
+      providerServiceExternalCode:
+        transaction.providerServiceExternalCode,
+      currencyCode: transaction.currencyCode,
+      currencyName: transaction.currencyName,
+      currencySymbol: transaction.currencySymbol,
+      transactionTypeCode:
+        transaction.transactionTypeCode,
+      transactionTypeName:
+        transaction.transactionTypeName,
+      status: transaction.status,
+      reference: transaction.reference,
+      providerReference:
+        transaction.providerReference,
+      amount: transaction.amount,
+      description: transaction.description,
+      processedAt:
+        transaction.processedAt?.toISOString() ??
+        null,
+      createdAt:
+        transaction.createdAt.toISOString(),
+    };
+  }
+
+  toTransactionResponses(
+    transactions: readonly TransactionReportEntity[],
+  ): TransactionReportResponseDto[] {
+    return transactions.map((transaction) =>
+      this.toTransactionResponse(transaction),
     );
   }
 }

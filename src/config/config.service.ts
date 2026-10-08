@@ -11,7 +11,7 @@ import type {
   OutboxConfig,
   RabbitMqConfig,
   SecurityConfig,
-  TelemetryConfig,
+  TelemetryConfig
 } from "./interfaces/index.js";
 
 @Injectable()
@@ -266,6 +266,15 @@ export class AppConfigService {
 
         url: this.get(
           "applications.health.webhookConsumer.url",
+        ),
+
+        timeoutMs,
+      },
+      paymentsProcessor: {
+        name: "payment-processor",
+
+        url: this.get(
+          "applications.health.paymentsProcessor.url",
         ),
 
         timeoutMs,

@@ -6,6 +6,7 @@ import {
 import {
   getComponentLogger,
   recordException,
+  withPromiseSpan,
   withSpan,
 } from "@pague-co-uk/sms-gateway-telemetry";
 import * as XLSX from "xlsx";
@@ -13,6 +14,7 @@ import { ReportsRepository } from "../../repositories/reports.repository.js";
 import { FindFloatLedgerReportDto } from "./dto/find-float-ledger-report.dto.js";
 import { FindMessageReportDto } from "./dto/find-message-report.dto.js";
 import { FindRoutePerformanceReportDto } from "./dto/find-route-performance-report.dto.js";
+import { FindTransactionReportDto } from "./dto/find-transaction-report.dto.js";
 
 @Injectable()
 export class ReportsService {
@@ -713,6 +715,198 @@ export class ReportsService {
       },
     );
   }
+
+  async findTransactionReport(
+    dto: FindTransactionReportDto,
+  ) {
+    return withPromiseSpan(
+      "ReportsService.findTransactionReport",
+      async (span) => {
+        span.setAttributes({
+          "reports.client_id": dto.clientId ?? "all",
+          "reports.page": dto.page ?? 1,
+          "reports.page_size": dto.pageSize ?? 25,
+        });
+
+        try {
+          const page =
+            await this.reports.findTransactionReport({
+              page: dto.page,
+              pageSize: dto.pageSize,
+              clientId: dto.clientId,
+              search: dto.search,
+              clientServiceId:
+                dto.clientServiceId,
+              providerId:
+                dto.providerId,
+              providerServiceId:
+                dto.providerServiceId,
+              currencyId:
+                dto.currencyId,
+              transactionTypeId:
+                dto.transactionTypeId,
+              status: dto.status,
+              createdFrom:
+                this.toDate(dto.from),
+              createdTo:
+                this.toDate(dto.to),
+            });
+
+          this.logger.info(
+            {
+              clientId:
+                dto.clientId ?? "all",
+              page: page.page,
+              pageSize: page.pageSize,
+              totalItems:
+                page.totalItems,
+            },
+            "Transaction report retrieved",
+          );
+
+          return page;
+        } catch (error) {
+          this.logger.error(
+            {
+              err: error,
+              clientId:
+                dto.clientId ?? "all",
+            },
+            "Failed to retrieve transaction report",
+          );
+
+          throw error;
+        }
+      },
+    );
+  }
+
+  async exportTransactionReport(
+    dto: FindTransactionReportDto,
+  ): Promise<Buffer> {
+    return withPromiseSpan(
+      "ReportsService.exportTransactionReport",
+      async (span) => {
+        span.setAttributes({
+          "reports.client_id":
+            dto.clientId ?? "all",
+        });
+
+        try {
+          const transactions =
+            await this.reports
+              .findTransactionReportForExport({
+                clientId:
+                  dto.clientId,
+                search:
+                  dto.search,
+                clientServiceId:
+                  dto.clientServiceId,
+                providerId:
+                  dto.providerId,
+                providerServiceId:
+                  dto.providerServiceId,
+                currencyId:
+                  dto.currencyId,
+                transactionTypeId:
+                  dto.transactionTypeId,
+                status:
+                  dto.status,
+                createdFrom:
+                  this.toDate(dto.from),
+                createdTo:
+                  this.toDate(dto.to),
+              });
+
+          const rows =
+            transactions.map(
+              (transaction) => ({
+                "Public ID":
+                  transaction.publicId,
+                "Client":
+                  transaction.clientName,
+                "Service Code":
+                  transaction.serviceCode,
+                "Service":
+                  transaction.serviceName,
+                "Provider Code":
+                  transaction.providerCode,
+                "Provider":
+                  transaction.providerName,
+                "Provider Service Code":
+                  transaction.providerServiceCode,
+                "Provider Service External Code":
+                  transaction.providerServiceExternalCode,
+                "Currency":
+                  transaction.currencyCode,
+                "Currency Name":
+                  transaction.currencyName,
+                "Transaction Type Code":
+                  transaction.transactionTypeCode,
+                "Transaction Type":
+                  transaction.transactionTypeName,
+                "Status":
+                  transaction.status,
+                "Reference":
+                  transaction.reference,
+                "Provider Reference":
+                  transaction.providerReference,
+                "Amount":
+                  transaction.amount,
+                "Description":
+                  transaction.description,
+                "Processed At":
+                  transaction.processedAt,
+                "Created At":
+                  transaction.createdAt,
+              }),
+            );
+
+          const worksheet =
+            XLSX.utils.json_to_sheet(rows);
+
+          const workbook =
+            XLSX.utils.book_new();
+
+          XLSX.utils.book_append_sheet(
+            workbook,
+            worksheet,
+            "Transactions",
+          );
+
+          const buffer =
+            XLSX.write(workbook, {
+              type: "buffer",
+              bookType: "xlsx",
+            });
+
+          this.logger.info(
+            {
+              clientId:
+                dto.clientId ?? "all",
+              rows:
+                transactions.length,
+            },
+            "Transaction report exported",
+          );
+
+          return buffer;
+        } catch (error) {
+          this.logger.error(
+            {
+              err: error,
+              clientId:
+                dto.clientId ?? "all",
+            },
+            "Failed to export transaction report",
+          );
+
+          throw error;
+        }
+      },
+    );
+  }
+
   // =========================================================================
   // Helpers
   // =========================================================================

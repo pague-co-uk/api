@@ -437,5 +437,188 @@ export const PermissionDefinitions: {
   [Permissions.REPORTS_EXPORT]: {
     module: "reports",
     description: "can exports  reports"
-  }
+  },
+
+  // -------------------------------------------------------------------------
+  // Services
+  // -------------------------------------------------------------------------
+
+  [Permissions.SERVICES_READ]: {
+    module: "services",
+    description: "View services.",
+  },
+
+  [Permissions.SERVICES_CREATE]: {
+    module: "services",
+    description: "Create services.",
+  },
+
+  [Permissions.SERVICES_UPDATE]: {
+    module: "services",
+    description: "Update services.",
+  },
+
+  [Permissions.SERVICES_ENABLE]: {
+    module: "services",
+    description: "Enable services.",
+  },
+
+  [Permissions.SERVICES_DISABLE]: {
+    module: "services",
+    description: "Disable services.",
+  },
+  [Permissions.CLIENT_SERVICES_READ]: {
+    module: "client_services",
+    description: "View client service assignments.",
+  },
+
+  [Permissions.CLIENT_SERVICES_CREATE]: {
+    module: "client_services",
+    description: "Assign services to clients.",
+  },
+
+  [Permissions.CLIENT_SERVICES_UPDATE]: {
+    module: "client_services",
+    description: "Update client service configuration.",
+  },
+
+  [Permissions.CLIENT_SERVICES_ENABLE]: {
+    module: "client_services",
+    description: "Enable services for clients.",
+  },
+
+  [Permissions.CLIENT_SERVICES_DISABLE]: {
+    module: "client_services",
+    description: "Disable services for clients.",
+  },
+  [Permissions.PAYMENT_PROVIDERS_READ]: {
+    module: "payment_providers",
+    description: "View payment providers.",
+  },
+
+  [Permissions.PAYMENT_PROVIDERS_CREATE]: {
+    module: "payment_providers",
+    description: "Create payment providers.",
+  },
+
+  [Permissions.PAYMENT_PROVIDERS_UPDATE]: {
+    module: "payment_providers",
+    description: "Update payment provider configuration.",
+  },
+
+  [Permissions.PAYMENT_PROVIDERS_ENABLE]: {
+    module: "payment_providers",
+    description: "Enable payment providers.",
+  },
+
+  [Permissions.PAYMENT_PROVIDERS_DISABLE]: {
+    module: "payment_providers",
+    description: "Disable payment providers.",
+  },
+  [Permissions.PROVIDER_SERVICES_READ]: {
+    module: "provider_services",
+    description: "View provider service configurations.",
+  },
+
+  [Permissions.PROVIDER_SERVICES_CREATE]: {
+    module: "provider_services",
+    description: "Create provider service configurations.",
+  },
+
+  [Permissions.PROVIDER_SERVICES_UPDATE]: {
+    module: "provider_services",
+    description: "Update provider service configuration.",
+  },
+
+  [Permissions.PROVIDER_SERVICES_ENABLE]: {
+    module: "provider_services",
+    description: "Enable provider service configurations.",
+  },
+
+  [Permissions.PROVIDER_SERVICES_DISABLE]: {
+    module: "provider_services",
+    description: "Disable provider service configurations.",
+  },
+  [Permissions.TRANSACTION_TYPES_READ]: {
+    module: "transaction_types",
+    description: "View transaction types.",
+  },
+
+  [Permissions.TRANSACTION_TYPES_CREATE]: {
+    module: "transaction_types",
+    description: "Create transaction types.",
+  },
+
+  [Permissions.TRANSACTION_TYPES_UPDATE]: {
+    module: "transaction_types",
+    description: "Update transaction type configuration.",
+  },
+
+  [Permissions.TRANSACTION_TYPES_ENABLE]: {
+    module: "transaction_types",
+    description: "Enable transaction types.",
+  },
+
+  [Permissions.TRANSACTION_TYPES_DISABLE]: {
+    module: "transaction_types",
+    description: "Disable transaction types.",
+  },
+  [Permissions.CURRENCIES_READ]: {
+    module: "currencies",
+    description: "View currencies.",
+  },
+
+  [Permissions.CURRENCIES_CREATE]: {
+    module: "currencies",
+    description: "Create currencies.",
+  },
+
+  [Permissions.CURRENCIES_UPDATE]: {
+    module: "currencies",
+    description: "Update currency configuration.",
+  },
+
+  [Permissions.CURRENCIES_ENABLE]: {
+    module: "currencies",
+    description: "Enable currencies.",
+  },
+
+  [Permissions.CURRENCIES_DISABLE]: {
+    module: "currencies",
+    description: "Disable currencies.",
+  },
+  [Permissions.COUNTRY_CURRENCIES_READ]: {
+    module: "country-currencies",
+    description:
+      "View country currency configuration.",
+  },
+
+  [Permissions.COUNTRY_CURRENCIES_CREATE]: {
+    module: "country-currencies",
+    description:
+      "Configure a currency for a country.",
+  },
+
+  [Permissions.COUNTRY_CURRENCIES_UPDATE]: {
+    module: "country-currencies",
+    description:
+      "Update country currency configuration.",
+  },
+
+  [Permissions.COUNTRY_CURRENCIES_DELETE]: {
+    module: "country-currencies",
+    description:
+      "Remove a currency from a country.",
+  },
+  [Permissions.PAYMENTS_CREATE]: {
+    module: "payments",
+    description:
+      "Create a payment transaction.",
+  },
+
+  [Permissions.PAYMENTS_READ]: {
+    module: "payments",
+    description:
+      "View the status of a payment transaction.",
+  },
 } as const;

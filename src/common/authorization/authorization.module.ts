@@ -23,6 +23,7 @@ import { SecretHasher } from "../services/secretHasher.service.js";
 
 import { AuthenticationGuard } from "./guards/authentication.guard.js";
 import { AuthorizationGuard } from "./guards/authorization.guard.js";
+import { ClientAccessGuard } from "./guards/client-access.guard.js";
 import { PrincipalMapper } from "./mapper/principal.mapper.js";
 import { AuthorizationService } from "./services/authorization.service.js";
 import { PrincipalService } from "./services/principal.service.js";
@@ -77,6 +78,10 @@ import { PrincipalService } from "./services/principal.service.js";
     {
       provide: APP_GUARD,
       useClass: AuthorizationGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: ClientAccessGuard,
     },
   ],
 

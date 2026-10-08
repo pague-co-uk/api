@@ -323,6 +323,10 @@ export default () => ({
           process.env.APPLICATION_HEALTH_WEBHOOK_CONSUMER_URL ??
           "http://localhost:9006/health",
       },
+      paymentsProcessor: {
+        url: process.env.APPLICATION_HEALTH_PAYMENTS_PROCESSOR_URL ??
+          "http://localhost:9007/health"
+      }
     },
   },
 

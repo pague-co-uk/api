@@ -12,19 +12,28 @@ import { DatabaseModule } from "./database/index.js";
 import { GlobalExceptionFilter } from "./filters/global-exception.filter.js";
 import { AuditLogModule } from "./modules/audit/audit-log.module.js";
 import { AuthenticationModule } from "./modules/auth/auth.module.js";
+import { ClientServicesModule } from "./modules/client-services/client-services.module.js";
 import { ClientsModule } from "./modules/clients/clients.module.js";
 import { ConnectorsModule } from "./modules/connectors/connectors.module.js";
 import { CountriesModule } from "./modules/countries/countries.module.js";
+import { CountryCurrenciesModule } from "./modules/country-currencies/country-currencies.module.js";
+import { CurrenciesModule } from "./modules/currencies/currencies.module.js";
 import { DashboardModule } from "./modules/dashboard/dashboard.module.js";
 import { FloatLedgerModule } from "./modules/float-ledger/float-ledger.module.js";
 import { HealthModule } from "./modules/health/health.module.js";
 import { MessagesModule } from "./modules/messages/messages.module.js";
 import { MobileNetworksModule } from "./modules/mobile-networks/mobile-networks.module.js";
+import { PaymentProvidersModule } from "./modules/payment-providers/payment-providers.module.js";
+import { PaymentsModule } from "./modules/payments/payments.module.js";
+import { ProviderServicesModule } from "./modules/provider-services/provider-services.module.js";
 import { ReportsModule } from "./modules/reports/reports.module.js";
 import { RolesModule } from "./modules/roles/roles.module.js";
 import { RoutesModule } from "./modules/routes/routes.module.js";
 import { SenderIdsModule } from "./modules/sender-ids/sender-ids.module.js";
+import { ServicesModule } from "./modules/services/services.module.js";
 import { SmppAccountsModule } from "./modules/smpp-account/smpp-accounts.module.js";
+import { TransactionTypesModule } from "./modules/transaction-types/transaction-type.module.js";
+import { TransactionsModule } from "./modules/transactions/transactions.module.js";
 import { UsersModule } from "./modules/users/users.module.js";
 import { WebhooksModule } from "./modules/webhooks/webhooks.module.js";
 
@@ -52,7 +61,16 @@ import { WebhooksModule } from "./modules/webhooks/webhooks.module.js";
     AuditLogModule,
     DashboardModule,
     ReportsModule,
-    CountriesModule
+    CountriesModule,
+    ServicesModule,
+    ClientServicesModule,
+    PaymentProvidersModule,
+    ProviderServicesModule,
+    TransactionTypesModule,
+    CurrenciesModule,
+    CountryCurrenciesModule,
+    PaymentsModule,
+    TransactionsModule
   ],
   providers: [
     {

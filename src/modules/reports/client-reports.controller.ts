@@ -14,7 +14,13 @@ import { PaginatedResponse } from "../../common/interfaces/paginated.response.js
 import { FindFloatLedgerReportDto } from "./dto/find-float-ledger-report.dto.js";
 import { FindMessageReportDto } from "./dto/find-message-report.dto.js";
 import { FindRoutePerformanceReportDto } from "./dto/find-route-performance-report.dto.js";
-import { FloatLedgerReportResponseDto, MessageReportResponseDto, RoutePerformanceReportResponseDto } from "./dto/report-response.dto.js";
+import { FindTransactionReportDto } from "./dto/find-transaction-report.dto.js";
+import {
+  FloatLedgerReportResponseDto,
+  MessageReportResponseDto,
+  RoutePerformanceReportResponseDto,
+  TransactionReportResponseDto,
+} from "./dto/report-response.dto.js";
 import { ReportsMapper } from "./reports.mapper.js";
 import { ReportsService } from "./reports.service.js";
 
@@ -243,6 +249,80 @@ export class ClientReportsController {
 
         "Content-Disposition":
           'attachment; filename="float-ledger-report.xlsx"',
+
+        "Content-Length":
+          workbook.length,
+      })
+      .send(workbook);
+  }
+
+  // =========================================================================
+  // Transactions
+  // =========================================================================
+
+  @Get("transactions")
+  @Authorize(
+    Permissions.REPORTS_READ,
+  )
+  async findTransactionReport(
+    @Param(
+      "clientId",
+      ParseUUIDPipe,
+    )
+    clientId: string,
+
+    @Query()
+    dto: FindTransactionReportDto,
+  ): Promise<
+    PaginatedResponse<TransactionReportResponseDto>
+  > {
+    const page =
+      await this.reports.findTransactionReport({
+        ...dto,
+
+        clientId,
+      });
+
+    return new PaginatedResponse(
+      this.mapper.toTransactionResponses(
+        page.items,
+      ),
+      page,
+    );
+  }
+
+  @Get("transactions/export")
+  @Authorize(
+    Permissions.REPORTS_EXPORT,
+  )
+  async exportTransactionReport(
+    @Param(
+      "clientId",
+      ParseUUIDPipe,
+    )
+    clientId: string,
+
+    @Query()
+    dto: FindTransactionReportDto,
+
+    @Res()
+    response: Response,
+  ) {
+    const workbook =
+      await this.reports.exportTransactionReport({
+        ...dto,
+
+        clientId,
+      });
+
+    response
+      .status(200)
+      .set({
+        "Content-Type":
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+
+        "Content-Disposition":
+          'attachment; filename="transaction-report.xlsx"',
 
         "Content-Length":
           workbook.length,

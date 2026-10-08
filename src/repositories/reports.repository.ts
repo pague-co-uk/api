@@ -11,11 +11,12 @@ import {
   MessageStatus,
   Prisma,
   PrismaClient,
+  TransactionStatus,
 } from "@prisma/client";
 import { Page } from "../common/query/page.interface.js";
 import { DATABASE } from "../database/database.constants.js";
 import { DatabaseRepository } from "../database/database.repository.js";
-import { FloatLedgerReportRow, MessageReportRow, RoutePerformanceReportRow } from "../modules/reports/types/report.types.js";
+import { FloatLedgerReportRow, MessageReportRow, RoutePerformanceReportRow, TransactionReportRow } from "../modules/reports/types/report.types.js";
 
 
 @Injectable()
@@ -920,6 +921,504 @@ export class ReportsRepository
         return {
           result,
           rowsAffected: result.length,
+        };
+      },
+    );
+
+    return operation;
+  }
+
+  // =========================================================================
+  // Transaction report
+  // =========================================================================
+
+  async findTransactionReport(
+    options?: {
+      page?: number;
+      pageSize?: number;
+      clientId?: string;
+      search?: string;
+      clientServiceId?: string;
+      providerId?: string;
+      providerServiceId?: string;
+      currencyId?: string;
+      transactionTypeId?: string;
+      status?: TransactionStatus;
+      createdFrom?: Date;
+      createdTo?: Date;
+    },
+  ): Promise<Page<TransactionReportRow>> {
+    return this.execute(
+      "SELECT",
+      "transaction_reports",
+      async () => {
+        const page =
+          options?.page ?? 1;
+
+        const pageSize =
+          options?.pageSize ?? 25;
+
+        const search =
+          options?.search?.trim();
+
+        const where: Prisma.TransactionWhereInput = {
+          ...(options?.clientId
+            ? {
+              clientId:
+                options.clientId,
+            }
+            : {}),
+
+          ...(search
+            ? {
+              OR: [
+                {
+                  publicId: {
+                    contains: search,
+                  },
+                },
+                {
+                  reference: {
+                    contains: search,
+                  },
+                },
+                {
+                  providerReference: {
+                    contains: search,
+                  },
+                },
+              ],
+            }
+            : {}),
+
+          ...(options?.clientServiceId
+            ? {
+              clientServiceId:
+                options.clientServiceId,
+            }
+            : {}),
+
+          ...(options?.providerId
+            ? {
+              providerId:
+                options.providerId,
+            }
+            : {}),
+
+          ...(options?.providerServiceId
+            ? {
+              providerServiceId:
+                options.providerServiceId,
+            }
+            : {}),
+
+          ...(options?.currencyId
+            ? {
+              currencyId:
+                options.currencyId,
+            }
+            : {}),
+
+          ...(options?.transactionTypeId
+            ? {
+              transactionTypeId:
+                options.transactionTypeId,
+            }
+            : {}),
+
+          ...(options?.status !== undefined
+            ? {
+              status:
+                options.status,
+            }
+            : {}),
+
+          ...(options?.createdFrom ||
+            options?.createdTo
+            ? {
+              createdAt: {
+                ...(options.createdFrom
+                  ? {
+                    gte:
+                      options.createdFrom,
+                  }
+                  : {}),
+
+                ...(options.createdTo
+                  ? {
+                    lte:
+                      options.createdTo,
+                  }
+                  : {}),
+              },
+            }
+            : {}),
+        };
+
+        const skip =
+          (page - 1) *
+          pageSize;
+
+        const [
+          totalItems,
+          transactions,
+        ] = await Promise.all([
+          this.db.transaction.count({
+            where,
+          }),
+
+          this.db.transaction.findMany({
+            where,
+
+            include: {
+              client: true,
+
+              clientService: {
+                include: {
+                  service: true,
+                },
+              },
+
+              provider: true,
+
+              providerService: {
+                include: {
+                  service: true,
+                },
+              },
+
+              currency: true,
+
+              transactionType: true,
+            },
+
+            orderBy: {
+              createdAt: "desc",
+            },
+
+            skip,
+
+            take: pageSize,
+          }),
+        ]);
+
+        const items: TransactionReportRow[] =
+          transactions.map(
+            (transaction) => ({
+              publicId:
+                transaction.publicId,
+
+              clientName:
+                transaction.client.displayName,
+
+              serviceCode:
+                transaction.clientService
+                  .service.code,
+
+              serviceName:
+                transaction.clientService
+                  .service.name,
+
+              providerCode:
+                transaction.provider?.code ??
+                null,
+
+              providerName:
+                transaction.provider?.name ??
+                null,
+
+              providerServiceCode:
+                transaction.providerService
+                  ?.service.code ??
+                null,
+
+              providerServiceExternalCode:
+                transaction.providerService
+                  ?.externalServiceCode ??
+                null,
+
+              currencyCode:
+                transaction.currency.code,
+
+              currencyName:
+                transaction.currency.name,
+
+              currencySymbol:
+                transaction.currency.symbol ??
+                null,
+
+              transactionTypeCode:
+                transaction.transactionType.code,
+
+              transactionTypeName:
+                transaction.transactionType.name,
+
+              status:
+                transaction.status,
+
+              reference:
+                transaction.reference,
+
+              providerReference:
+                transaction.providerReference ??
+                null,
+
+              amount:
+                transaction.amount.toString(),
+
+              description:
+                transaction.description ??
+                null,
+
+              processedAt:
+                transaction.processedAt,
+
+              createdAt:
+                transaction.createdAt,
+            }),
+          );
+
+        return {
+          result: {
+            items,
+            page,
+            pageSize,
+            totalItems,
+          },
+
+          rowsAffected:
+            items.length,
+        };
+      },
+    );
+  }
+
+  async findTransactionReportForExport(
+    options?: {
+      clientId?: string;
+      search?: string;
+      clientServiceId?: string;
+      providerId?: string;
+      providerServiceId?: string;
+      currencyId?: string;
+      transactionTypeId?: string;
+      status?: TransactionStatus;
+      createdFrom?: Date;
+      createdTo?: Date;
+    },
+  ): Promise<TransactionReportRow[]> {
+    const operation = await this.execute(
+      "SELECT",
+      "transaction_reports_export",
+      async () => {
+        const search =
+          options?.search?.trim();
+
+        const where: Prisma.TransactionWhereInput = {
+          ...(options?.clientId
+            ? {
+              clientId:
+                options.clientId,
+            }
+            : {}),
+
+          ...(search
+            ? {
+              OR: [
+                {
+                  publicId: {
+                    contains: search,
+                  },
+                },
+                {
+                  reference: {
+                    contains: search,
+                  },
+                },
+                {
+                  providerReference: {
+                    contains: search,
+                  },
+                },
+              ],
+            }
+            : {}),
+
+          ...(options?.clientServiceId
+            ? {
+              clientServiceId:
+                options.clientServiceId,
+            }
+            : {}),
+
+          ...(options?.providerId
+            ? {
+              providerId:
+                options.providerId,
+            }
+            : {}),
+
+          ...(options?.providerServiceId
+            ? {
+              providerServiceId:
+                options.providerServiceId,
+            }
+            : {}),
+
+          ...(options?.currencyId
+            ? {
+              currencyId:
+                options.currencyId,
+            }
+            : {}),
+
+          ...(options?.transactionTypeId
+            ? {
+              transactionTypeId:
+                options.transactionTypeId,
+            }
+            : {}),
+
+          ...(options?.status !== undefined
+            ? {
+              status:
+                options.status,
+            }
+            : {}),
+
+          ...(options?.createdFrom ||
+            options?.createdTo
+            ? {
+              createdAt: {
+                ...(options.createdFrom
+                  ? {
+                    gte:
+                      options.createdFrom,
+                  }
+                  : {}),
+
+                ...(options.createdTo
+                  ? {
+                    lte:
+                      options.createdTo,
+                  }
+                  : {}),
+              },
+            }
+            : {}),
+        };
+
+        const transactions =
+          await this.db.transaction.findMany({
+            where,
+
+            include: {
+              client: true,
+
+              clientService: {
+                include: {
+                  service: true,
+                },
+              },
+
+              provider: true,
+
+              providerService: {
+                include: {
+                  service: true,
+                },
+              },
+
+              currency: true,
+
+              transactionType: true,
+            },
+
+            orderBy: {
+              createdAt: "desc",
+            },
+          });
+
+        const result: TransactionReportRow[] =
+          transactions.map(
+            (transaction) => ({
+              publicId:
+                transaction.publicId,
+
+              clientName:
+                transaction.client.displayName,
+
+              serviceCode:
+                transaction.clientService
+                  .service.code,
+
+              serviceName:
+                transaction.clientService
+                  .service.name,
+
+              providerCode:
+                transaction.provider?.code ??
+                null,
+
+              providerName:
+                transaction.provider?.name ??
+                null,
+
+              providerServiceCode:
+                transaction.providerService
+                  ?.service.code ??
+                null,
+
+              providerServiceExternalCode:
+                transaction.providerService
+                  ?.externalServiceCode ??
+                null,
+
+              currencyCode:
+                transaction.currency.code,
+
+              currencyName:
+                transaction.currency.name,
+
+              currencySymbol:
+                transaction.currency.symbol ??
+                null,
+
+              transactionTypeCode:
+                transaction.transactionType.code,
+
+              transactionTypeName:
+                transaction.transactionType.name,
+
+              status:
+                transaction.status,
+
+              reference:
+                transaction.reference,
+
+              providerReference:
+                transaction.providerReference ??
+                null,
+
+              amount:
+                transaction.amount.toString(),
+
+              description:
+                transaction.description ??
+                null,
+
+              processedAt:
+                transaction.processedAt,
+
+              createdAt:
+                transaction.createdAt,
+            }),
+          );
+
+        return {
+          result,
+          rowsAffected:
+            result.length,
         };
       },
     );
