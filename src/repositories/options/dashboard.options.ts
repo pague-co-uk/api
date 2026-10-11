@@ -1,4 +1,4 @@
-export type DashboardPeriod = "7d" | "30d" | "90d";
+export type DashboardPeriod = "1d" | "7d" | "30d" | "90d";
 
 export interface DashboardQueryOptions {
   period: DashboardPeriod;

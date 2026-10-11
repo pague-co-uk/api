@@ -514,7 +514,9 @@ export class DashboardService {
       new Date();
 
     const days =
-      period === "7d"
+    period === "1d"
+      ? 1
+      : period === "7d"
         ? 7
         : period === "90d"
           ? 90

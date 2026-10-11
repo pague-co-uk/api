@@ -4,6 +4,6 @@ import type { DashboardPeriod } from "src/repositories/options/dashboard.options
 
 export class DashboardQueryDto {
   @IsOptional()
-  @IsIn(["7d", "30d", "90d"])
+  @IsIn(["1d", "7d", "30d", "90d"])
   period?: DashboardPeriod;
 }
