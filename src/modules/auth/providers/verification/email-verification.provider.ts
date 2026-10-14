@@ -1,14 +1,11 @@
-import { Injectable, OnModuleInit } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 
 import {
   getComponentLogger,
 } from "@pague-co-uk/sms-gateway-telemetry";
 
-import nodemailer, {
-  Transporter,
-} from "nodemailer";
-
 import { AppConfigService } from "../../../../config/config.service.js";
+import { EmailService } from "../../../email/email.service.js";
 import {
   VerificationMessage,
   VerificationProvider,
@@ -16,90 +13,16 @@ import {
 
 @Injectable()
 export class EmailVerificationProvider
-  implements VerificationProvider, OnModuleInit {
+  implements VerificationProvider {
   private readonly logger =
     getComponentLogger(
       "EmailVerificationProvider",
     );
 
-  private readonly transporter: Transporter;
-
   constructor(
     private readonly configService: AppConfigService,
-  ) {
-    const {
-      smtp,
-    } = this.configService.email;
-
-    this.transporter =
-      nodemailer.createTransport({
-        host:
-          smtp.host,
-
-        port:
-          smtp.port,
-
-        secure:
-          smtp.secure,
-
-        auth:
-          smtp.user
-            ? {
-              user:
-                smtp.user,
-
-              pass:
-                smtp.password,
-            }
-            : undefined,
-
-        // A small pool avoids a fresh TCP/TLS handshake per email,
-        // which matters under login/signup bursts.
-        pool:
-          true,
-
-        maxConnections:
-          5,
-
-        connectionTimeout:
-          10_000,
-      });
-  }
-
-  // ==========================================================================
-  // SMTP verification
-  // ==========================================================================
-
-  async onModuleInit(): Promise<void> {
-    try {
-      await this.transporter.verify();
-
-      this.logger.info(
-        {
-          host:
-            this.configService.email.smtp.host,
-
-          port:
-            this.configService.email.smtp.port,
-        },
-        "SMTP transport verified.",
-      );
-    } catch (error) {
-      this.logger.error(
-        {
-          host:
-            this.configService.email.smtp.host,
-
-          port:
-            this.configService.email.smtp.port,
-
-          err:
-            error,
-        },
-        "SMTP transport failed verification. Verification emails will fail until this is resolved.",
-      );
-    }
-  }
+    private readonly email: EmailService,
+  ) {}
 
   // ==========================================================================
   // Send
@@ -114,15 +37,7 @@ export class EmailVerificationProvider
       );
 
     try {
-      await this.transporter.sendMail({
-        from: {
-          address:
-            this.configService.email.fromAddress,
-
-          name:
-            this.configService.email.fromName,
-        },
-
+      await this.email.send({
         to:
           message.recipient,
 

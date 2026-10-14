@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Optional,
 } from "@nestjs/common";
 
 import {
@@ -18,6 +19,7 @@ import {
 import { ClockService } from "../../../common/services/clock.service.js";
 import { RandomGenerator } from "../../../common/services/random.service.js";
 import { FloatLedgerRepository } from "../../../repositories/FloatLedgerRepository.js";
+import { FloatAlertService } from "./float-alert.service.js";
 
 export interface MessageFloatDebit {
   readonly messageId: string;
@@ -34,6 +36,7 @@ export class FloatLedgerService {
     private readonly ledger: FloatLedgerRepository,
     private readonly random: RandomGenerator,
     private readonly clock: ClockService,
+    @Optional() private readonly floatAlerts?: FloatAlertService,
   ) { }
 
   // -------------------------------------------------------------------------
@@ -62,6 +65,9 @@ export class FloatLedgerService {
         });
 
         try {
+          const balanceBefore =
+            await this.ledger.sumCreditsByClient(clientId);
+
           const entry =
             await this.ledger.create({
               publicId:
@@ -110,6 +116,10 @@ export class FloatLedgerService {
             },
             "Float top-up recorded.",
           );
+
+          const balanceAfter =
+            await this.ledger.sumCreditsByClient(clientId);
+          await this.notifyBalanceChange(clientId, balanceBefore, balanceAfter);
 
           return entry;
         } catch (error) {
@@ -244,6 +254,7 @@ export class FloatLedgerService {
         });
 
         try {
+          let balanceBefore: number | undefined;
           const entry =
             await this.ledger.withTransaction(
               async (tx) => {
@@ -279,6 +290,7 @@ export class FloatLedgerService {
                   await ledger.sumCreditsByClient(
                     clientId,
                   );
+                balanceBefore = balance;
 
                 span.setAttribute(
                   "float.balance.before",
@@ -349,6 +361,12 @@ export class FloatLedgerService {
             "Float debit recorded.",
           );
 
+          if (balanceBefore !== undefined) {
+            const balanceAfter =
+              await this.ledger.sumCreditsByClient(clientId);
+            await this.notifyBalanceChange(clientId, balanceBefore, balanceAfter);
+          }
+
           return entry;
         } catch (error) {
           recordException(error);
@@ -396,6 +414,7 @@ export class FloatLedgerService {
   async debitMessages(
     clientId: string,
     messages: readonly MessageFloatDebit[],
+    onBalanceChange?: (before: number, after: number) => void,
   ) {
     return withSpan(
       "FloatLedgerService.debitMessages",
@@ -550,6 +569,8 @@ export class FloatLedgerService {
             entries,
           );
 
+          onBalanceChange?.(balance, balance - pendingCredits);
+
           span.setAttribute(
             "float.balance.after",
             balance -
@@ -640,6 +661,9 @@ export class FloatLedgerService {
         });
 
         try {
+          const balanceBefore =
+            await this.ledger.sumCreditsByClient(clientId);
+          let didRecord = false;
           const entry =
             await this.ledger.withTransaction(
               async (tx) => {
@@ -666,6 +690,8 @@ export class FloatLedgerService {
 
                   return existing;
                 }
+
+                didRecord = true;
 
                 // -----------------------------------------------------------
                 // Create refund
@@ -713,6 +739,12 @@ export class FloatLedgerService {
             },
             "Float refund recorded.",
           );
+
+          if (didRecord) {
+            const balanceAfter =
+              await this.ledger.sumCreditsByClient(clientId);
+            await this.notifyBalanceChange(clientId, balanceBefore, balanceAfter);
+          }
 
           return entry;
         } catch (error) {
@@ -769,6 +801,8 @@ export class FloatLedgerService {
         });
 
         try {
+          const balanceBefore =
+            await this.ledger.sumCreditsByClient(clientId);
           const entry =
             await this.ledger.create({
               publicId:
@@ -815,6 +849,10 @@ export class FloatLedgerService {
             },
             "Float adjustment recorded.",
           );
+
+          const balanceAfter =
+            await this.ledger.sumCreditsByClient(clientId);
+          await this.notifyBalanceChange(clientId, balanceBefore, balanceAfter);
 
           return entry;
         } catch (error) {
@@ -867,6 +905,14 @@ export class FloatLedgerService {
         return balance;
       },
     );
+  }
+
+  async notifyBalanceChange(
+    clientId: string,
+    before: number,
+    after: number,
+  ): Promise<void> {
+    await this.floatAlerts?.checkBalanceChange(clientId, before, after);
   }
 
   // -------------------------------------------------------------------------
@@ -959,6 +1005,7 @@ export class FloatLedgerService {
       this.ledger.withDatabase(db),
       this.random,
       this.clock,
+      this.floatAlerts,
     ) as this;
   }
 

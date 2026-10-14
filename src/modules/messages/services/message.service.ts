@@ -237,6 +237,9 @@ export class MessageService {
         });
 
         try {
+          let floatBalanceChange:
+            | { before: number; after: number }
+            | undefined;
           const result =
             await this.messages.withTransaction(
               async (tx) => {
@@ -465,6 +468,9 @@ export class MessageService {
                         message.segmentCount,
                     }),
                   ),
+                  (before, after) => {
+                    floatBalanceChange = { before, after };
+                  },
                 );
 
                 // -----------------------------------------------------------
@@ -555,6 +561,14 @@ export class MessageService {
                 return created;
               },
             );
+
+          if (floatBalanceChange) {
+            await this.float.notifyBalanceChange(
+              clientId,
+              floatBalanceChange.before,
+              floatBalanceChange.after,
+            );
+          }
 
           this.logger.info(
             {

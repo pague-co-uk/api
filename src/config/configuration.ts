@@ -365,6 +365,23 @@ export default () => ({
       "Pague",
   },
 
+  floatAlerts: {
+    recipients:
+      (process.env.FLOAT_ALERT_EMAILS ??
+        "blessings.bless.nyoni@gmail.com,charitymgalima@gmail.com")
+        .split(",")
+        .map((address) => address.trim())
+        .filter(Boolean),
+    lowLimit:
+      process.env.FLOAT_ALERT_LOW_LIMIT?.trim()
+        ? Number(process.env.FLOAT_ALERT_LOW_LIMIT)
+        : undefined,
+    criticalLowLimit:
+      process.env.FLOAT_ALERT_CRITICAL_LOW_LIMIT?.trim()
+        ? Number(process.env.FLOAT_ALERT_CRITICAL_LOW_LIMIT)
+        : undefined,
+  },
+
   // ==========================================================================
   // Features
   // ==========================================================================

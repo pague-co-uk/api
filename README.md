@@ -31,6 +31,10 @@
 $ npm install
 ```
 
+## Float email alerts
+
+Set `FLOAT_ALERT_LOW_LIMIT` and `FLOAT_ALERT_CRITICAL_LOW_LIMIT` to the balance thresholds in credits, with the critical limit lower than the low limit. Alerts are sent when a client's balance crosses those thresholds downward. A separate float-out alert is sent when the balance reaches zero. The default recipients are `blessings.bless.nyoni@gmail.com` and `charitymgalima@gmail.com`; override them with a comma-separated `FLOAT_ALERT_EMAILS` value. Configure the thresholds to enable low and critically low alerts.
+
 ## Compile and run the project
 
 ```bash

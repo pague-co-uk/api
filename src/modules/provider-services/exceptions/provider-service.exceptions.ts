@@ -1,15 +1,21 @@
-export class ProviderServiceNotFoundException extends Error {
+import { HttpStatus } from "@nestjs/common";
+
+import { DomainException } from "../../../exceptions/domain.exception.js";
+
+export class ProviderServiceNotFoundException extends DomainException {
+  readonly code = "PROVIDER_SERVICE_NOT_FOUND";
+  readonly status = HttpStatus.NOT_FOUND;
+
   constructor(identifier: string) {
-    super(
-      `Provider service '${identifier}' was not found.`,
-    );
-    this.name =
-      "ProviderServiceNotFoundException";
+    super(`Provider service '${identifier}' was not found.`);
   }
 }
 
 export class ProviderServiceAlreadyExistsException
-  extends Error {
+  extends DomainException {
+  readonly code = "PROVIDER_SERVICE_ALREADY_EXISTS";
+  readonly status = HttpStatus.CONFLICT;
+
   constructor(
     providerCode: string,
     serviceCode: string,
@@ -17,51 +23,45 @@ export class ProviderServiceAlreadyExistsException
     super(
       `Provider service '${providerCode}' for service '${serviceCode}' already exists.`,
     );
-    this.name =
-      "ProviderServiceAlreadyExistsException";
   }
 }
 
 export class PaymentProviderNotFoundException
-  extends Error {
+  extends DomainException {
+  readonly code = "PAYMENT_PROVIDER_NOT_FOUND";
+  readonly status = HttpStatus.NOT_FOUND;
+
   constructor(providerCode: string) {
-    super(
-      `Payment provider '${providerCode}' was not found.`,
-    );
-    this.name =
-      "PaymentProviderNotFoundException";
+    super(`Payment provider '${providerCode}' was not found.`);
   }
 }
 
 export class PaymentProviderNotActiveException
-  extends Error {
+  extends DomainException {
+  readonly code = "PAYMENT_PROVIDER_NOT_ACTIVE";
+  readonly status = HttpStatus.CONFLICT;
+
   constructor(providerCode: string) {
-    super(
-      `Payment provider '${providerCode}' is not active.`,
-    );
-    this.name =
-      "PaymentProviderNotActiveException";
+    super(`Payment provider '${providerCode}' is not active.`);
   }
 }
 
 export class ServiceNotFoundException
-  extends Error {
+  extends DomainException {
+  readonly code = "SERVICE_NOT_FOUND";
+  readonly status = HttpStatus.NOT_FOUND;
+
   constructor(serviceCode: string) {
-    super(
-      `Service '${serviceCode}' was not found.`,
-    );
-    this.name =
-      "ServiceNotFoundException";
+    super(`Service '${serviceCode}' was not found.`);
   }
 }
 
 export class ServiceNotActiveException
-  extends Error {
+  extends DomainException {
+  readonly code = "SERVICE_NOT_ACTIVE";
+  readonly status = HttpStatus.CONFLICT;
+
   constructor(serviceCode: string) {
-    super(
-      `Service '${serviceCode}' is not active.`,
-    );
-    this.name =
-      "ServiceNotActiveException";
+    super(`Service '${serviceCode}' is not active.`);
   }
 }

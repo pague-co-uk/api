@@ -35,6 +35,7 @@ import {
 } from "./constants/mfa.constants.js";
 
 import { EmailVerificationProvider } from "./providers/verification/email-verification.provider.js";
+import { EmailModule } from "../email/email.module.js";
 import { SmsVerificationProvider } from "./providers/verification/sms-verification.provider.js";
 
 import { AuthorizationService } from "../../common/authorization/services/index.js";
@@ -56,6 +57,7 @@ import { SessionService } from "./services/session.service.js";
 @Module({
   imports: [
     AuditModule,
+    EmailModule,
   ],
 
   controllers: [
