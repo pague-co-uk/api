@@ -1,7 +1,9 @@
+import { messageDateRange } from "../dto/message-date-range.js";
 import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Post,
@@ -76,6 +78,7 @@ export class MessagesController {
       await this.messages.findByClient(
         clientId,
         {
+          ...messageDateRange(dto),
           page:
             dto.page,
 
@@ -246,6 +249,17 @@ export class MessagesController {
   // -------------------------------------------------------------------------
   // Submission
   // -------------------------------------------------------------------------
+
+  @Post(":id/retry")
+  @HttpCode(202)
+  @Authorize(Permissions.MESSAGES_CREATE)
+  @ApiOperation({ summary: "Queue a failed message for a new routing cycle." })
+  async retry(
+    @Param("clientId", ParseUUIDPipe) clientId: string,
+    @Param("id", ParseUUIDPipe) messageId: string,
+  ) {
+    return this.messages.retry(clientId, messageId);
+  }
 
   @Post()
   @Authorize(Permissions.MESSAGES_CREATE)

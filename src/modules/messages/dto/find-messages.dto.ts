@@ -15,6 +15,16 @@ import {
 } from "@prisma/client";
 
 export class FindMessagesDto {
+  /** Inclusive date/time. Date-only values use Africa/Blantyre midnight. */
+  @IsOptional()
+  @IsDateString({ strict: true })
+  createdFrom?: string;
+
+  /** Date-only values include that whole day; timestamp values are exclusive. */
+  @IsOptional()
+  @IsDateString({ strict: true })
+  createdTo?: string;
+
   @IsOptional()
   @IsInt()
   @Min(1)

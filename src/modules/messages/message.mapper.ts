@@ -12,10 +12,11 @@ import {
 import { MessageStatusResponseDto } from "./dto/message-status.dto.js";
 import {
   MessageResponseDto,
+  MessageRetryProgress,
 } from "./dto/message.response.dto.js";
 
 export type MessageWithRelations =
-  Prisma.MessageGetPayload<{
+  { retryProgress?: MessageRetryProgress } & Prisma.MessageGetPayload<{
     include: {
       client: {
         select: {
@@ -101,6 +102,9 @@ export class MessageMapper {
     message: MessageWithRelations,
   ): MessageResponseDto {
     return {
+      retryProgress: message.retryProgress ?? {
+        attemptCount: 0, routeSubmissionCount: 0, latestAttemptStatus: null, scheduledAt: null,
+      },
       id:
         message.id,
 
@@ -187,8 +191,22 @@ export class MessageMapper {
   toDetailsResponse(
     message: MessageDetailsWithRelations,
   ): MessageResponseDto {
+    const routeCounts = new Map<string, number>();
+    const submissionNumbers = new Map<string, number>();
+    for (const attempt of message.routeAttempts) {
+      const count = (routeCounts.get(attempt.routeId) ?? 0) + 1;
+      routeCounts.set(attempt.routeId, count);
+      submissionNumbers.set(attempt.id, count);
+    }
+    const latest = message.routeAttempts.at(-1);
     return {
       ...this.toResponse(message),
+      retryProgress: {
+        attemptCount: message.routeAttempts.length,
+        routeSubmissionCount: latest ? routeCounts.get(latest.routeId) ?? 0 : 0,
+        latestAttemptStatus: latest?.status ?? null,
+        scheduledAt: latest?.scheduledAt ?? null,
+      },
 
       statusEvents:
         message.statusEvents.map(
@@ -206,6 +224,8 @@ export class MessageMapper {
 
             attemptNumber:
               attempt.attemptNumber,
+            routeSubmissionNumber: submissionNumbers.get(attempt.id)!,
+            scheduledAt: attempt.scheduledAt,
 
             priority:
               attempt.priority,

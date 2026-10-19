@@ -1,3 +1,4 @@
+import { ConflictException, NotFoundException } from "@nestjs/common";
 import {
   Inject,
   Injectable,
@@ -433,6 +434,8 @@ export class MessageRepository
       senderIdId?: string;
       status?: MessageStatus;
       encoding?: MessageEncoding;
+      createdFrom?: Date;
+      createdTo?: Date;
       submittedFrom?: Date;
       submittedTo?: Date;
     },
@@ -453,6 +456,9 @@ export class MessageRepository
           options?.search?.trim();
 
         const where: Prisma.MessageWhereInput = {
+          ...(options?.createdFrom || options?.createdTo ? {
+            createdAt: { gte: options.createdFrom, lt: options.createdTo },
+          } : {}),
           ...(options?.clientId
             ? {
               clientId:
@@ -549,6 +555,11 @@ export class MessageRepository
             where,
 
             include: {
+              _count: { select: { routeAttempts: true } },
+              routeAttempts: {
+                orderBy: { attemptNumber: "desc" }, take: 1,
+                select: { routeId: true, status: true, scheduledAt: true },
+              },
               client: {
                 select: {
                   id: true,
@@ -567,9 +578,7 @@ export class MessageRepository
               },
             },
 
-            orderBy: {
-              submittedAt: "desc",
-            },
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
 
             skip,
             take: pageSize,
@@ -578,7 +587,7 @@ export class MessageRepository
 
         return {
           result: {
-            items,
+            items: await this.attachRetryProgress(items),
             page,
             pageSize,
             totalItems,
@@ -601,6 +610,8 @@ export class MessageRepository
       senderIdId?: string;
       status?: MessageStatus;
       encoding?: MessageEncoding;
+      createdFrom?: Date;
+      createdTo?: Date;
       submittedFrom?: Date;
       submittedTo?: Date;
     },
@@ -619,6 +630,9 @@ export class MessageRepository
           options?.search?.trim();
 
         const where: Prisma.MessageWhereInput = {
+          ...(options?.createdFrom || options?.createdTo ? {
+            createdAt: { gte: options.createdFrom, lt: options.createdTo },
+          } : {}),
           clientId,
 
           ...(search
@@ -710,6 +724,11 @@ export class MessageRepository
             where,
 
             include: {
+              _count: { select: { routeAttempts: true } },
+              routeAttempts: {
+                orderBy: { attemptNumber: "desc" }, take: 1,
+                select: { routeId: true, status: true, scheduledAt: true },
+              },
               client: {
                 select: {
                   id: true,
@@ -728,9 +747,7 @@ export class MessageRepository
               },
             },
 
-            orderBy: {
-              submittedAt: "desc",
-            },
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
 
             skip,
             take: pageSize,
@@ -739,7 +756,7 @@ export class MessageRepository
 
         return {
           result: {
-            items,
+            items: await this.attachRetryProgress(items),
             page,
             pageSize,
             totalItems,
@@ -836,4 +853,50 @@ export class MessageRepository
       },
     );
   }
+  async retryFailedMessage(clientId: string, messageId: string, queueName: string, now: Date) {
+    return this.withTransaction(async db => {
+      await db.$queryRaw`SELECT id FROM messages WHERE id = ${messageId} AND clientId = ${clientId} FOR UPDATE`;
+      const message = await db.message.findFirst({ where: { id: messageId, clientId } });
+      if (!message) throw new NotFoundException("Message not found.");
+      if (message.currentStatus !== "FAILED") throw new ConflictException("Only failed messages can be retried.");
+      const latest = await db.messageRouteAttempt.findFirst({
+        where: { messageId }, orderBy: { attemptNumber: "desc" },
+      });
+      if (latest && latest.status !== "FAILED") {
+        throw new ConflictException("This message has an active or uncertain submission and cannot be retried.");
+      }
+      await db.message.update({ where: { id: messageId }, data: { currentStatus: "QUEUED" } });
+      const event = await db.messageStatusEvent.create({ data: {
+        messageId, attemptId: latest?.id, status: "QUEUED", source: "manual-retry",
+        description: "Manual retry requested; starting a new routing cycle.", createdAt: now,
+      } });
+      const outboxEvent = await db.outboxEvent.create({ data: {
+        eventType: "MESSAGE_MANUAL_RETRY", aggregateType: "MESSAGE", aggregateId: messageId,
+        queueName, availableAt: now, payload: { messageId, manualRetryEventId: event.id },
+      } });
+      return { messageId, status: "QUEUED" as const, manualRetryEventId: event.id, outboxEventId: outboxEvent.id };
+    });
+  }
+
+  private async attachRetryProgress<T extends MessageWithRelations & {
+    _count: { routeAttempts: number };
+    routeAttempts: { routeId: string; status: import("@prisma/client").MessageRouteAttemptStatus; scheduledAt: Date | null }[];
+  }>(items: T[]): Promise<T[]> {
+    const pairs = items.flatMap(message => message.routeAttempts.map(attempt => ({ messageId: message.id, routeId: attempt.routeId })));
+    // One batch aggregation for the entire page; no query per message.
+    const counts = pairs.length ? await this.db.messageRouteAttempt.groupBy({
+      by: ["messageId", "routeId"], where: { OR: pairs }, _count: { _all: true },
+    }) : [];
+    const lookup = new Map(counts.map(row => [`${row.messageId}:${row.routeId}`, row._count._all]));
+    return items.map(message => {
+      const latest = message.routeAttempts[0];
+      return { ...message, retryProgress: {
+        attemptCount: message._count.routeAttempts,
+        routeSubmissionCount: latest ? lookup.get(`${message.id}:${latest.routeId}`) ?? 0 : 0,
+        latestAttemptStatus: latest?.status ?? null,
+        scheduledAt: latest?.scheduledAt ?? null,
+      } };
+    });
+  }
+
 }

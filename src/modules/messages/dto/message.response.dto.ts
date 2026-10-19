@@ -5,7 +5,16 @@ import {
   RouteStatus,
 } from "@prisma/client";
 
+export interface MessageRetryProgress {
+  attemptCount: number;
+  routeSubmissionCount: number;
+  latestAttemptStatus: MessageRouteAttemptStatus | null;
+  scheduledAt: Date | null;
+}
+
 export class MessageResponseDto {
+  retryProgress!: MessageRetryProgress;
+
   id!: string;
 
   publicId!: string;
@@ -57,6 +66,8 @@ export class MessageResponseDto {
   routeAttempts!: {
     id: string;
     attemptNumber: number;
+    routeSubmissionNumber: number;
+    scheduledAt: Date | null;
     priority: number;
     status: MessageRouteAttemptStatus;
 

@@ -91,8 +91,8 @@ export class MessageService {
   // -------------------------------------------------------------------------
 
   /**
-   * Terminal states cannot transition
-   * to another message state.
+   * Automatic updates cannot transition terminal states.
+   * Explicit manual retry has its own guarded FAILED -> QUEUED operation.
    */
   private static readonly TERMINAL_STATUSES =
     new Set<MessageStatus>([
@@ -678,6 +678,22 @@ export class MessageService {
   // Queries
   // =========================================================================
 
+  async retry(clientId: string, messageId: string) {
+    const queue = this.queueForStatus(MessageStatus.QUEUED);
+    try {
+      const result = await this.messages.retryFailedMessage(clientId, messageId, queue, this.clock.now());
+      this.logger.info({
+        event: "message.manual_retry.queued", messageId, clientId, queue,
+        manualRetryEventId: result.manualRetryEventId, outboxEventId: result.outboxEventId,
+      }, "Manual message retry queued for a new routing cycle.");
+      return { messageId: result.messageId, status: result.status };
+    } catch (error) {
+      this.logger.warn({ event: "message.manual_retry.rejected", messageId, clientId, err: error },
+        "Manual message retry rejected or could not be queued.");
+      throw error;
+    }
+  }
+
   async findByClient(
     clientId: string,
     options?: {
@@ -688,6 +704,8 @@ export class MessageService {
       readonly senderIdId?: string;
       readonly status?: MessageStatus;
       readonly encoding?: MessageEncoding;
+      readonly createdFrom?: Date;
+      readonly createdTo?: Date;
       readonly submittedFrom?: Date;
       readonly submittedTo?: Date;
     },
@@ -1249,6 +1267,8 @@ export class MessageService {
       readonly senderIdId?: string;
       readonly status?: MessageStatus;
       readonly encoding?: MessageEncoding;
+      readonly createdFrom?: Date;
+      readonly createdTo?: Date;
       readonly submittedFrom?: Date;
       readonly submittedTo?: Date;
     },

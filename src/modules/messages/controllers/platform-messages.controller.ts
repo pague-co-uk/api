@@ -1,3 +1,4 @@
+import { messageDateRange } from "../dto/message-date-range.js";
 import {
   Controller,
   Get,
@@ -42,6 +43,7 @@ export class PlatformMessagesController {
   ) {
     const page =
       await this.messages.findManyPlatform({
+        ...messageDateRange(dto),
         page: dto.page,
         pageSize: dto.pageSize,
         clientId: dto.clientId,
