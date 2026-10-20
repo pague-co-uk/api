@@ -93,11 +93,11 @@ describe("message retrieval with retries", () => {
 });
 
 describe("date and page-size validation", () => {
-  it("includes the entire end day in Africa/Blantyre time", () => {
+  it("includes the entire end day in Africa/Nairobi time", () => {
     expect(messageDateRange({ createdFrom: "2026-10-19", createdTo: "2026-10-19" })).toEqual({
-      createdFrom: new Date("2026-10-18T22:00:00Z"), createdTo: new Date("2026-10-19T22:00:00Z"),
+      createdFrom: new Date("2026-10-18T21:00:00Z"), createdTo: new Date("2026-10-19T21:00:00Z"),
     });
-    expect(messageDateRange({ createdTo: "2026-12-31" }).createdTo).toEqual(new Date("2026-12-31T22:00:00Z"));
+    expect(messageDateRange({ createdTo: "2026-12-31" }).createdTo).toEqual(new Date("2026-12-31T21:00:00Z"));
   });
   it("rejects reversed, impossible and ambiguous dates", () => {
     for (const input of [{ createdFrom: "2026-10-20", createdTo: "2026-10-19" }, { createdFrom: "2026-02-30" }, { createdFrom: "invalid" }, { createdFrom: "2026-10-19T10:00:00" }]) {

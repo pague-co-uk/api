@@ -1,3 +1,4 @@
+import { recordMetricSafely } from "@pague-co-uk/sms-gateway-telemetry";
 import { Injectable } from '@nestjs/common';
 import {
   createCounterMetric,
@@ -31,6 +32,7 @@ import { SessionService } from './session.service.js';
 
 @Injectable()
 export class AuthenticationService {
+  private readonly authenticationOutcomes = createCounterMetric({ name: 'auth.authentication.outcomes', description: 'Complete initial authentication stage outcomes; MFA required is not yet authenticated.' });
   private readonly logger = getComponentLogger(AuthenticationService.name);
 
   private readonly loginAttemptedCounter = createCounterMetric({
@@ -137,6 +139,10 @@ export class AuthenticationService {
       refreshTokenExpiresAt: Date;
     }
   > {
+    recordMetricSafely(() => this.loginAttemptedCounter.add(1, { method: 'password' }));
+    let outcome = 'failed';
+    try {
+      const result = await (async (): ReturnType<AuthenticationService['login']> => {
     return withSpan('AuthenticationService.login', async (span) => {
       this.logger.info(
         {
@@ -163,7 +169,7 @@ export class AuthenticationService {
         } catch {
           await this.loginAttempts.recordFailure(user);
 
-          this.loginFailedCounter.add(1);
+
 
           throw new InvalidCredentialsException();
         }
@@ -315,6 +321,16 @@ export class AuthenticationService {
         throw error;
       }
     });
+
+      })();
+      outcome = result.requiresMfa ? 'mfa_required' : 'authenticated';
+      return result;
+    } catch (error) {
+      recordMetricSafely(() => this.loginFailedCounter.add(1, { method: 'password' }));
+      throw error;
+    } finally {
+      recordMetricSafely(() => this.authenticationOutcomes.increment({ method: 'password', outcome }));
+    }
   }
 
   async loginWithApiKey(
@@ -329,6 +345,10 @@ export class AuthenticationService {
     clientId: string;
     expiresAt: Date | null;
   }> {
+    recordMetricSafely(() => this.loginAttemptedCounter.add(1, { method: 'api_key' }));
+    let outcome = 'failed';
+    try {
+      const result = await (async (): ReturnType<AuthenticationService['loginWithApiKey']> => {
     return withSpan('AuthenticationService.loginWithApiKey', async (span) => {
       this.logger.info(
         {
@@ -396,6 +416,16 @@ export class AuthenticationService {
         throw new InvalidApiKeyException();
       }
     });
+
+      })();
+      outcome = result.requiresMfa ? 'mfa_required' : 'authenticated';
+      return result;
+    } catch (error) {
+      recordMetricSafely(() => this.loginFailedCounter.add(1, { method: 'api_key' }));
+      throw error;
+    } finally {
+      recordMetricSafely(() => this.authenticationOutcomes.increment({ method: 'api_key', outcome }));
+    }
   }
 
   async verifyMfa(

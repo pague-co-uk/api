@@ -6,9 +6,9 @@ Both `GET /clients/:clientId/messages` and `GET /messages` accept:
 - `createdTo`: inclusive calendar date, or exclusive timestamp boundary.
 - `page`: positive integer; `pageSize`: integer from 1 to 100.
 
-Date-only values use Africa/Blantyre (UTC+02:00). For example,
+Date-only values use Africa/Nairobi (UTC+03:00). For example,
 `createdFrom=2026-10-19&createdTo=2026-10-19` covers
-`2026-10-18T22:00:00Z <= createdAt < 2026-10-19T22:00:00Z`.
+`2026-10-18T21:00:00Z <= createdAt < 2026-10-19T21:00:00Z`.
 Explicit timestamp values must include their timezone. Reversed ranges are rejected.
 Existing `submittedFrom` and `submittedTo` filters retain their original behavior.
 Lists now use stable `createdAt DESC, id DESC` ordering. The canonical database
