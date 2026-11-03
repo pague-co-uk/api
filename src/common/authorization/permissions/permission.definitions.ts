@@ -9,6 +9,10 @@ export interface PermissionDefinition {
 export const PermissionDefinitions: {
   readonly [P in PermissionName]: PermissionDefinition;
 } = {
+  [Permissions.REPORT_BUILDER_READ]: { module: 'report-builder', description: 'View and preview custom database reports.' },
+  [Permissions.REPORT_BUILDER_EDIT]: { module: 'report-builder', description: 'Create, edit and delete custom database reports.' },
+  [Permissions.REPORT_BUILDER_EXPORT]: { module: 'report-builder', description: 'Export custom database reports to Excel.' },
+  [Permissions.REPORT_CONNECTIONS_MANAGE]: { module: 'report-builder', description: 'Manage reporting database connections.' },
   // -------------------------------------------------------------------------
   // Users
   // -------------------------------------------------------------------------

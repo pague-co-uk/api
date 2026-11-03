@@ -1,5 +1,9 @@
 
 export const Permissions = {
+  REPORT_BUILDER_READ: 'report-builder.read',
+  REPORT_BUILDER_EDIT: 'report-builder.edit',
+  REPORT_BUILDER_EXPORT: 'report-builder.export',
+  REPORT_CONNECTIONS_MANAGE: 'report-builder.connections.manage',
   // -------------------------------------------------------------------------
   // Users
   // -------------------------------------------------------------------------

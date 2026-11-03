@@ -1,3 +1,4 @@
+import { ReportBuilderModule } from './modules/report-builder/report-builder.module.js';
 import { Module } from "@nestjs/common";
 
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
@@ -61,6 +62,7 @@ import { WebhooksModule } from "./modules/webhooks/webhooks.module.js";
     AuditLogModule,
     DashboardModule,
     ReportsModule,
+    ReportBuilderModule,
     CountriesModule,
     ServicesModule,
     ClientServicesModule,
