@@ -1,3 +1,4 @@
+import { smsSegmentSummary } from "../../common/query/sms-segments.js";
 import { buildNetworkActivity, buildMonthlyOutcomes } from "./dashboard-charts.js";
 import {
   Injectable,
@@ -39,7 +40,6 @@ import type {
   DashboardData,
   DashboardFloatSummary,
   DashboardFloatTrendPoint,
-  DashboardHourlyVolume,
   DashboardKpiSummary,
   DashboardMessageSummary,
   DashboardOperationalSummary,
@@ -148,9 +148,9 @@ export class DashboardService {
             routingFailures,
             messageStatusCounts,
             messageTrendRows,
-            hourlyVolumeRows,
+            messageSegmentRows,
             statusCodeRows,
-            routeRows,
+            senderActivity,
             floatEntries,
             floatBalance,
             operationalRows,
@@ -173,7 +173,7 @@ export class DashboardService {
               period,
             ),
 
-            this.dashboard.getHourlyMessageVolume(
+            this.dashboard.getMessageSegmentCounts(
               clientIds,
               period,
             ),
@@ -183,7 +183,7 @@ export class DashboardService {
               period,
             ),
 
-            this.dashboard.getRoutePerformance(
+            this.dashboard.getSenderActivity(
               clientIds,
               period,
             ),
@@ -246,17 +246,13 @@ export class DashboardService {
             this.buildMessageSummary(
               messageStatusCounts,
               routingFailures,
+              messageSegmentRows,
             );
 
           const messageTrend =
             this.buildMessageTrend(
               messageTrendRows,
               period,
-            );
-
-          const hourlyVolume =
-            this.buildHourlyVolume(
-              hourlyVolumeRows,
             );
 
           const statusBreakdown =
@@ -267,11 +263,6 @@ export class DashboardService {
           const statusCodeBreakdown =
             this.buildStatusCodeBreakdown(
               statusCodeRows,
-            );
-
-          const routePerformance =
-            this.buildRoutePerformance(
-              routeRows,
             );
 
           const float =
@@ -334,8 +325,6 @@ export class DashboardService {
 
               activeClients,
 
-              hourlyVolumePoints:
-                hourlyVolume.length,
 
               statusCodeCount:
                 statusCodeBreakdown.length,
@@ -365,13 +354,12 @@ export class DashboardService {
             networkActivity: buildNetworkActivity(networkRows, period),
             monthlyOutcomes: { year: monthlyYear, months: buildMonthlyOutcomes(monthlyRows) },
 
-            hourlyVolume,
 
             statusBreakdown,
 
             statusCodeBreakdown,
 
-            routePerformance,
+            senderActivity,
 
             float,
 
@@ -467,8 +455,7 @@ export class DashboardService {
   private resolveScope(
     user: AuthenticatedUser,
   ): DashboardScope {
-    return user.clientId ===
-      this.config.app.platformClient
+    return user.roles.some(role => role.name === "PLATFORM_SUPER_ADMIN")
       ? "PLATFORM"
       : "CLIENT";
   }
@@ -531,7 +518,7 @@ export class DashboardService {
         ? 7
         : period === "90d"
           ? 90
-          : 30;
+          : period === "30d" ? 30 : 1;
 
     const start =
       new Date(end);
@@ -564,6 +551,7 @@ export class DashboardService {
       };
     }>,
     routingFailures: number,
+    segmentRows: Array<{ segmentCount?: number; _count: { _all: number } }> = [],
   ): DashboardMessageSummary {
     const counts: Record<
       MessageStatus,
@@ -594,6 +582,7 @@ export class DashboardService {
 
     return {
       total,
+      ...smsSegmentSummary(segmentRows),
       routingFailures,
 
       queued:
@@ -683,27 +672,6 @@ export class DashboardService {
           failed: 0,
           expired: 0,
         },
-    );
-  }
-
-  private buildHourlyVolume(
-    rows: Array<{
-      day: number;
-      hour: number;
-      count: bigint;
-    }>,
-  ): DashboardHourlyVolume[] {
-    return rows.map(
-      (row) => ({
-        day:
-          row.day,
-
-        hour:
-          row.hour,
-
-        count:
-          Number(row.count),
-      }),
     );
   }
 

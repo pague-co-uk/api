@@ -162,6 +162,8 @@ export class TransactionsRepository
 
   async findManyPlatform(
     options: {
+      readonly createdFrom?: Date;
+      readonly createdTo?: Date;
       readonly page: number;
       readonly pageSize: number;
       readonly search?: string;
@@ -191,6 +193,7 @@ export class TransactionsRepository
         const where:
           Prisma.TransactionWhereInput =
         {
+          ...(options.createdFrom || options.createdTo ? { createdAt: { gte: options.createdFrom, lt: options.createdTo } } : {}),
           ...(options.status !== undefined
             ? {
               status:
@@ -394,7 +397,7 @@ export class TransactionsRepository
 
         const [
           items,
-          totalItems,
+          statusRows,
         ] = await Promise.all([
           this.db.transaction.findMany({
             where,
@@ -432,15 +435,16 @@ export class TransactionsRepository
             skip,
           }),
 
-          this.db.transaction.count({
-            where,
-          }),
+          this.db.transaction.groupBy({ by: ["status"], where, _count: { _all: true } }),
         ]);
 
+        const statusCounts: Record<string, number> = Object.fromEntries(Object.values(TransactionStatus).map(status => [status, 0]));
+        for (const row of statusRows) statusCounts[row.status] = row._count._all;
+        const totalItems = Object.values(statusCounts).reduce((sum, count) => sum + count, 0);
         return {
           result: {
             items,
-
+            statusCounts,
             page:
               options.page,
 

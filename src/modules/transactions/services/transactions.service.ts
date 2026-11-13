@@ -1,3 +1,4 @@
+import { messageDateRange } from "../../messages/dto/message-date-range.js";
 import {
   Injectable,
   ForbiddenException,
@@ -38,6 +39,7 @@ export interface TransactionListResponse {
   data: TransactionResponseDto[];
 
   pagination: {
+    statusCounts?: Record<string, number>;
     page: number;
     pageSize: number;
     totalItems: number;
@@ -152,6 +154,7 @@ export class TransactionsService {
 
         const result =
           await this.transactionsRepository.findManyPlatform({
+            ...messageDateRange(dto),
             page,
             pageSize,
             search: dto.search,
@@ -190,6 +193,7 @@ export class TransactionsService {
             ),
 
           pagination: {
+            statusCounts: result.statusCounts,
             page: result.page,
             pageSize: result.pageSize,
             totalItems:

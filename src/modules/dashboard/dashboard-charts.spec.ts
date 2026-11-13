@@ -62,3 +62,17 @@ describe('dashboard activity charts', () => {
     expect(months[11]).toEqual({ month: 12, delivered: 0, failed: 0 });
   });
 });
+
+
+describe('monthly database scalar compatibility', () => {
+  it.each([11, 11n, '11'])('retains nonzero outcomes when SQL month is %s', month => {
+    const months = buildMonthlyOutcomes([{ month, delivered: '9800', failed: 696n }]);
+    expect(months[10]).toEqual({ month: 11, delivered: 9800, failed: 696 });
+    expect(months.reduce((sum, item) => sum + item.delivered, 0)).toBe(9800);
+  });
+  it('handles mixed driver scalar types without discarding populated months', () => {
+    const result = buildMonthlyOutcomes([{ month: '9', delivered: '100', failed: '4' }, { month: 10n, delivered: 5000n, failed: 200n }, { month: 11, delivered: 4700, failed: 492 }]);
+    expect(result.slice(8, 11)).toEqual([{ month: 9, delivered: 100, failed: 4 }, { month: 10, delivered: 5000, failed: 200 }, { month: 11, delivered: 4700, failed: 492 }]);
+    expect(result.reduce((sum, item) => sum + item.delivered, 0)).toBe(9800);
+  });
+});

@@ -326,7 +326,7 @@ export class PaymentDashboardService {
         ? 7
         : period === "90d"
           ? 90
-          : 30;
+          : period === "30d" ? 30 : 1;
 
     const start = new Date(end);
 

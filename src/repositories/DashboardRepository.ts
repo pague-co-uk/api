@@ -72,6 +72,31 @@ export class DashboardRepository extends DatabaseRepository {
     );
   }
 
+  async getSenderActivity(clientIds: string[] | undefined, period: DashboardDateRange) {
+    return this.execute("SELECT", "messages", async () => {
+      const clientFilter = clientIds === undefined ? Prisma.empty : clientIds.length
+        ? Prisma.sql`AND m.clientId IN (${Prisma.join(clientIds)})` : Prisma.sql`AND 1 = 0`;
+      // Count messages themselves, so retry attempts cannot inflate sender activity.
+      const rows = await this.db.$queryRaw<Array<{ sender: string | null; messages: bigint }>>(Prisma.sql`
+        SELECT s.sender AS sender, COUNT(*) AS messages
+        FROM messages m LEFT JOIN sender_ids s ON s.id = m.senderIdId
+        WHERE m.createdAt >= ${period.start} AND m.createdAt <= ${period.end} ${clientFilter}
+        GROUP BY s.sender ORDER BY messages DESC, s.sender ASC
+      `);
+      return { result: rows.map(row => ({ sender: row.sender, messages: Number(row.messages) })), rowsAffected: rows.length };
+    });
+  }
+
+  async getMessageSegmentCounts(clientIds: string[] | undefined, period: DashboardDateRange) {
+    return this.execute("SELECT", "messages", async () => ({
+      result: await this.db.message.groupBy({
+        by: ["segmentCount"],
+        where: { createdAt: { gte: period.start, lte: period.end }, ...(clientIds === undefined ? {} : { clientId: { in: clientIds } }) },
+        _count: { _all: true },
+      }),
+    }));
+  }
+
   async countRoutingFailures(clientIds: string[] | undefined, period: DashboardDateRange) {
     return this.execute("SELECT", "messages", async () => {
       const count = await this.db.message.count({ where: {
@@ -115,7 +140,7 @@ export class DashboardRepository extends DatabaseRepository {
     return this.execute("SELECT", "messages", async () => {
       const clientFilter = clientIds === undefined ? Prisma.empty : clientIds.length
         ? Prisma.sql`AND m.clientId IN (${Prisma.join(clientIds)})` : Prisma.sql`AND 1 = 0`;
-      const rows = await this.db.$queryRaw<Array<{ month: number; delivered: bigint; failed: bigint }>>(Prisma.sql`
+      const rows = await this.db.$queryRaw<Array<{ month: number | bigint | string; delivered: bigint | number | string; failed: bigint | number | string }>>(Prisma.sql`
         SELECT MONTH(m.createdAt) AS month,
           SUM(CASE WHEN m.currentStatus = 'DELIVERED' THEN 1 ELSE 0 END) AS delivered,
           SUM(CASE WHEN m.currentStatus = 'FAILED' AND EXISTS (

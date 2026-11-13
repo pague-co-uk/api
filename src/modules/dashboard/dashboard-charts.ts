@@ -46,10 +46,11 @@ export function buildNetworkActivity(
 }
 
 export function buildMonthlyOutcomes(
-  rows: Array<{ month: number; delivered: bigint; failed: bigint }>,
+  rows: Array<{ month: number | bigint | string; delivered: bigint | number | string; failed: bigint | number | string }>,
 ) {
   return Array.from({ length: 12 }, (_, index) => {
-    const row = rows.find((row) => row.month === index + 1);
+    // Raw MySQL/MariaDB scalar types vary by server/driver. A TS annotation does not coerce them.
+    const row = rows.find((row) => Number(row.month) === index + 1);
     return {
       month: index + 1,
       delivered: Number(row?.delivered ?? 0),

@@ -1,3 +1,4 @@
+import { smsSegmentSummary } from "../common/query/sms-segments.js";
 import { ConflictException, NotFoundException } from "@nestjs/common";
 import {
   Inject,
@@ -565,12 +566,12 @@ export class MessageRepository
           (page - 1) * pageSize;
 
         const [
-          totalItems,
+          statusRows,
+          routingFailures,
           items,
         ] = await Promise.all([
-          this.db.message.count({
-            where,
-          }),
+          this.db.message.groupBy({ by: ["currentStatus", "segmentCount"], where, _count: { _all: true } }),
+          this.db.message.count({ where: { AND: [where, { currentStatus: "FAILED", routeAttempts: { none: {} } }] } }),
 
           this.db.message.findMany({
             where,
@@ -606,8 +607,15 @@ export class MessageRepository
           }),
         ]);
 
+        const statusCounts: Record<string, number> = Object.fromEntries(Object.values(MessageStatus).map(status => [status, 0]));
+        for (const row of statusRows) statusCounts[row.currentStatus] += row._count._all;
+        const totalItems = Object.values(statusCounts).reduce((sum, count) => sum + count, 0);
+        statusCounts.FAILED = Math.max(0, statusCounts.FAILED - routingFailures);
+        statusCounts.ROUTING_FAILED = routingFailures;
         return {
           result: {
+            statusCounts,
+            ...smsSegmentSummary(statusRows),
             items: await this.attachRetryProgress(items),
             page,
             pageSize,
@@ -737,12 +745,12 @@ export class MessageRepository
           (page - 1) * pageSize;
 
         const [
-          totalItems,
+          statusRows,
+          routingFailures,
           items,
         ] = await Promise.all([
-          this.db.message.count({
-            where,
-          }),
+          this.db.message.groupBy({ by: ["currentStatus", "segmentCount"], where, _count: { _all: true } }),
+          this.db.message.count({ where: { AND: [where, { currentStatus: "FAILED", routeAttempts: { none: {} } }] } }),
 
           this.db.message.findMany({
             where,
@@ -778,8 +786,15 @@ export class MessageRepository
           }),
         ]);
 
+        const statusCounts: Record<string, number> = Object.fromEntries(Object.values(MessageStatus).map(status => [status, 0]));
+        for (const row of statusRows) statusCounts[row.currentStatus] += row._count._all;
+        const totalItems = Object.values(statusCounts).reduce((sum, count) => sum + count, 0);
+        statusCounts.FAILED = Math.max(0, statusCounts.FAILED - routingFailures);
+        statusCounts.ROUTING_FAILED = routingFailures;
         return {
           result: {
+            statusCounts,
+            ...smsSegmentSummary(statusRows),
             items: await this.attachRetryProgress(items),
             page,
             pageSize,

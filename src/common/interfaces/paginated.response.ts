@@ -13,6 +13,8 @@ export class PaginatedResponse<T> {
   ) {
     this.data = Array.from(items);
     this.pagination = {
+      ...(page.totalSegments !== undefined ? { totalSegments: page.totalSegments, segmentBreakdown: page.segmentBreakdown } : {}),
+      ...(page.statusCounts ? { statusCounts: page.statusCounts } : {}),
       page: page.page,
       pageSize: page.pageSize,
       totalItems: page.totalItems,

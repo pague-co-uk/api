@@ -21,6 +21,8 @@ export interface DashboardPeriod {
 }
 
 export interface DashboardMessageSummary {
+  totalSegments: number;
+  segmentBreakdown: Array<{ segmentCount: number; messageCount: number; totalSegments: number }>;
   readonly routingFailures: number;
   total: number;
   queued: number;
@@ -156,13 +158,12 @@ export interface DashboardData {
 
   messageTrend: DashboardTrendPoint[];
 
-  hourlyVolume: DashboardHourlyVolume[];
 
   statusBreakdown: DashboardStatusBreakdown[];
 
   statusCodeBreakdown: DashboardStatusCodeBreakdown[];
 
-  routePerformance: DashboardRoutePerformance[];
+  senderActivity: Array<{ sender: string | null; messages: number }>;
 
   float: DashboardFloatSummary;
 

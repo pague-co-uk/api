@@ -2,6 +2,7 @@ import { TransactionStatus } from "@prisma/client";
 import { Type } from "class-transformer";
 import {
   IsEnum,
+  IsDateString,
   IsInt,
   IsOptional,
   IsString,
@@ -10,6 +11,14 @@ import {
 } from "class-validator";
 
 export class FindTransactionsDto {
+  @IsOptional()
+  @IsDateString({ strict: true })
+  createdFrom?: string;
+
+  @IsOptional()
+  @IsDateString({ strict: true })
+  createdTo?: string;
+
   @IsOptional()
   @Type(() => Number)
   @IsInt()

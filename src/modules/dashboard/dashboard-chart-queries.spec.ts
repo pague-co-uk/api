@@ -57,3 +57,20 @@ describe('dashboard chart query invariants', () => {
     expect(queries[0].sql).toContain("m.currentStatus = 'FAILED' AND EXISTS");
   });
 });
+
+describe('sender activity query', () => {
+  const period = { start: new Date('2026-11-13T00:00:00Z'), end: new Date('2026-11-13T12:00:00Z') };
+  it('groups message records by sender text and applies client/time filters', async () => {
+    const { repo, queries } = repository();
+    await repo.getSenderActivity(['client-a'], period);
+    expect(queries[0].sql).toContain('LEFT JOIN sender_ids');
+    expect(queries[0].sql).toContain('GROUP BY s.sender');
+    expect(queries[0].sql).not.toContain('message_route_attempts');
+    expect(queries[0].values).toEqual(expect.arrayContaining([period.start, period.end, 'client-a']));
+  });
+  it('returns no activity for an empty client scope', async () => {
+    const { repo, queries } = repository();
+    await repo.getSenderActivity([], period);
+    expect(queries[0].sql).toContain('AND 1 = 0');
+  });
+});

@@ -28,11 +28,12 @@ function message() {
 describe("message retrieval with retries", () => {
   for (const platform of [false, true]) {
     it(`keeps pagination message-based and batches retry progress (${platform ? "platform" : "client"})`, async () => {
-      const listQueries: any[] = [], countQueries: any[] = [], groups: any[] = [];
+      const listQueries: any[] = [], countQueries: any[] = [], statusQueries: any[] = [], groups: any[] = [];
       const rows = [message(), { ...message(), id: "message-2" }];
       const db = {
         message: {
-          count: async (args: unknown) => { countQueries.push(args); return 12; },
+          count: async (args: unknown) => { countQueries.push(args); return 0; },
+          groupBy: async (args: unknown) => { statusQueries.push(args); return [{ currentStatus: "ROUTED", _count: { _all: 12 } }]; },
           findMany: async (args: unknown) => { listQueries.push(args); return rows; },
         },
         messageRouteAttempt: { groupBy: async (args: unknown) => {
@@ -47,7 +48,9 @@ describe("message retrieval with retries", () => {
       expect(page.totalItems).toBe(12);
       expect(listQueries[0].skip).toBe(10);
       expect(listQueries[0].take).toBe(10);
-      expect(listQueries[0].where).toEqual(countQueries[0].where);
+      expect(listQueries[0].where).toEqual(statusQueries[0].where);
+      expect(countQueries[0].where.AND[0]).toEqual(listQueries[0].where);
+      expect(page.statusCounts).toMatchObject({ ROUTED: 12, FAILED: 0, ROUTING_FAILED: 0 });
       expect(listQueries[0].where.clientId).toBe("client");
       expect(listQueries[0].where.createdAt).toEqual({ gte: range.createdFrom, lt: range.createdTo });
       expect(listQueries[0].include.routeAttempts.take).toBe(1);
@@ -60,7 +63,7 @@ describe("message retrieval with retries", () => {
   }
 
   it("empty pages do not query attempt history", async () => {
-    const repository = new QueryTestRepository({ message: { count: async () => 0, findMany: async () => [] } } as never);
+    const repository = new QueryTestRepository({ message: { count: async () => 0, groupBy: async () => [], findMany: async () => [] } } as never);
     expect((await repository.findByClient("client")).items).toEqual([]);
   });
 

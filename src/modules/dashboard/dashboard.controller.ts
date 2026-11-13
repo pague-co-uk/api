@@ -79,7 +79,7 @@ export class DashboardController {
         user,
         {
           period:
-            dto.period ?? "30d",
+            dto.period ?? "1d",
           year: dto.year,
         },
       );

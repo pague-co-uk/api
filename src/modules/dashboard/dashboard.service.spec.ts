@@ -28,3 +28,10 @@ describe("dashboard delivery outcomes", () => {
     expect(clients[0]).toMatchObject({ messages: 170, delivered: 80, failed: 10, deliveryRate: 80 });
   });
 });
+
+
+it("uses the platform role to show activity across clients", () => {
+  Object.assign(service, { config: { app: { platformClient: "obsolete" } } });
+  expect(service["resolveScope"]({ clientId: "demo-client", roles: [{ name: "PLATFORM_SUPER_ADMIN" }] } as never)).toBe("PLATFORM");
+  expect(service["resolveScope"]({ clientId: "obsolete", roles: [{ name: "ADMIN" }] } as never)).toBe("CLIENT");
+});
