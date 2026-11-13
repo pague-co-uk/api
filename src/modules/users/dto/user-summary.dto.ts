@@ -1,6 +1,9 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class UserSummaryResponseDto {
+  @ApiPropertyOptional({ description: "Client display name." })
+  clientName?: string;
+
   @ApiProperty({
     description: "Unique identifier of the user.",
     example: "01J3WZ6V6Q2R1W9G5M8A7B3C4D",

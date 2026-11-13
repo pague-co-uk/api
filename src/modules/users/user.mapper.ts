@@ -10,7 +10,7 @@ import { UserSummaryResponseDto } from "./dto/user-summary.dto.js";
 import { UserResponseDto } from "./dto/user.response.dto.js";
 
 export type UserWithRolesEntity =
-  Prisma.UserGetPayload<{
+  { client?: { displayName: string; companyName: string } } & Prisma.UserGetPayload<{
     include: {
       userRoles: {
         include: {
@@ -40,6 +40,7 @@ export class UserMapper {
     return {
       id: user.id,
       clientId: user.clientId,
+      clientName: user.client ? user.client.displayName || user.client.companyName : undefined,
       username: user.username,
       email: user.email,
       firstName: user.firstName,

@@ -68,6 +68,7 @@ export class AuditLogRepository
       async () => {
         const result =
           await this.db.auditLog.findUnique({
+            include: { client: { select: { displayName: true, companyName: true } }, user: { select: { firstName: true, lastName: true, username: true } } },
             where: {
               id,
             },
@@ -155,6 +156,11 @@ export class AuditLogRepository
         const searchClause = search
           ? {
             OR: [
+              { client: { displayName: { contains: search } } },
+              { client: { companyName: { contains: search } } },
+              { user: { firstName: { contains: search } } },
+              { user: { lastName: { contains: search } } },
+              { user: { username: { contains: search } } },
               {
                 action: { contains: search },
               },
@@ -199,6 +205,7 @@ export class AuditLogRepository
           totalItems,
         ] = await Promise.all([
           this.db.auditLog.findMany({
+            include: { client: { select: { displayName: true, companyName: true } }, user: { select: { firstName: true, lastName: true, username: true } } },
             where,
             orderBy: {
               createdAt: "desc",
@@ -279,6 +286,7 @@ export class AuditLogRepository
           totalItems,
         ] = await Promise.all([
           this.db.auditLog.findMany({
+            include: { client: { select: { displayName: true, companyName: true } }, user: { select: { firstName: true, lastName: true, username: true } } },
             where,
             orderBy: {
               createdAt: "desc",
@@ -357,6 +365,7 @@ export class AuditLogRepository
           totalItems,
         ] = await Promise.all([
           this.db.auditLog.findMany({
+            include: { client: { select: { displayName: true, companyName: true } }, user: { select: { firstName: true, lastName: true, username: true } } },
             where,
             orderBy: {
               createdAt: "desc",
@@ -435,6 +444,7 @@ export class AuditLogRepository
           totalItems,
         ] = await Promise.all([
           this.db.auditLog.findMany({
+            include: { client: { select: { displayName: true, companyName: true } }, user: { select: { firstName: true, lastName: true, username: true } } },
             where,
             orderBy: {
               createdAt: "desc",
@@ -513,6 +523,7 @@ export class AuditLogRepository
           totalItems,
         ] = await Promise.all([
           this.db.auditLog.findMany({
+            include: { client: { select: { displayName: true, companyName: true } }, user: { select: { firstName: true, lastName: true, username: true } } },
             where,
             orderBy: {
               createdAt: "desc",

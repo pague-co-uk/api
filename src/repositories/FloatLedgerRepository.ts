@@ -1,3 +1,4 @@
+import { ledgerReferenceLabels } from "./ledger-reference-labels.js";
 import {
   Inject,
   Injectable,
@@ -109,6 +110,7 @@ export class FloatLedgerRepository
       async () => {
         const result =
           await this.db.floatLedgerEntry.findFirst({
+            include: { createdBy: { select: { firstName: true, lastName: true, username: true } } },
             where: {
               id,
               clientId,
@@ -116,7 +118,7 @@ export class FloatLedgerRepository
           });
 
         return {
-          result,
+          result: result ? (await ledgerReferenceLabels(this.db, [result]))[0] : null,
           rowsAffected: result ? 1 : 0,
         };
       },
@@ -222,7 +224,7 @@ export class FloatLedgerRepository
 
         return {
           result: {
-            items,
+            items: await ledgerReferenceLabels(this.db, items),
             page: options.page,
             pageSize: options.pageSize,
             totalItems,
@@ -245,6 +247,7 @@ export class FloatLedgerRepository
       async () => {
         const result =
           await this.db.floatLedgerEntry.findFirst({
+            include: { createdBy: { select: { firstName: true, lastName: true, username: true } } },
             where: {
               publicId,
               clientId,
@@ -252,7 +255,7 @@ export class FloatLedgerRepository
           });
 
         return {
-          result,
+          result: result ? (await ledgerReferenceLabels(this.db, [result]))[0] : null,
           rowsAffected: result ? 1 : 0,
         };
       },
@@ -303,7 +306,7 @@ export class FloatLedgerRepository
 
         return {
           result: {
-            items,
+            items: await ledgerReferenceLabels(this.db, items),
             total,
           },
 
@@ -380,6 +383,7 @@ export class FloatLedgerRepository
       async () => {
         const result =
           await this.db.floatLedgerEntry.findFirst({
+            include: { createdBy: { select: { firstName: true, lastName: true, username: true } } },
             where: {
               clientId,
               referenceType,

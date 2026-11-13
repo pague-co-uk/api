@@ -132,7 +132,7 @@ export class WebhookMapper {
   // ==========================================================================
 
   toDeliveryResponse(
-    delivery: WebhookDelivery,
+    delivery: WebhookDelivery & { message?: { publicId: string } },
   ): WebhookDeliveryResponseDto {
 
     return {
@@ -144,6 +144,7 @@ export class WebhookMapper {
 
       messageId:
         delivery.messageId,
+      messageReference: delivery.message?.publicId ?? null,
 
       attemptNumber:
         delivery.attemptNumber,

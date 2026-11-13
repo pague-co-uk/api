@@ -7,6 +7,10 @@ import path from 'node:path';
 import { Worker } from 'node:worker_threads';
 import mysql from 'mysql2';
 import { Client } from 'pg';
+import {
+  mysqlConnectionError,
+  sourceErrorCode,
+} from './report-source-error.js';
 import type {
   ConnectionSettings,
   SchemaTable,
@@ -90,25 +94,48 @@ export async function openSource(
     client.on('error', () => {});
     const query = (sql: string, values: (string | number)[] = []) =>
       new Promise<Row[]>((resolve, reject) => {
-        client.query({ sql, timeout: 30000 }, values, (error, rows) =>
-          error ? reject(error) : resolve(rows as Row[]),
-        );
+        const timer = setTimeout(() => {
+          client.destroy();
+          reject(
+            Object.assign(new Error('Report query timed out.'), {
+              code: 'PROTOCOL_SEQUENCE_TIMEOUT',
+            }),
+          );
+        }, 30000);
+        client.query({ sql, timeout: 30000 }, values, (error, rows) => {
+          clearTimeout(timer);
+          if (error) reject(error);
+          else resolve(rows as Row[]);
+        });
       });
+    let stage = 'connection/authentication';
     try {
+      await new Promise<void>((resolve, reject) => {
+        client.connect((error) => (error ? reject(error) : resolve()));
+      });
+      stage = 'server version check';
       // MariaDB has a different statement timeout variable.
       const version = await query('SELECT VERSION() AS version');
-      await query(
-        String(version[0].version).includes('MariaDB')
-          ? 'SET SESSION max_statement_time = 30'
-          : 'SET SESSION max_execution_time = 30000',
-      );
+      stage = 'statement timeout configuration';
+      try {
+        await query(
+          /mariadb/i.test(String(version[0].version))
+            ? 'SET SESSION max_statement_time = 30'
+            : 'SET SESSION max_execution_time = 30000',
+        );
+      } catch (error) {
+        // Older servers may lack this optional variable. Connection-destroying
+        // client deadlines remain enforced for both queries and streams.
+        if (sourceErrorCode(error) !== 'ER_UNKNOWN_SYSTEM_VARIABLE')
+          throw error;
+      }
+      stage = 'transaction isolation configuration';
       await query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+      stage = 'read-only transaction setup';
       await query('START TRANSACTION READ ONLY');
-    } catch {
+    } catch (error) {
       client.destroy();
-      throw new BadRequestException(
-        'Cannot open a read-only MySQL/MariaDB connection. Check settings and server support.',
-      );
+      throw mysqlConnectionError(error, stage);
     }
     return {
       query,
@@ -116,9 +143,14 @@ export async function openSource(
         const stream = client
           .query({ sql, timeout: 30000 }, values)
           .stream({ highWaterMark: 100 });
+        const timer = setTimeout(() => {
+          stream.destroy(new Error('Report query exceeded 30 seconds.'));
+          client.destroy();
+        }, 30000);
         try {
           for await (const row of stream) yield row as Row;
         } finally {
+          clearTimeout(timer);
           stream.destroy();
         }
       },

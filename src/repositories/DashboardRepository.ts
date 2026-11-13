@@ -72,6 +72,18 @@ export class DashboardRepository extends DatabaseRepository {
     );
   }
 
+  async countRoutingFailures(clientIds: string[] | undefined, period: DashboardDateRange) {
+    return this.execute("SELECT", "messages", async () => {
+      const count = await this.db.message.count({ where: {
+        createdAt: { gte: period.start, lte: period.end },
+        ...(clientIds ? { clientId: { in: clientIds } } : {}),
+        currentStatus: "FAILED",
+        routeAttempts: { none: {} },
+      } });
+      return { result: count, rowsAffected: 1 };
+    });
+  }
+
   async getMessageTrend(
     clientIds: string[] | undefined,
     period: DashboardDateRange,
@@ -81,12 +93,13 @@ export class DashboardRepository extends DatabaseRepository {
       "messages",
       async () => {
         const clientFilter =
-          clientIds?.length
-            ? Prisma.sql`
+          clientIds
+            ? clientIds.length ? Prisma.sql`
                 AND clientId IN (
                   ${Prisma.join(clientIds)}
                 )
               `
+            : Prisma.sql`AND 1 = 0`
             : Prisma.empty;
 
         const rows =
@@ -100,7 +113,7 @@ export class DashboardRepository extends DatabaseRepository {
             }>
           >(Prisma.sql`
             SELECT
-              DATE(submittedAt) AS date,
+              DATE(createdAt) AS date,
 
               COUNT(*) AS sent,
 
@@ -114,7 +127,7 @@ export class DashboardRepository extends DatabaseRepository {
 
               SUM(
                 CASE
-                  WHEN currentStatus = 'FAILED'
+                  WHEN currentStatus = 'FAILED' AND EXISTS (SELECT 1 FROM message_route_attempts a WHERE a.messageId = messages.id)
                   THEN 1
                   ELSE 0
                 END
@@ -130,14 +143,14 @@ export class DashboardRepository extends DatabaseRepository {
 
             FROM messages
 
-            WHERE submittedAt >= ${period.start}
-              AND submittedAt <= ${period.end}
+            WHERE createdAt >= ${period.start}
+              AND createdAt <= ${period.end}
 
               ${clientFilter}
 
-            GROUP BY DATE(submittedAt)
+            GROUP BY DATE(createdAt)
 
-            ORDER BY DATE(submittedAt) ASC
+            ORDER BY DATE(createdAt) ASC
           `);
 
         return {
@@ -157,12 +170,13 @@ export class DashboardRepository extends DatabaseRepository {
       "messages",
       async () => {
         const clientFilter =
-          clientIds?.length
-            ? Prisma.sql`
+          clientIds
+            ? clientIds.length ? Prisma.sql`
                 AND clientId IN (
                   ${Prisma.join(clientIds)}
                 )
               `
+            : Prisma.sql`AND 1 = 0`
             : Prisma.empty;
 
         const rows =
@@ -174,24 +188,24 @@ export class DashboardRepository extends DatabaseRepository {
             }>
           >(Prisma.sql`
             SELECT
-              DAYOFWEEK(submittedAt) AS day,
-              HOUR(submittedAt) AS hour,
+              DAYOFWEEK(createdAt) AS day,
+              HOUR(createdAt) AS hour,
               COUNT(*) AS count
 
             FROM messages
 
-            WHERE submittedAt >= ${period.start}
-              AND submittedAt <= ${period.end}
+            WHERE createdAt >= ${period.start}
+              AND createdAt <= ${period.end}
 
               ${clientFilter}
 
             GROUP BY
-              DAYOFWEEK(submittedAt),
-              HOUR(submittedAt)
+              DAYOFWEEK(createdAt),
+              HOUR(createdAt)
 
             ORDER BY
-              DAYOFWEEK(submittedAt) ASC,
-              HOUR(submittedAt) ASC
+              DAYOFWEEK(createdAt) ASC,
+              HOUR(createdAt) ASC
           `);
 
         return {
@@ -211,12 +225,13 @@ export class DashboardRepository extends DatabaseRepository {
       "message_route_attempts",
       async () => {
         const clientFilter =
-          clientIds?.length
-            ? Prisma.sql`
+          clientIds
+            ? clientIds.length ? Prisma.sql`
                 AND m.clientId IN (
                   ${Prisma.join(clientIds)}
                 )
               `
+            : Prisma.sql`AND 1 = 0`
             : Prisma.empty;
 
         const rows =
@@ -287,12 +302,13 @@ export class DashboardRepository extends DatabaseRepository {
       "message_route_attempts",
       async () => {
         const clientFilter =
-          clientIds?.length
-            ? Prisma.sql`
+          clientIds
+            ? clientIds.length ? Prisma.sql`
               AND m.clientId IN (
                 ${Prisma.join(clientIds)}
               )
             `
+            : Prisma.sql`AND 1 = 0`
             : Prisma.empty;
 
         const rows =
@@ -632,7 +648,7 @@ export class DashboardRepository extends DatabaseRepository {
             ],
 
             where: {
-              submittedAt: {
+              createdAt: {
                 gte: period.start,
                 lte: period.end,
               },
@@ -651,8 +667,18 @@ export class DashboardRepository extends DatabaseRepository {
             },
           });
 
+        const routingFailures = await this.db.message.groupBy({
+          by: ["clientId"],
+          where: {
+            createdAt: { gte: period.start, lte: period.end },
+            ...(clientIds ? { clientId: { in: clientIds } } : {}),
+            currentStatus: "FAILED", routeAttempts: { none: {} },
+          },
+          _count: { _all: true },
+        });
+        const failuresByClient = new Map(routingFailures.map(row => [row.clientId, row._count._all]));
         return {
-          result: rows,
+          result: rows.map(row => ({ ...row, routingFailures: row.currentStatus === "FAILED" ? failuresByClient.get(row.clientId) ?? 0 : 0 })),
           rowsAffected: rows.length,
         };
       },

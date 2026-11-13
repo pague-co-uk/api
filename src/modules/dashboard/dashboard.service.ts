@@ -141,6 +141,7 @@ export class DashboardService {
           );
 
           const [
+            routingFailures,
             messageStatusCounts,
             messageTrendRows,
             hourlyVolumeRows,
@@ -155,6 +156,7 @@ export class DashboardService {
             viewerClient,
             activeClients,
           ] = await Promise.all([
+            this.dashboard.countRoutingFailures(clientIds, period),
             this.dashboard.getMessageStatusCounts(
               clientIds,
               period,
@@ -237,6 +239,7 @@ export class DashboardService {
           const messages =
             this.buildMessageSummary(
               messageStatusCounts,
+              routingFailures,
             );
 
           const messageTrend =
@@ -552,6 +555,7 @@ export class DashboardService {
         _all: number;
       };
     }>,
+    routingFailures: number,
   ): DashboardMessageSummary {
     const counts: Record<
       MessageStatus,
@@ -577,8 +581,12 @@ export class DashboardService {
         0,
       );
 
+    const failed = Math.max(0, counts.FAILED - routingFailures);
+    const completed = counts.DELIVERED + failed + counts.EXPIRED;
+
     return {
       total,
+      routingFailures,
 
       queued:
         counts.QUEUED,
@@ -593,17 +601,17 @@ export class DashboardService {
         counts.DELIVERED,
 
       failed:
-        counts.FAILED,
+        failed,
 
       expired:
         counts.EXPIRED,
 
       deliveryRate:
-        total > 0
+        completed > 0
           ? Number(
             (
               (counts.DELIVERED /
-                total) *
+                completed) *
               100
             ).toFixed(2),
           )
@@ -1207,6 +1215,7 @@ export class DashboardService {
 
   private buildClientSummaries(
     messageRows: Array<{
+      routingFailures: number;
       clientId: string;
 
       currentStatus:
@@ -1238,6 +1247,7 @@ export class DashboardService {
           delivered: number;
 
           failed: number;
+          expired: number;
         }
       >();
 
@@ -1253,6 +1263,7 @@ export class DashboardService {
           delivered: 0,
 
           failed: 0,
+          expired: 0,
         };
 
       current.messages +=
@@ -1270,9 +1281,10 @@ export class DashboardService {
         row.currentStatus ===
         MessageStatus.FAILED
       ) {
-        current.failed +=
-          row._count._all;
+        current.failed += row._count._all - row.routingFailures;
       }
+
+      if (row.currentStatus === MessageStatus.EXPIRED) current.expired += row._count._all;
 
       stats.set(
         row.clientId,
@@ -1291,6 +1303,7 @@ export class DashboardService {
             delivered: 0,
 
             failed: 0,
+            expired: 0,
           };
 
         return {
@@ -1317,11 +1330,11 @@ export class DashboardService {
             current.failed,
 
           deliveryRate:
-            current.messages > 0
+            current.delivered + current.failed + current.expired > 0
               ? Number(
                 (
                   (current.delivered /
-                    current.messages) *
+                    (current.delivered + current.failed + current.expired)) *
                   100
                 ).toFixed(2),
               )

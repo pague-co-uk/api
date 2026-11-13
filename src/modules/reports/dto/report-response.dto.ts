@@ -26,6 +26,7 @@ export class RoutePerformanceReportResponseDto {
 }
 
 export class FloatLedgerReportResponseDto {
+  readonly referenceLabel?: string | null;
   readonly publicId!: string;
   readonly transactionType!: LedgerTransactionType;
   readonly credits!: number;

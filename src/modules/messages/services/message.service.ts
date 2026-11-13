@@ -1,5 +1,7 @@
+import type { AuthenticatedUser } from "../../../common/authorization/interfaces/authenticated-user.interface.js";
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
@@ -1255,6 +1257,17 @@ export class MessageService {
     return key
       ? row[key]
       : undefined;
+  }
+
+  async getFilterOptions(clientId: string) {
+    return this.messages.getFilterOptions(clientId);
+  }
+
+  async getPlatformFilterOptions(user: AuthenticatedUser) {
+    if (!user?.roles.some(role => role.name === "PLATFORM_SUPER_ADMIN")) {
+      throw new ForbiddenException("Platform access is required.");
+    }
+    return this.messages.getFilterOptions();
   }
 
   async findManyPlatform(

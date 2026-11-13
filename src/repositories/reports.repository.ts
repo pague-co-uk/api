@@ -1,3 +1,4 @@
+import { ledgerReferenceLabels } from "./ledger-reference-labels.js";
 import {
   Inject,
   Injectable,
@@ -603,6 +604,7 @@ export class ReportsRepository
             where,
 
             select: {
+              clientId: true,
               publicId: true,
               transactionType: true,
               credits: true,
@@ -623,7 +625,7 @@ export class ReportsRepository
 
         return {
           result: {
-            items,
+            items: await ledgerReferenceLabels(this.db, items),
             page,
             pageSize,
             totalItems,

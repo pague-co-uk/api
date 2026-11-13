@@ -69,6 +69,7 @@ export class ReportsMapper {
       credits: entry.credits,
       referenceType: entry.referenceType,
       referenceId: entry.referenceId,
+      referenceLabel: entry.referenceLabel ?? (entry.referenceType === "MESSAGE" ? "Message unavailable" : entry.referenceId),
       description: entry.description,
       createdAt:
         entry.createdAt.toISOString(),

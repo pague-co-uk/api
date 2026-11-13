@@ -21,6 +21,7 @@ export interface DashboardPeriod {
 }
 
 export interface DashboardMessageSummary {
+  readonly routingFailures: number;
   total: number;
   queued: number;
   routed: number;

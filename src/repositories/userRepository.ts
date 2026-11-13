@@ -10,6 +10,7 @@ import type {
 } from "./options/user.options.js";
 
 const userWithRoles = {
+  client: { select: { displayName: true, companyName: true } },
   userRoles: {
     include: {
       role: {

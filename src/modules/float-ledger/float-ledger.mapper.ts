@@ -6,6 +6,8 @@ import type {
 
 export type FloatLedgerEntryWithOptionalClient =
   FloatLedgerEntry & {
+    referenceLabel?: string | null;
+    createdBy?: { firstName: string; lastName: string; username: string } | null;
     client?: {
       id: string;
       publicId: string;
@@ -21,6 +23,7 @@ export class FloatLedgerMapper {
   ) {
     return {
       id: entry.id,
+      createdByName: entry.createdBy ? `${entry.createdBy.firstName} ${entry.createdBy.lastName}`.trim() || entry.createdBy.username : null,
       publicId: entry.publicId,
 
       ...(entry.client
@@ -54,6 +57,7 @@ export class FloatLedgerMapper {
 
       referenceId:
         entry.referenceId,
+      referenceLabel: entry.referenceLabel ?? (entry.referenceType === "MESSAGE" ? "Message unavailable" : entry.referenceId),
 
       description:
         entry.description,

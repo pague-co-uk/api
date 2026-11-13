@@ -5,6 +5,8 @@ import {
 
 export class WebhookDeliveryResponseDto {
   @ApiProperty()
+  messageReference?: string | null;
+  @ApiProperty()
   id!: string;
 
   @ApiProperty()

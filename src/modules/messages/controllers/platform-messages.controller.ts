@@ -1,3 +1,5 @@
+import { CurrentUser } from "../../../common/authorization/decorators/current-user.decorator.js";
+import type { AuthenticatedUser } from "../../../common/authorization/interfaces/authenticated-user.interface.js";
 import { messageDateRange } from "../dto/message-date-range.js";
 import {
   Controller,
@@ -35,6 +37,16 @@ export class PlatformMessagesController {
     private readonly messages: MessageService,
     private readonly mapper: MessageMapper,
   ) { }
+
+  @Get("filter-options")
+  @Authorize(Permissions.MESSAGES_READ)
+  async filterOptions(@Query() dto: FindMessagesDto, @CurrentUser() user: AuthenticatedUser) {
+    const options = await this.messages.getPlatformFilterOptions(user);
+    return {
+      clients: options.clients,
+      senderIds: dto.clientId ? options.senderIds.filter(sender => sender.clientId === dto.clientId) : options.senderIds,
+    };
+  }
 
   @Get()
   @Authorize(Permissions.MESSAGES_READ)

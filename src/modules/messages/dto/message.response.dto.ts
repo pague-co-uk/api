@@ -85,6 +85,7 @@ export class MessageResponseDto {
     };
 
     connector: {
+      name?: string;
       id: string;
       publicId: string;
     };

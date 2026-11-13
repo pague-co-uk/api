@@ -256,6 +256,7 @@ export class MessageMapper {
             },
 
             connector: {
+              name: attempt.connector.name,
               id:
                 attempt.connector.id,
 

@@ -28,6 +28,24 @@ export class MessageRepository
     super(db);
   }
 
+  async getFilterOptions(clientId?: string) {
+    return this.execute("SELECT", "message_filter_options", async () => {
+      const [clients, senderIds] = await Promise.all([
+        this.db.client.findMany({
+          where: clientId ? { id: clientId } : {},
+          select: { id: true, publicId: true, displayName: true, companyName: true },
+          orderBy: { displayName: "asc" },
+        }),
+        this.db.senderId.findMany({
+          where: clientId ? { clientId } : {},
+          select: { id: true, sender: true, clientId: true },
+          orderBy: { sender: "asc" },
+        }),
+      ]);
+      return { result: { clients, senderIds }, rowsAffected: clients.length + senderIds.length };
+    });
+  }
+
   public withDatabase(
     db: Prisma.TransactionClient,
   ): this {
@@ -469,6 +487,9 @@ export class MessageRepository
           ...(search
             ? {
               OR: [
+                { client: { displayName: { contains: search } } },
+                { client: { companyName: { contains: search } } },
+                { senderId: { sender: { contains: search } } },
                 {
                   publicId: {
                     contains: search,
@@ -638,6 +659,9 @@ export class MessageRepository
           ...(search
             ? {
               OR: [
+                { client: { displayName: { contains: search } } },
+                { client: { companyName: { contains: search } } },
+                { senderId: { sender: { contains: search } } },
                 {
                   publicId: {
                     contains: search,

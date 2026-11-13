@@ -40,6 +40,7 @@ export class WebhookDeliveryRepository
       async () => {
         const result =
           await this.db.webhookDelivery.findMany({
+            include: { message: { select: { publicId: true } } },
             where: {
               webhookEndpointId,
             },
@@ -95,6 +96,7 @@ export class WebhookDeliveryRepository
       async () => {
         const result =
           await this.db.webhookDelivery.findUnique({
+            include: { message: { select: { publicId: true } } },
             where: {
               id,
             },

@@ -100,14 +100,15 @@ export class ReportBuilderService {
     const records = platform(user)
       ? await this.db.$queryRaw<
           ConnectionRecord[]
-        >`SELECT id, name, clientId, settings FROM report_connections ORDER BY name`
+        >`SELECT rc.id, rc.name, rc.clientId, rc.settings, COALESCE(NULLIF(c.displayName, ''), c.companyName) AS clientName FROM report_connections rc LEFT JOIN clients c ON c.id = rc.clientId ORDER BY rc.name`
       : await this.db.$queryRaw<
           ConnectionRecord[]
-        >`SELECT id, name, clientId, settings FROM report_connections WHERE clientId = ${user.clientId} ORDER BY name`;
+        >`SELECT rc.id, rc.name, rc.clientId, rc.settings, COALESCE(NULLIF(c.displayName, ''), c.companyName) AS clientName FROM report_connections rc LEFT JOIN clients c ON c.id = rc.clientId WHERE rc.clientId = ${user.clientId} ORDER BY rc.name`;
     return records.map((r) => ({
       id: r.id,
       name: r.name,
       clientId: r.clientId,
+      clientName: r.clientName ?? null,
       ...(management ? { settings: json(r.settings) } : {}),
     }));
   }

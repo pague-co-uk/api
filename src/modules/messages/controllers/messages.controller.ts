@@ -53,6 +53,12 @@ export class MessagesController {
   // Queries
   // -------------------------------------------------------------------------
 
+  @Get("filter-options")
+  @Authorize(Permissions.MESSAGES_READ)
+  async filterOptions(@Param("clientId", ParseUUIDPipe) clientId: string) {
+    return this.messages.getFilterOptions(clientId);
+  }
+
   @Get()
   @Authorize(Permissions.MESSAGES_READ)
   @ApiOperation({

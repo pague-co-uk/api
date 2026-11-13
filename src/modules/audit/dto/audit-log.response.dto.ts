@@ -1,6 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class AuditLogResponseDto {
+  @ApiPropertyOptional()
+  clientName?: string | null;
+
+  @ApiPropertyOptional()
+  userName?: string | null;
+
   @ApiProperty({
     description: "Audit log identifier.",
     format: "uuid",
