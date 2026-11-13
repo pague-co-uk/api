@@ -1,5 +1,9 @@
+import { normalizePayment } from "../normalize-payment.js";
 import {
   Injectable,
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
 } from "@nestjs/common";
 
 import {
@@ -92,7 +96,7 @@ export class PaymentsService {
             );
 
         if (!clientService) {
-          throw new Error(
+          throw new BadRequestException(
             `Service '${serviceCode}' is not assigned to this client.`,
           );
         }
@@ -104,7 +108,7 @@ export class PaymentsService {
           service.status !==
           ServiceStatus.ACTIVE
         ) {
-          throw new Error(
+          throw new BadRequestException(
             `Service '${serviceCode}' is not active.`,
           );
         }
@@ -113,7 +117,7 @@ export class PaymentsService {
           service.category !==
           ServiceCategory.PAYMENTS
         ) {
-          throw new Error(
+          throw new BadRequestException(
             `Service '${serviceCode}' is not a payment service.`,
           );
         }
@@ -122,7 +126,7 @@ export class PaymentsService {
           clientService.status !==
           ClientServiceStatus.ACTIVE
         ) {
-          throw new Error(
+          throw new BadRequestException(
             `Service '${serviceCode}' is not active for this client.`,
           );
         }
@@ -148,7 +152,7 @@ export class PaymentsService {
               transactionTypeCode,
             )
         ) {
-          throw new Error(
+          throw new BadRequestException(
             `Transaction type '${transactionTypeCode}' is not allowed for service '${serviceCode}'.`,
           );
         }
@@ -164,7 +168,7 @@ export class PaymentsService {
             );
 
         if (!transactionType) {
-          throw new Error(
+          throw new BadRequestException(
             `Transaction type '${transactionTypeCode}' was not found or is inactive.`,
           );
         }
@@ -178,7 +182,7 @@ export class PaymentsService {
             .currencies
             .includes(currencyCode)
         ) {
-          throw new Error(
+          throw new BadRequestException(
             `Currency '${currencyCode}' is not allowed for service '${serviceCode}'.`,
           );
         }
@@ -194,7 +198,7 @@ export class PaymentsService {
             );
 
         if (!currency) {
-          throw new Error(
+          throw new BadRequestException(
             `Currency '${currencyCode}' was not found or is inactive.`,
           );
         }
@@ -202,10 +206,7 @@ export class PaymentsService {
         /*
          * Validate service-specific fields.
          */
-        this.validateRequiredFields(
-          dto.data,
-          configuration.requiredFields,
-        );
+        const normalized = normalizePayment(dto, configuration);
 
         /*
          * Validate amount against the
@@ -239,11 +240,11 @@ export class PaymentsService {
                 await repository
                   .findByClientAndReference(
                     clientId,
-                    dto.reference,
+                    normalized.reference,
                   );
 
               if (existing) {
-                throw new Error(
+                throw new ConflictException(
                   `Transaction reference '${dto.reference}' already exists for this client.`,
                 );
               }
@@ -285,7 +286,9 @@ export class PaymentsService {
                       TransactionStatus.PENDING,
 
                     reference:
-                      dto.reference,
+                      normalized.reference,
+                    accountNumber: normalized.accountNumber,
+                    country: normalized.country,
 
                     amount,
 
@@ -297,7 +300,7 @@ export class PaymentsService {
                       : {}),
 
                     metadata:
-                      dto.data as Prisma.InputJsonValue,
+                      normalized.data as Prisma.InputJsonValue,
                   });
 
               await repository
@@ -330,7 +333,7 @@ export class PaymentsService {
             },
           );
 
-        this.createdMetric.increment();
+        this.createdMetric.add(1);
 
         this.logger.info(
           {
@@ -375,55 +378,25 @@ export class PaymentsService {
           );
 
         if (!transaction) {
-          throw new Error(
+          throw new NotFoundException(
             `Payment '${id}' was not found.`,
           );
         }
 
+        const response = transaction.providerResponse;
+        const session = response && typeof response === "object" && !Array.isArray(response) ? response.checkout : undefined;
+        const checkout = transaction.provider?.code === "LIPAD_STANDARD_CHECKOUT" && session && typeof session === "object" && !Array.isArray(session)
+          && typeof session.merchantTransactionId === "string" && session.merchantTransactionId === transaction.publicId
+          && typeof session.checkoutReference === "string" && typeof session.redirectUrl === "string"
+          && session.redirectUrl.startsWith("https://") && typeof session.expiresAt === "string"
+          ? { merchantTransactionId: session.merchantTransactionId, checkoutReference: session.checkoutReference, redirectUrl: session.redirectUrl, expiresAt: session.expiresAt } : undefined;
         return {
-          id: transaction.id,
+          ...(checkout ? { checkout } : {}),
+          id: transaction.publicId,
           status: transaction.status,
         };
       },
     );
-  }
-
-  private validateRequiredFields(
-    data: Record<string, unknown>,
-    requiredFields: string[],
-  ): void {
-    const missing =
-      requiredFields.filter(
-        (field) => {
-          const value =
-            data[field];
-
-          if (
-            value === undefined ||
-            value === null
-          ) {
-            return true;
-          }
-
-          if (
-            typeof value ===
-            "string" &&
-            value.trim() === ""
-          ) {
-            return true;
-          }
-
-          return false;
-        },
-      );
-
-    if (
-      missing.length > 0
-    ) {
-      throw new Error(
-        `Missing required payment fields: ${missing.join(", ")}.`,
-      );
-    }
   }
 
   private validateAmount(
@@ -445,12 +418,12 @@ export class PaymentsService {
      * - integer values are allowed
      */
     if (
-      !/^(?:0|[1-9]\d*)(?:\.\d{1,4})?$/.test(
+      !/^(?:0|[1-9]\d{0,14})(?:\.\d{1,4})?$/.test(
         normalized,
       )
     ) {
-      throw new Error(
-        "Amount must be a non-negative decimal value with no more than 4 decimal places.",
+      throw new BadRequestException(
+        "Amount must be a non-negative decimal value with at most 15 integer digits and 4 decimal places.",
       );
     }
 
@@ -462,7 +435,7 @@ export class PaymentsService {
           normalized,
         );
     } catch {
-      throw new Error(
+      throw new BadRequestException(
         "Amount must be a valid decimal value.",
       );
     }
@@ -470,7 +443,7 @@ export class PaymentsService {
     if (
       amount.lte(0)
     ) {
-      throw new Error(
+      throw new BadRequestException(
         "Amount must be greater than zero.",
       );
     }
@@ -487,7 +460,7 @@ export class PaymentsService {
       if (
         amount.lt(minimum)
       ) {
-        throw new Error(
+        throw new BadRequestException(
           `Amount must be at least ${limits.minimumAmount}.`,
         );
       }
@@ -505,7 +478,7 @@ export class PaymentsService {
       if (
         amount.gt(maximum)
       ) {
-        throw new Error(
+        throw new BadRequestException(
           `Amount must not exceed ${limits.maximumAmount}.`,
         );
       }

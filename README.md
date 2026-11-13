@@ -1,3 +1,9 @@
+## Payments API documentation
+
+- [Payments API integration guide](docs/payments-api.md): authentication, requests, responses, payment states, provider data and current implementation caveats.
+- [OpenAPI 3.0 specification](docs/payments-openapi.json): import into Swagger Editor or Postman for the client payment endpoints.
+- [Normalized payment rollout and testing](docs/payment-normalization-rollout.md): database migration, service configuration and deployment order.
+
 <p align="center">
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
 </p>

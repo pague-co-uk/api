@@ -38,6 +38,8 @@ export class TransactionMapper {
 
       status: transaction.status,
 
+      accountNumber: transaction.accountNumber,
+      country: transaction.country,
       reference: transaction.reference,
       providerReference: transaction.providerReference,
 

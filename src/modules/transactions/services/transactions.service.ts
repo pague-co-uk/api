@@ -1,5 +1,6 @@
 import {
   Injectable,
+  ForbiddenException,
   NotFoundException,
 } from "@nestjs/common";
 
@@ -210,10 +211,9 @@ export class TransactionsService {
   private resolveClientId(
     user: AuthenticatedUser,
   ): string | undefined {
-    return user.clientId ===
-      this.config.app.platformClient
-      ? undefined
-      : user.clientId;
+    if (user.roles.some(role => role.name === "PLATFORM_SUPER_ADMIN")) return undefined;
+    if (!user.clientId) throw new ForbiddenException("Client access is required.");
+    return user.clientId;
   }
 
   private buildOrderBy(

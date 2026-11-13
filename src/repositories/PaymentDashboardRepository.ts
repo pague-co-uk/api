@@ -99,7 +99,7 @@ export class PaymentDashboardRepository extends DatabaseRepository {
                   ${Prisma.join(clientIds)}
                 )
               `
-            : Prisma.empty;
+            : clientIds === undefined ? Prisma.empty : Prisma.sql`AND 1 = 0`;
 
         const rows =
           await this.db.$queryRaw<
@@ -171,7 +171,7 @@ export class PaymentDashboardRepository extends DatabaseRepository {
                   ${Prisma.join(clientIds)}
                 )
               `
-            : Prisma.empty;
+            : clientIds === undefined ? Prisma.empty : Prisma.sql`AND 1 = 0`;
 
         const rows =
           await this.db.$queryRaw<
@@ -241,7 +241,7 @@ export class PaymentDashboardRepository extends DatabaseRepository {
                   ${Prisma.join(clientIds)}
                 )
               `
-            : Prisma.empty;
+            : clientIds === undefined ? Prisma.empty : Prisma.sql`AND 1 = 0`;
 
         const rows =
           await this.db.$queryRaw<
@@ -320,7 +320,7 @@ export class PaymentDashboardRepository extends DatabaseRepository {
                   ${Prisma.join(clientIds)}
                 )
               `
-            : Prisma.empty;
+            : clientIds === undefined ? Prisma.empty : Prisma.sql`AND 1 = 0`;
 
         const rows =
           await this.db.$queryRaw<

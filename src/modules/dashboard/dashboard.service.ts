@@ -1,3 +1,4 @@
+import { buildNetworkActivity, buildMonthlyOutcomes } from "./dashboard-charts.js";
 import {
   Injectable,
 } from "@nestjs/common";
@@ -140,7 +141,10 @@ export class DashboardService {
             period.days,
           );
 
+          const monthlyYear = query.year ?? new Date().getUTCFullYear();
           const [
+            networkRows,
+            monthlyRows,
             routingFailures,
             messageStatusCounts,
             messageTrendRows,
@@ -156,6 +160,8 @@ export class DashboardService {
             viewerClient,
             activeClients,
           ] = await Promise.all([
+            this.dashboard.getNetworkActivity(clientIds, period),
+            this.dashboard.getMonthlyMessageOutcomes(clientIds, monthlyYear),
             this.dashboard.countRoutingFailures(clientIds, period),
             this.dashboard.getMessageStatusCounts(
               clientIds,
@@ -356,6 +362,8 @@ export class DashboardService {
             messages,
 
             messageTrend,
+            networkActivity: buildNetworkActivity(networkRows, period),
+            monthlyOutcomes: { year: monthlyYear, months: buildMonthlyOutcomes(monthlyRows) },
 
             hourlyVolume,
 

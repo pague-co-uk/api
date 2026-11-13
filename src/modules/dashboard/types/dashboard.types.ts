@@ -139,6 +139,9 @@ export interface DashboardActivityItem {
 }
 
 export interface DashboardData {
+  networkActivity: DashboardNetworkSeries[];
+  monthlyOutcomes: DashboardMonthlyOutcomes;
+
   viewer: DashboardViewer;
 
   period: {
@@ -183,4 +186,13 @@ export interface DashboardStatusCodeBreakdown {
   label: string;
   count: number;
   percentage: number;
+}
+export interface DashboardNetworkSeries {
+  key: string;
+  name: string;
+  points: Array<{ date: string; count: number }>;
+}
+export interface DashboardMonthlyOutcomes {
+  year: number;
+  months: Array<{ month: number; delivered: number; failed: number }>;
 }

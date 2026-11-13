@@ -84,6 +84,52 @@ export class DashboardRepository extends DatabaseRepository {
     });
   }
 
+  async getNetworkActivity(clientIds: string[] | undefined, period: DashboardDateRange) {
+    return this.execute("SELECT", "messages", async () => {
+      const clientFilter = clientIds === undefined ? Prisma.empty : clientIds.length
+        ? Prisma.sql`AND m.clientId IN (${Prisma.join(clientIds)})` : Prisma.sql`AND 1 = 0`;
+      // Select one attempt per message: retries/failover must not multiply traffic.
+      const rows = await this.db.$queryRaw<Array<{ date: Date; networkKey: string; networkName: string; count: bigint }>>(Prisma.sql`
+        SELECT DATE(m.createdAt) AS date,
+          COALESCE(n.publicId, 'unassigned') AS networkKey,
+          CASE WHEN n.id IS NULL THEN 'Unassigned'
+            ELSE CONCAT(n.name, ' (', c.code, ')') END AS networkName,
+          COUNT(*) AS count
+        FROM messages m
+        LEFT JOIN message_route_attempts a ON a.id = (
+          SELECT latest.id FROM message_route_attempts latest
+          WHERE latest.messageId = m.id ORDER BY latest.attemptNumber DESC LIMIT 1
+        )
+        LEFT JOIN routes r ON r.id = a.routeId
+        LEFT JOIN mobile_networks n ON n.id = r.mobileNetworkId
+        LEFT JOIN countries c ON c.id = n.countryId
+        WHERE m.createdAt >= ${period.start} AND m.createdAt <= ${period.end} ${clientFilter}
+        GROUP BY DATE(m.createdAt), n.id, n.publicId, n.name, c.code
+        ORDER BY networkName ASC, date ASC
+      `);
+      return { result: rows, rowsAffected: rows.length };
+    });
+  }
+
+  async getMonthlyMessageOutcomes(clientIds: string[] | undefined, year: number) {
+    return this.execute("SELECT", "messages", async () => {
+      const clientFilter = clientIds === undefined ? Prisma.empty : clientIds.length
+        ? Prisma.sql`AND m.clientId IN (${Prisma.join(clientIds)})` : Prisma.sql`AND 1 = 0`;
+      const rows = await this.db.$queryRaw<Array<{ month: number; delivered: bigint; failed: bigint }>>(Prisma.sql`
+        SELECT MONTH(m.createdAt) AS month,
+          SUM(CASE WHEN m.currentStatus = 'DELIVERED' THEN 1 ELSE 0 END) AS delivered,
+          SUM(CASE WHEN m.currentStatus = 'FAILED' AND EXISTS (
+            SELECT 1 FROM message_route_attempts a WHERE a.messageId = m.id
+          ) THEN 1 ELSE 0 END) AS failed
+        FROM messages m
+        WHERE m.createdAt >= ${new Date(Date.UTC(year, 0, 1))}
+          AND m.createdAt < ${new Date(Date.UTC(year + 1, 0, 1))} ${clientFilter}
+        GROUP BY MONTH(m.createdAt) ORDER BY month ASC
+      `);
+      return { result: rows, rowsAffected: rows.length };
+    });
+  }
+
   async getMessageTrend(
     clientIds: string[] | undefined,
     period: DashboardDateRange,

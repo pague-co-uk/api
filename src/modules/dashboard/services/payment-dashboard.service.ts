@@ -282,8 +282,7 @@ export class PaymentDashboardService {
   private resolveScope(
     user: AuthenticatedUser,
   ): DashboardScope {
-    return user.clientId ===
-      this.config.app.platformClient
+    return user.roles.some(role => role.name === "PLATFORM_SUPER_ADMIN")
       ? "PLATFORM"
       : "CLIENT";
   }
@@ -321,7 +320,9 @@ export class PaymentDashboardService {
     const end = new Date();
 
     const days =
-      period === "7d"
+      period === "1d"
+        ? 1
+        : period === "7d"
         ? 7
         : period === "90d"
           ? 90

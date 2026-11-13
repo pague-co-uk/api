@@ -208,6 +208,7 @@ export class PaymentsRepository
       async () => {
         const result =
           await this.db.transaction.findFirst({
+            include: { provider: { select: { code: true } } },
             where: {
               clientId,
               publicId: id,

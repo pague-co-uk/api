@@ -25,7 +25,7 @@ const config: Config = {
   },
 
   moduleNameMapper: {
-    "^(\\.{1,2}/.*)\\.js$": "$1",
+    "^(\\.{1,2}/(?!.*\\.json\\.js$).*)\\.js$": "$1",
   },
 };
 

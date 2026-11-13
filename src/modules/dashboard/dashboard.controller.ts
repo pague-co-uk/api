@@ -80,6 +80,7 @@ export class DashboardController {
         {
           period:
             dto.period ?? "30d",
+          year: dto.year,
         },
       );
 

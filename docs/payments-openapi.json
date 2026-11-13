@@ -1,0 +1,657 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Pague Payments API",
+    "version": "2.0.1",
+    "description": "Normalized client payment contract. Common fields: serviceCode, reference, accountNumber, country, amount, currency and transactionType. Service-specific extras belong in optional data. Legacy aliases are accepted when unambiguous. Payments are processed asynchronously. Both create and status return public references. The document version is not a URL version. Local Airtel configuration uses AIRTEL_MONEY_MW, MWK and COLLECTIONS. Localhost does not imply a sandbox provider.",
+    "x-review-date": "2026-11-13"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:9000/api",
+      "description": "Local API. Provider configuration may be live; do not submit real payments without authorization."
+    },
+    {
+      "url": "https://{host}/api",
+      "description": "Replace host with the supplied API environment. Change /api if API_PREFIX is customized.",
+      "variables": {
+        "host": {
+          "default": "api.example.com",
+          "description": "Your API host; example.com is only a placeholder."
+        }
+      }
+    }
+  ],
+  "security": [
+    {
+      "ClientApiKey": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Payments",
+      "description": "Client-scoped creation and status lookup."
+    }
+  ],
+  "paths": {
+    "/payments": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "operationId": "createPayment",
+        "summary": "Create and queue a payment",
+        "description": "Requires payments.create. The authenticated key or session determines the client. The returned data.id is the public payment reference. A 201 response is not evidence of completed payment. No Idempotency-Key behavior is implemented.",
+        "x-required-capability": "payments.create",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePayment"
+              },
+              "examples": {
+                "airtelMoneyMalawi": {
+                  "summary": "Airtel Money Malawi collection (MWK 100)",
+                  "description": "Uses verified local service/type codes. The phone number is illustrative. Confirm client assignment and provider environment before submitting.",
+                  "value": {
+                    "serviceCode": "AIRTEL_MONEY_MW",
+                    "reference": "ORDER-2026-000001",
+                    "currency": "MWK",
+                    "amount": "100.00",
+                    "transactionType": "COLLECTIONS",
+                    "description": "Payment for order ORDER-2026-000001",
+                    "data": {},
+                    "accountNumber": "0991234567",
+                    "country": "MW"
+                  }
+                },
+                "airtelWithoutExtras": {
+                  "summary": "Same common request with optional data omitted",
+                  "value": {
+                    "serviceCode": "AIRTEL_MONEY_MW",
+                    "reference": "ORDER-2026-000001",
+                    "currency": "MWK",
+                    "amount": "100.00",
+                    "transactionType": "COLLECTIONS",
+                    "accountNumber": "0991234567",
+                    "country": "MW"
+                  }
+                },
+                "lipadStandardCheckout": {
+                  "summary": "Lipad Standard Checkout (hosted payment page)",
+                  "description": "Illustrative service/type/country codes require an active client assignment and LIPAD_STANDARD_CHECKOUT provider route. Returns 201/PENDING; poll GET /payments/{paymentReference} for data.checkout.redirectUrl. Credentials, gateway status codes and checkout defaults are configured on the processor.",
+                  "value": {
+                    "serviceCode": "LIPAD_STANDARD_CHECKOUT",
+                    "reference": "CHECKOUT-TEST-000001",
+                    "accountNumber": "+254712345678",
+                    "country": "KE",
+                    "amount": "1000",
+                    "currency": "KES",
+                    "transactionType": "COLLECTIONS",
+                    "description": "Checkout test",
+                    "data": {
+                      "payerName": "Jane Doe",
+                      "payerEmail": "jane@example.com",
+                      "expiresIn": 60,
+                      "redirectUrl": "https://your-merchant.example/payment-return"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Payment and processing event persisted; initial status PENDING.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "status"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "Public payment reference. Save it for all subsequent status requests."
+                        },
+                        "status": {
+                          "$ref": "#/components/schemas/TransactionStatus"
+                        }
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ResponseMeta"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "id": "PAYMENT_PUBLIC_REFERENCE",
+                    "status": "PENDING"
+                  },
+                  "meta": {
+                    "requestId": "example-request-id",
+                    "timestamp": "2026-11-13T11:15:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payment input, service assignment, account/country, configuration or amount.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "code": "BAD_REQUEST",
+                    "message": "Conflicting accountNumber values in the request.",
+                    "details": [],
+                    "path": "/api/payments"
+                  },
+                  "meta": {
+                    "requestId": "example-request-id",
+                    "timestamp": "2026-11-13T11:15:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed or client context is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "code": "UNAUTHORIZED",
+                    "message": "Authentication required.",
+                    "details": [],
+                    "path": "/api/payments"
+                  },
+                  "meta": {
+                    "requestId": "example-request-id",
+                    "timestamp": "2026-11-13T11:15:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Required API-key capability or user permission is missing.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "code": "FORBIDDEN",
+                    "message": "API key does not have the required capability.",
+                    "details": [],
+                    "path": "/api/payments"
+                  },
+                  "meta": {
+                    "requestId": "example-request-id",
+                    "timestamp": "2026-11-13T11:15:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Duplicate client reference (CONFLICT or database DUPLICATE_RESOURCE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "code": "CONFLICT",
+                    "message": "Transaction reference 'ORDER-2026-000001' already exists for this client.",
+                    "details": [],
+                    "path": "/api/payments"
+                  },
+                  "meta": {
+                    "requestId": "example-request-id",
+                    "timestamp": "2026-11-13T11:15:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected internal or database error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "code": "DATABASE_ERROR",
+                    "message": "A database error occurred.",
+                    "details": [],
+                    "path": "/api/payments"
+                  },
+                  "meta": {
+                    "requestId": "example-request-id",
+                    "timestamp": "2026-11-13T11:15:00.000Z"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/payments/{paymentReference}": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "operationId": "getPaymentStatus",
+        "summary": "Read a payment status using its public reference",
+        "description": "Requires payments.read. Path accepts the public payment reference returned by creation. Lookup is scoped to the authenticated client. data.id is the same public reference; missing payments return 404.",
+        "x-required-capability": "payments.read",
+        "parameters": [
+          {
+            "name": "paymentReference",
+            "in": "path",
+            "required": true,
+            "description": "Public payment reference originally returned by POST /payments.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current transaction status.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "status"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "Public payment reference, consistent with creation."
+                        },
+                        "status": {
+                          "$ref": "#/components/schemas/TransactionStatus"
+                        },
+                        "checkout": {
+                          "$ref": "#/components/schemas/CheckoutSession"
+                        }
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ResponseMeta"
+                    }
+                  }
+                },
+                "examples": {
+                  "standardCheckoutReady": {
+                    "summary": "Hosted checkout ready; payment not yet confirmed",
+                    "value": {
+                      "success": true,
+                      "data": {
+                        "id": "PUBLIC_PAYMENT_REFERENCE",
+                        "status": "PROCESSING",
+                        "checkout": {
+                          "merchantTransactionId": "PUBLIC_PAYMENT_REFERENCE",
+                          "checkoutReference": "LIPAD_CHECKOUT_REFERENCE",
+                          "redirectUrl": "https://sandbox.pay.lipad.io/checkout/LIPAD_CHECKOUT_REFERENCE",
+                          "expiresAt": "2026-11-13T15:00:00.000Z"
+                        }
+                      },
+                      "meta": {
+                        "requestId": "example-request-id",
+                        "timestamp": "2026-11-13T14:00:00.000Z"
+                      }
+                    }
+                  },
+                  "paymentSuccessful": {
+                    "summary": "Verified successful payment",
+                    "value": {
+                      "success": true,
+                      "data": {
+                        "id": "PAYMENT_PUBLIC_REFERENCE",
+                        "status": "SUCCESS"
+                      },
+                      "meta": {
+                        "requestId": "example-request-id",
+                        "timestamp": "2026-11-13T11:15:00.000Z"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed or client context is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "code": "UNAUTHORIZED",
+                    "message": "Authentication required.",
+                    "details": [],
+                    "path": "/api/payments/PAYMENT_PUBLIC_REFERENCE"
+                  },
+                  "meta": {
+                    "requestId": "example-request-id",
+                    "timestamp": "2026-11-13T11:15:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Required API-key capability or user permission is missing.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "code": "FORBIDDEN",
+                    "message": "API key does not have the required capability.",
+                    "details": [],
+                    "path": "/api/payments/PAYMENT_PUBLIC_REFERENCE"
+                  },
+                  "meta": {
+                    "requestId": "example-request-id",
+                    "timestamp": "2026-11-13T11:15:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected internal or database error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "code": "DATABASE_ERROR",
+                    "message": "A database error occurred.",
+                    "details": [],
+                    "path": "/api/payments/PAYMENT_PUBLIC_REFERENCE"
+                  },
+                  "meta": {
+                    "requestId": "example-request-id",
+                    "timestamp": "2026-11-13T11:15:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Payment unavailable to the authenticated client.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "code": "NOT_FOUND",
+                    "message": "Payment 'PAYMENT_PUBLIC_REFERENCE' was not found.",
+                    "details": [],
+                    "path": "/api/payments/PAYMENT_PUBLIC_REFERENCE"
+                  },
+                  "meta": {
+                    "requestId": "example-request-id",
+                    "timestamp": "2026-11-13T11:15:00.000Z"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ClientApiKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Client API key in Authorization: Bearer <API_KEY>. This is an API key, not a promise of JWT format. Capabilities are payments.create and payments.read. Browser sessions are also supported by the server but are not modeled by this integration specification."
+      }
+    },
+    "schemas": {
+      "CreatePayment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "serviceCode",
+          "reference",
+          "accountNumber",
+          "country",
+          "currency",
+          "amount",
+          "transactionType"
+        ],
+        "properties": {
+          "serviceCode": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50,
+            "description": "Assigned active payment service code. Trimmed and normalized to uppercase.",
+            "example": "AIRTEL_MONEY_MW"
+          },
+          "reference": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Trimmed client-unique reference. Duplicate submission returns 409, not an idempotent replay."
+          },
+          "currency": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 36,
+            "description": "Active currency code allowed by the assigned service. Trimmed and normalized to uppercase.",
+            "example": "MWK"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?:0|[1-9]\\d{0,14})(?:\\.\\d{1,4})?$",
+            "description": "Positive decimal string with at most 15 integer and four fractional digits. Zero and out-of-range service amounts return 400.",
+            "example": "1500.00"
+          },
+          "transactionType": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50,
+            "description": "Active transaction type code allowed by the assigned service. Trimmed and normalized to uppercase.",
+            "example": "COLLECTIONS"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Optional service-specific inputs. Version 2 configuration validates configured types and constraints before queuing. Legacy common-field aliases are supported only during transition; conflicting values are rejected. For Lipad direct charge use billingAccountNumber for the separate biller account; payer MSISDN and account country come from the common fields.",
+            "example": {},
+            "default": {}
+          },
+          "accountNumber": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Account charged for a collection or credited for a payout. Mobile-money MSISDNs are normalized to E.164; bank account leading zeros are preserved.",
+            "example": "0991234567"
+          },
+          "country": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2,
+            "description": "ISO 3166-1 alpha-2 country of the account. Trimmed, uppercased and checked against service restrictions. For collections this is the payer account country; for payouts it is the recipient account country. It is never inferred from the sender country.",
+            "example": "MW"
+          }
+        }
+      },
+      "TransactionStatus": {
+        "type": "string",
+        "enum": [
+          "PENDING",
+          "PROCESSING",
+          "SUCCESS",
+          "FAILED",
+          "REVERSED",
+          "CANCELLED"
+        ],
+        "description": "PENDING and PROCESSING require further outcome checks. SUCCESS can be followed by a reversal depending on the payment lifecycle."
+      },
+      "ResponseMeta": {
+        "type": "object",
+        "required": [
+          "requestId",
+          "timestamp"
+        ],
+        "properties": {
+          "requestId": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "error",
+          "meta"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message",
+              "details",
+              "path"
+            ],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "details": {
+                "type": "array",
+                "items": {}
+              },
+              "path": {
+                "type": "string"
+              }
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          }
+        }
+      },
+      "CheckoutSession": {
+        "type": "object",
+        "description": "Available after the asynchronous Standard Checkout session has been stored. Creating a session is not payment success.",
+        "required": [
+          "merchantTransactionId",
+          "checkoutReference",
+          "redirectUrl",
+          "expiresAt"
+        ],
+        "properties": {
+          "merchantTransactionId": {
+            "type": "string"
+          },
+          "checkoutReference": {
+            "type": "string"
+          },
+          "redirectUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  }
+}
