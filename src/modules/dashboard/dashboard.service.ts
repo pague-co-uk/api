@@ -1192,6 +1192,7 @@ export class DashboardService {
   private buildClientSummaries(
     messageRows: Array<{
       routingFailures: number;
+      _sum: { segmentCount: number | null };
       clientId: string;
 
       currentStatus:
@@ -1219,6 +1220,7 @@ export class DashboardService {
         string,
         {
           messages: number;
+          segments: number;
 
           delivered: number;
 
@@ -1235,6 +1237,7 @@ export class DashboardService {
           row.clientId,
         ) ?? {
           messages: 0,
+          segments: 0,
 
           delivered: 0,
 
@@ -1244,6 +1247,7 @@ export class DashboardService {
 
       current.messages +=
         row._count._all;
+      current.segments += row._sum.segmentCount ?? 0;
 
       if (
         row.currentStatus ===
@@ -1275,6 +1279,7 @@ export class DashboardService {
             client.id,
           ) ?? {
             messages: 0,
+            segments: 0,
 
             delivered: 0,
 
@@ -1298,6 +1303,7 @@ export class DashboardService {
 
           messages:
             current.messages,
+          segments: current.segments,
 
           delivered:
             current.delivered,

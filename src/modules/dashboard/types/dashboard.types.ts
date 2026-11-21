@@ -123,6 +123,7 @@ export interface DashboardClientSummary {
   name: string;
   status: ClientStatus;
   messages: number;
+  segments: number;
   delivered: number;
   failed: number;
   deliveryRate: number;
@@ -163,7 +164,7 @@ export interface DashboardData {
 
   statusCodeBreakdown: DashboardStatusCodeBreakdown[];
 
-  senderActivity: Array<{ sender: string | null; messages: number }>;
+  senderActivity: Array<{ sender: string | null; messages: number; segments: number }>;
 
   float: DashboardFloatSummary;
 

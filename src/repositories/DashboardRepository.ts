@@ -77,13 +77,13 @@ export class DashboardRepository extends DatabaseRepository {
       const clientFilter = clientIds === undefined ? Prisma.empty : clientIds.length
         ? Prisma.sql`AND m.clientId IN (${Prisma.join(clientIds)})` : Prisma.sql`AND 1 = 0`;
       // Count messages themselves, so retry attempts cannot inflate sender activity.
-      const rows = await this.db.$queryRaw<Array<{ sender: string | null; messages: bigint }>>(Prisma.sql`
-        SELECT s.sender AS sender, COUNT(*) AS messages
+      const rows = await this.db.$queryRaw<Array<{ sender: string | null; messages: bigint; segments: bigint }>>(Prisma.sql`
+        SELECT s.sender AS sender, COUNT(*) AS messages, SUM(m.segmentCount) AS segments
         FROM messages m LEFT JOIN sender_ids s ON s.id = m.senderIdId
         WHERE m.createdAt >= ${period.start} AND m.createdAt <= ${period.end} ${clientFilter}
         GROUP BY s.sender ORDER BY messages DESC, s.sender ASC
       `);
-      return { result: rows.map(row => ({ sender: row.sender, messages: Number(row.messages) })), rowsAffected: rows.length };
+      return { result: rows.map(row => ({ sender: row.sender, messages: Number(row.messages), segments: Number(row.segments) })), rowsAffected: rows.length };
     });
   }
 
@@ -736,6 +736,7 @@ export class DashboardRepository extends DatabaseRepository {
             _count: {
               _all: true,
             },
+            _sum: { segmentCount: true },
           });
 
         const routingFailures = await this.db.message.groupBy({

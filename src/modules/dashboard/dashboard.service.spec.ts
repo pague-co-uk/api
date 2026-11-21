@@ -23,9 +23,9 @@ describe("dashboard delivery outcomes", () => {
   });
 
   it("uses the same completed-outcome denominator for client comparisons", () => {
-    const messageRows = rows({ DELIVERED: 80, FAILED: 30, EXPIRED: 10, SUBMITTED: 50 }).map(row => ({ ...row, clientId: "client", routingFailures: row.currentStatus === "FAILED" ? 20 : 0 }));
+    const messageRows = rows({ DELIVERED: 80, FAILED: 30, EXPIRED: 10, SUBMITTED: 50 }).map(row => ({ ...row, _sum: { segmentCount: row._count._all * 2 }, clientId: "client", routingFailures: row.currentStatus === "FAILED" ? 20 : 0 }));
     const clients = service["buildClientSummaries"](messageRows, [{ id: "client", publicId: "ACME", displayName: "Acme", companyName: "Acme Ltd", status: "ACTIVE" }]);
-    expect(clients[0]).toMatchObject({ messages: 170, delivered: 80, failed: 10, deliveryRate: 80 });
+    expect(clients[0]).toMatchObject({ messages: 170, segments: 340, delivered: 80, failed: 10, deliveryRate: 80 });
   });
 });
 

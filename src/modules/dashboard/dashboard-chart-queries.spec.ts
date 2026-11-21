@@ -65,6 +65,7 @@ describe('sender activity query', () => {
     await repo.getSenderActivity(['client-a'], period);
     expect(queries[0].sql).toContain('LEFT JOIN sender_ids');
     expect(queries[0].sql).toContain('GROUP BY s.sender');
+    expect(queries[0].sql).toContain('SUM(m.segmentCount) AS segments');
     expect(queries[0].sql).not.toContain('message_route_attempts');
     expect(queries[0].values).toEqual(expect.arrayContaining([period.start, period.end, 'client-a']));
   });
