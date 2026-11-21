@@ -15,6 +15,9 @@ import { AuthenticationMethod } from "@prisma/client";
 
 import { ApiKeyService } from "../../../modules/auth/services/apikey.service.js";
 import { AuthenticationCookieService } from "../../../modules/auth/services/authentication-cookie.service.js";
+import { AuthenticationService } from "../../../modules/auth/services/authentication.service.js";
+import { InvalidRefreshTokenException } from "../../../exceptions/auth/invalid-refresh-token.exception.js";
+import { SessionValidationFailureReason } from "../../../modules/auth/enums/session-validation-failure-reason.enum.js";
 import { SessionService } from "../../../modules/auth/services/session.service.js";
 import type { AuthenticatedRequest } from "../interfaces/index.js";
 import { PrincipalService } from "../services/index.js";
@@ -30,6 +33,7 @@ describe("AuthenticationGuard", () => {
   const sessions = {
     validateSession: jest.fn(),
   };
+  const authentication = { refresh: jest.fn() };
 
   const principals = {
     load: jest.fn(),
@@ -37,6 +41,8 @@ describe("AuthenticationGuard", () => {
 
   const cookies = {
     get: jest.fn(),
+    clearAuthenticationCookies: jest.fn(),
+    setRefreshTokenCookie: jest.fn(),
   };
 
   const apiKeys = {
@@ -52,6 +58,7 @@ describe("AuthenticationGuard", () => {
 
   const httpContext = {
     getRequest: jest.fn(),
+    getResponse: jest.fn(),
   };
 
   const context = {
@@ -142,6 +149,7 @@ describe("AuthenticationGuard", () => {
     guard =
       new AuthenticationGuard(
         reflector as unknown as Reflector,
+        authentication as unknown as AuthenticationService,
         sessions as unknown as SessionService,
         principals as unknown as PrincipalService,
         cookies as unknown as AuthenticationCookieService,
@@ -193,6 +201,23 @@ describe("AuthenticationGuard", () => {
   // -------------------------------------------------------------------------
 
   describe("session authentication", () => {
+    it("preserves cookies when the refresh service fails unexpectedly", async () => {
+      cookies.get.mockImplementation((_request, name) => name === "session" ? "session-token" : "refresh-token");
+      sessions.validateSession.mockResolvedValue({ valid: false, reason: SessionValidationFailureReason.EXPIRED, session: { id: "session-1", userId: "user-1" } });
+      principals.load.mockResolvedValue(authenticatedUser);
+      authentication.refresh.mockRejectedValue(new Error("database unavailable"));
+      await expect(guard.canActivate(context as unknown as ExecutionContext)).rejects.toThrow("database unavailable");
+      expect(cookies.clearAuthenticationCookies).not.toHaveBeenCalled();
+    });
+
+    it("clears cookies when the refresh token is invalid", async () => {
+      cookies.get.mockImplementation((_request, name) => name === "session" ? "session-token" : "refresh-token");
+      sessions.validateSession.mockResolvedValue({ valid: false, reason: SessionValidationFailureReason.EXPIRED, session: { id: "session-1", userId: "user-1" } });
+      principals.load.mockResolvedValue(authenticatedUser);
+      authentication.refresh.mockRejectedValue(new InvalidRefreshTokenException());
+      await expect(guard.canActivate(context as unknown as ExecutionContext)).rejects.toThrow(UnauthorizedException);
+      expect(cookies.clearAuthenticationCookies).toHaveBeenCalled();
+    });
     it("should authenticate a valid session", async () => {
       cookies.get.mockReturnValue(
         "session-token",

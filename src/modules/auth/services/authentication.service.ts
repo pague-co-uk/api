@@ -28,6 +28,7 @@ import { IdentityService } from './identity.service.js';
 import { LoginAttemptService } from './login-attempt.service.js';
 import { MfaService } from './mfa.service.js';
 import { RefreshTokenService } from './refresh-token.service.js';
+import { InvalidRefreshTokenException } from '../../../exceptions/auth/invalid-refresh-token.exception.js';
 import { SessionService } from './session.service.js';
 
 @Injectable()
@@ -671,7 +672,7 @@ export class AuthenticationService {
             refreshToken.sessionId !==
             sessionId
           ) {
-            throw new Error(
+            throw new InvalidRefreshTokenException(
               'Refresh token does not belong to the authenticated session.',
             );
           }

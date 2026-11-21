@@ -30,7 +30,7 @@
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/swagger": "^11.4.6",
-    "@pague-co-uk/sms-gateway-db": "^5.0.2",
+    "@pague-co-uk/sms-gateway-db": "^5.0.5",
     "@pague-co-uk/sms-gateway-queue-client": "^0.1.2",
     "@pague-co-uk/sms-gateway-telemetry": "^1.1.6",
     "@prisma/client": "^6.16.3",
@@ -39,6 +39,7 @@
     "class-validator": "^0.15.1",
     "date-fns": "^4.4.0",
     "exceljs": "^4.4.0",
+    "libphonenumber-js": "^1.13.12",
     "lodash": "^4.18.1",
     "mysql2": "^3.24.6",
     "nodemailer": "^9.0.6",
@@ -47,8 +48,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "ts-jest": "^29.4.12",
-    "xlsx": "^0.18.5",
-    "libphonenumber-js": "^1.13.12"
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

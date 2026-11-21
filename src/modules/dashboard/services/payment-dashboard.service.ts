@@ -361,6 +361,7 @@ export class PaymentDashboardService {
       TransactionStatus,
       number
     > = {
+      UNKNOWN: 0,
       PENDING: 0,
       PROCESSING: 0,
       SUCCESS: 0,

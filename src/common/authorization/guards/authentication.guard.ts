@@ -8,6 +8,7 @@ import { Reflector } from "@nestjs/core";
 import { AuthenticationMethod } from "@prisma/client";
 import type { Response } from "express";
 
+import { InvalidRefreshTokenException } from "../../../exceptions/auth/invalid-refresh-token.exception.js";
 import { SessionValidationFailureReason } from "../../../modules/auth/enums/session-validation-failure-reason.enum.js";
 import { ApiKeyService } from "../../../modules/auth/services/apikey.service.js";
 import { AuthenticationCookieService } from "../../../modules/auth/services/authentication-cookie.service.js";
@@ -219,7 +220,10 @@ export class AuthenticationGuard
       };
 
       return true;
-    } catch {
+    } catch (error) {
+      if (!(error instanceof InvalidRefreshTokenException)) {
+        throw error;
+      }
       // AuthenticationService.refresh() already records
       // the failure. The guard converts it into an
       // authentication failure and removes stale cookies.
